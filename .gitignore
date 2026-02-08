@@ -205,3 +205,27 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Errbot specific
+*.db
+data/
+errbot.log
+backend-plugins/err-*/
+
+# React Native / Expo (Frontend)
+cano-app/node_modules/
+cano-app/.expo/
+cano-app/.expo-shared/
+cano-app/dist/
+cano-app/npm-debug.*
+cano-app/yarn-error.log
+cano-app/yarn-debug.log
+cano-app/*.jks
+cano-app/*.p8
+cano-app/*.p12
+cano-app/*.key
+cano-app/*.mobileprovision
+cano-app/.env.local
+cano-app/android/app/build/
+cano-app/ios/Pods/
+cano-app/ios/build/
