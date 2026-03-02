@@ -1,0 +1,12 @@
+__pycache__
+app.egg-info
+*.pyc
+.mypy_cache
+.coverage
+htmlcov
+.cache
+.venv
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
