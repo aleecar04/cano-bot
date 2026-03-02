@@ -1,19 +1,18 @@
 import logging
+import os
 
-# This is a minimal configuration to get you started with the Text mode.
-# If you want to connect Errbot to chat services, checkout
-# the options in the more complete config-template.py from here:
-# https://raw.githubusercontent.com/errbotio/errbot/master/errbot/config-template.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-BACKEND = "Text"  # Errbot will start in text mode (console only mode) and will answer commands from there.
-
-BOT_DATA_DIR = r"/home/aleecr04/cano4/data"
-BOT_EXTRA_PLUGIN_DIR = r"/home/aleecr04/cano4/plugins"
-BOT_EXTRA_BACKEND_DIR = r"/home/aleecr04/cano4/backend-plugins"
-
-BOT_LOG_FILE = r"/home/aleecr04/cano4/errbot.log"
+BACKEND = "XMPP"
+BOT_DATA_DIR = os.path.join(BASE_DIR, "data")
+BOT_EXTRA_PLUGIN_DIR = os.path.join(BASE_DIR, "plugins")
+BOT_EXTRA_BACKEND_DIR = os.path.join(BASE_DIR, "backend-plugins")
+BOT_LOG_FILE = os.path.join(BASE_DIR, "errbot.log")
 BOT_LOG_LEVEL = logging.INFO
-
 BOT_ADMINS = (
-    "@CHANGE_ME",
-)  # Don't leave this as "@CHANGE_ME" if you connect your errbot to a chat system!!
+    "tu-usuario@tu-servidor-xmpp.com",
+)
+BOT_IDENTITY = {
+    'username': os.getenv("BOT_USERNAME"),
+    'password': os.getenv("BOT_PASSWORD"),
+}
