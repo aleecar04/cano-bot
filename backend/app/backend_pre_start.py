@@ -16,7 +16,7 @@ wait_seconds = 1
 )
 def init() -> None:
     try:
-        supabase.table("alguna_tabla").select("id").limit(1).execute()
+        supabase.table("base_user").select("id").limit(1).execute()
     except Exception as e:
         logger.error(e)
         raise e
