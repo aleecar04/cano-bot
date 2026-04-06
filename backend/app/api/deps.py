@@ -45,7 +45,10 @@ def get_current_user(token: TokenDep) -> dict:
     result = supabase.table("base_user").select("*").eq("id", token_data.sub).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
-    return result.data[0]
+    user = result.data[0]
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="User is not active")
+    return user
 
 
 CurrentUser = Annotated[dict, Depends(get_current_user)]

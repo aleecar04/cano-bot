@@ -8,7 +8,7 @@ supabase: Client = create_client(
 
 def init_db() -> None:
     # Crear superusuario inicial si no existe
-    result = supabase.table("user").select("*").eq("email", settings.FIRST_SUPERUSER).execute()
+    result = supabase.table("base_user").select("*").eq("email", settings.FIRST_SUPERUSER).execute()
     if not result.data:
         supabase.auth.admin.create_user({
             "email": settings.FIRST_SUPERUSER,
