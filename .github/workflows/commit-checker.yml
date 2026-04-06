@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - main
+      - develop
+      - 'feature/*'
+      - 'fix/*'
+      - 'test/*'
+      - 'docs/*'
 
 jobs:
   validate-commits:
@@ -16,11 +21,21 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          commits=$(git log -1 --oneline)
-          echo "Validating commit: $commits"
-          mensaje=$(echo "$commits" | awk '{$1=""; print $0}' | xargs)
-          if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs|chore)(\([a-zA-Z0-9._-]+\))?:\ ?.+$'; then
-            echo "Invalid commit message: '$mensaje'"
-            exit 1
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "You are in this branch: $BRANCH_NAME"
+          git fetch origin develop
+          commits=$(git log origin/develop..HEAD --oneline)
+          echo "Commits to validate:"
+          echo "$commits"
+          if [ -z "$commits" ]; then
+            echo "No new commits to validate."
+            exit 0
           fi
-          echo "Commit message is valid."
+          while IFS= read -r commit; do
+            mensaje=$(echo "$commit" | awk '{$1=""; print $0}' | xargs)
+            if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs|chore)(\([a-zA-Z0-9._-]+\))?:\ ?.+$'; then
+              echo "Invalid commit message: '$mensaje'"
+              exit 1
+            fi
+          done <<< "$commits"
+          echo "All commit messages are valid."
