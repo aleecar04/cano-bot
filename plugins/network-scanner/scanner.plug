@@ -1,0 +1,9 @@
+[Core]
+Name = Scanner
+Module = scanner
+
+[Documentation]
+Description = Scanner de dispositivos de red usando ARP.
+
+[Python]
+Version = 3
