@@ -1,0 +1,26 @@
+name: Commit Checker
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-commits:
+    name: Validate Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          commits=$(git log -1 --oneline)
+          echo "Validating commit: $commits"
+          mensaje=$(echo "$commits" | awk '{$1=""; print $0}' | xargs)
+          if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs|chore)(\([a-zA-Z0-9._-]+\))?:\ ?.+$'; then
+            echo "Invalid commit message: '$mensaje'"
+            exit 1
+          fi
+          echo "Commit message is valid."
