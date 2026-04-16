@@ -59,6 +59,24 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # Supabase
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+    SUPABASE_JWT_SECRET: str
+
+    # XMPP
+    XMPP_JID: str
+    XMPP_PASSWORD: str
+    XMPP_BOT_JID: str
+    XMPP_ADMIN_USER: str
+    XMPP_ADMIN_PASSWORD: str
+    XMPP_DOMAIN: str = "xmpp.aleecr.es"
+    XMPP_REST_URL: str
+    XMPP_ENCRYPTION_KEY: str 
+
+    # Webhook Security
+    WEBHOOK_SECRET: str = secrets.token_urlsafe(32)
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
@@ -77,4 +95,4 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+settings = Settings()
