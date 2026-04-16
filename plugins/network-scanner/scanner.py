@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from errbot import BotPlugin, botcmd
 from plugins._core import BasePlugin
 from scanner_service import get_local_network, scan_network
@@ -27,7 +28,7 @@ class Scanner(BasePlugin, BotPlugin):
                 "tipo": "scan_response",
                 "red": red,
                 "ip_bot": ip_local,
-                "dispositivos": dispositivos,
+                "dispositivos": [asdict(d) for d in dispositivos],
                 "total": len(dispositivos)
             })
         except Exception as e:
