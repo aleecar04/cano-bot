@@ -65,7 +65,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         self.send(msg.frm, respuesta)
 
     def _handle_device_command(self, data: dict, msg):
-        """Handle an explicit JSON device command (sent by the backend via XMPP)."""
         metodo = self._get_command_from_plugins("control_device")
         if not metodo:
             self.send(msg.frm, "Internal error: control_device not available")
@@ -76,8 +75,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         else:
             respuesta = f"Error: {resultado.get('error', 'unknown')}"
         self.send(msg.frm, respuesta)
-        # JSON commands come from the backend flow (not from chat), so we only
-        # update the command status, not the chat message response.
         self._registrar_comando_en_backend(
             user_id=None,
             device_id=data.get("device_id"),
@@ -88,7 +85,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         )
 
     def _handle_natural_device_command(self, intent_data: dict, msg, texto: str):
-        """Handle a natural-language device command coming from the chat."""
         accion = intent_data.get("accion")
         nombre = intent_data.get("dispositivo", "").lower()
 
@@ -127,7 +123,6 @@ class Dispatcher(BasePlugin, BotPlugin):
             else:
                 respuesta = f"Error: {resultado.get('error', 'desconocido')}."
 
-            # Critical: update the chat message response so the frontend gets it
             self.log_message(str(msg.frm), texto, respuesta, getattr(msg, "id", None))
             self.send(msg.frm, respuesta)
 
