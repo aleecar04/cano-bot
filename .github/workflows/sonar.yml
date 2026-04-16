@@ -20,7 +20,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e backend
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
