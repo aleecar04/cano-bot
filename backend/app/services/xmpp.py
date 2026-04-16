@@ -16,13 +16,13 @@ async def create_xmpp_account(username: str) -> str:
     jid = f"{username}@{settings.XMPP_DOMAIN}"
 
     async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
-        session_id = await _start_add_user_command(client, jid)
+        session_id = await _start_add_user_command(client)
         await _complete_add_user_command(client, session_id, jid, xmpp_password)
 
     return xmpp_password
 
 
-async def _start_add_user_command(client: httpx.AsyncClient, jid: str) -> str:
+async def _start_add_user_command(client: httpx.AsyncClient) -> str:
     r = await client.post(
         settings.XMPP_REST_URL,
         auth=_admin_auth(),
