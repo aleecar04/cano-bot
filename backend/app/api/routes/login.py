@@ -9,7 +9,13 @@ from app.api.deps import CurrentUser
 
 router = APIRouter(tags=["login"])
 
-@router.post("/login/access-token")
+
+@router.post(
+    "/login/access-token",
+    responses={
+        400: {"description": "Incorrect email or password"},
+    },
+)
 def login_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
@@ -20,20 +26,28 @@ def login_access_token(
         })
     except Exception:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-
     if not auth_response.session:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-
-    # Token ES256 de Supabase — compatible con deps.py
     return Token(access_token=auth_response.session.access_token)
 
 
-@router.post("/login/test-token", response_model=UserPublic)
+@router.post(
+    "/login/test-token",
+    response_model=UserPublic,
+    responses={
+        401: {"description": "Not authenticated"},
+    },
+)
 def test_token(current_user: CurrentUser):
     return current_user
 
 
-@router.post("/password-recovery/{email}")
+@router.post(
+    "/password-recovery/{email}",
+    responses={
+        200: {"description": "Recovery email sent if the address is registered"},
+    },
+)
 def recover_password(email: str) -> Message:
     try:
         supabase.auth.reset_password_email(email)
@@ -42,13 +56,17 @@ def recover_password(email: str) -> Message:
     return Message(message="If that email is registered, we sent a password recovery link")
 
 
-@router.post("/reset-password/")
+@router.post(
+    "/reset-password/",
+    responses={
+        400: {"description": "Invalid token / User not found / Could not update password"},
+    },
+)
 def reset_password(body: NewPassword) -> Message:
     email = verify_password_reset_token(token=body.token)
     if not email:
         raise HTTPException(status_code=400, detail="Invalid token")
     try:
-        # Buscar usuario y actualizar password via Supabase Admin
         result = supabase.table("user").select("id").eq("email", email).execute()
         if not result.data:
             raise HTTPException(status_code=400, detail="Invalid token")

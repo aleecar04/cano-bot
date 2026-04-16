@@ -17,12 +17,18 @@ reusable_oauth2 = OAuth2PasswordBearer(
 
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
+_cached_public_key = None
 
 def get_supabase_public_key():
-    response = httpx.get(f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json")
+    global _cached_public_key
+    if _cached_public_key is not None:
+        return _cached_public_key
+    response = httpx.get(f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json", timeout=5.0)
+    response.raise_for_status()
     jwks = response.json()
     key_data = jwks["keys"][0]
-    return ECAlgorithm.from_jwk(json.dumps(key_data))
+    _cached_public_key = ECAlgorithm.from_jwk(json.dumps(key_data))
+    return _cached_public_key
 
 
 def get_current_user(token: TokenDep) -> dict:

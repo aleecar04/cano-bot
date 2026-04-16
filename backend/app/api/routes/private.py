@@ -6,7 +6,14 @@ from app.services.users import create_user_simple
 
 router = APIRouter(tags=["private"], prefix="/private")
 
-@router.post("/users/", response_model=UserPublic)
+
+@router.post(
+    "/users/",
+    response_model=UserPublic,
+    responses={
+        403: {"description": "Not available in production"},
+    },
+)
 async def create_user(user_in: PrivateUserCreate) -> Any:
     if "production" in settings.ENVIRONMENT:
         raise HTTPException(status_code=403, detail="Not available in production")

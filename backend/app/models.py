@@ -213,9 +213,6 @@ class ConversationsPublic(BaseModel):
     data: list[ConversationPublic]
     count: int
 
-
-# ── Schedules ─────────────────────────────────────────────────────────────────
-
 class ScheduleCreate(BaseModel):
     device_id: uuid.UUID
     name: str = Field(min_length=1, max_length=100)
@@ -251,9 +248,6 @@ class ScheduleMarkRun(BaseModel):
 
 class ScheduleToggle(BaseModel):
     is_active: bool
-
-
-# ── Favorite actions ──────────────────────────────────────────────────────────
 
 class FavoriteActionCreate(BaseModel):
     device_id: uuid.UUID
