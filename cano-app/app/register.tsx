@@ -1,22 +1,63 @@
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  View, Text, TouchableOpacity,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../api/supabase';
+import { AuthHeader } from '@/components/auth/auth-header';
+import { FormField } from '@/components/ui/form-field';
+import { ErrorMessage } from '@/components/ui/error-message';
+import { Button } from '@/components/ui/button';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_RE = /^[a-z0-9_]{3,50}$/;
+
+function validate(fields: {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}): string | null {
+  const { firstName, lastName, username, email, password, confirmPassword } = fields;
+
+  if (!firstName.trim() || !lastName.trim() || !username || !email || !password || !confirmPassword) {
+    return 'Rellena todos los campos';
+  }
+  if (!EMAIL_RE.test(email)) {
+    return 'El email no tiene un formato válido';
+  }
+  if (!USERNAME_RE.test(username)) {
+    return 'El usuario solo puede tener letras minúsculas, números y guiones bajos (3–50 caracteres)';
+  }
+  if (password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'La contraseña debe incluir al menos una letra mayúscula';
+  }
+  if (!/\d/.test(password)) {
+    return 'La contraseña debe incluir al menos un número';
+  }
+  if (password !== confirmPassword) {
+    return 'Las contraseñas no coinciden';
+  }
+  return null;
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function RegisterScreen() {
   const router = useRouter();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,16 +66,9 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const handleRegister = async () => {
-    if (!username || !email || !password || !confirmPassword) {
-      setError('Rellena todos los campos');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
-      return;
-    }
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
+    const validationError = validate({ firstName, lastName, username, email, password, confirmPassword });
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -45,7 +79,13 @@ export default function RegisterScreen() {
       const res = await fetch(`${API_URL}/api/v1/users/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username, password }),
+        body: JSON.stringify({
+          email,
+          username,
+          password,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        }),
       });
 
       if (!res.ok) {
@@ -55,7 +95,6 @@ export default function RegisterScreen() {
 
       const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
       if (loginError) throw new Error(loginError.message);
-
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
@@ -63,7 +102,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-900">
+    <SafeAreaView className="flex-1 bg-bg">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -73,93 +112,74 @@ export default function RegisterScreen() {
           contentContainerClassName="px-8 py-12 gap-8"
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View className="items-center gap-3">
-            <View className="w-20 h-20 rounded-full bg-slate-800 border-2 border-indigo-500 items-center justify-center">
-              <Text className="text-4xl">🤖</Text>
-            </View>
-            <Text className="text-white text-3xl font-bold tracking-wide">Crear cuenta</Text>
-            <Text className="text-slate-400 text-sm">Únete a CanoBot</Text>
-          </View>
+          <AuthHeader title="Crear cuenta" subtitle="Únete a CanoBot" />
 
-          {/* Form */}
           <View className="gap-4">
-            <View className="gap-1.5">
-              <Text className="text-slate-400 text-xs uppercase tracking-widest">Usuario</Text>
-              <TextInput
-                className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-100 text-sm"
-                value={username}
-                onChangeText={setUsername}
-                placeholder="tunombre"
-                placeholderTextColor="#475569"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View className="gap-1.5">
-              <Text className="text-slate-400 text-xs uppercase tracking-widest">Email</Text>
-              <TextInput
-                className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-100 text-sm"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="tu@email.com"
-                placeholderTextColor="#475569"
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-
-            <View className="gap-1.5">
-              <Text className="text-slate-400 text-xs uppercase tracking-widest">Contraseña</Text>
-              <TextInput
-                className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-100 text-sm"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#475569"
-                secureTextEntry
-              />
-            </View>
-
-            <View className="gap-1.5">
-              <Text className="text-slate-400 text-xs uppercase tracking-widest">Confirmar contraseña</Text>
-              <TextInput
-                className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3.5 text-slate-100 text-sm"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#475569"
-                secureTextEntry
-              />
-            </View>
-
-            {error && (
-              <View className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-                <Text className="text-red-400 text-sm">{error}</Text>
+            {/* Name row */}
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <FormField
+                  label="Nombre"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Ana"
+                  autoCapitalize="words"
+                />
               </View>
-            )}
+              <View className="flex-1">
+                <FormField
+                  label="Apellidos"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="García"
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
 
-            <TouchableOpacity
-              className={`rounded-xl py-4 items-center mt-2 ${loading ? 'bg-indigo-500/50' : 'bg-indigo-500'}`}
-              onPress={handleRegister}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading
-                ? <ActivityIndicator color="white" />
-                : <Text className="text-white font-semibold text-sm tracking-wide">Crear cuenta</Text>
-              }
-            </TouchableOpacity>
+            <FormField
+              label="Usuario"
+              value={username}
+              onChangeText={(v) => setUsername(v.toLowerCase().replaceAll(/[^a-z0-9_]/g, ''))}
+              placeholder="mi_usuario"
+            />
+            <FormField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              keyboardType="email-address"
+            />
+            <FormField
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+            />
+            <FormField
+              label="Confirmar contraseña"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="••••••••"
+              secureTextEntry
+            />
+
+            {/* Password hint */}
+            <Text className="text-text-secondary text-xs leading-4 -mt-1">
+              Mínimo 8 caracteres, una mayúscula y un número.
+            </Text>
+
+            <ErrorMessage message={error} />
+            <Button label="Crear cuenta" onPress={handleRegister} loading={loading} />
           </View>
 
-          {/* Footer */}
           <View className="flex-row justify-center gap-1">
-            <Text className="text-slate-500 text-sm">¿Ya tienes cuenta?</Text>
+            <Text className="text-text-secondary text-sm">¿Ya tienes cuenta?</Text>
             <TouchableOpacity onPress={() => router.back()}>
-              <Text className="text-indigo-400 text-sm font-semibold">Inicia sesión</Text>
+              <Text className="text-primary text-sm font-semibold">Inicia sesión</Text>
             </TouchableOpacity>
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
