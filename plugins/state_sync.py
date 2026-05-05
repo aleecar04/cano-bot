@@ -1,5 +1,6 @@
 import requests
 import logging
+import threading
 from typing import Dict, List
 import time
 from datetime import datetime
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 class StateSync:
 
     def __init__(self, max_retries: int = 3):
+        self._lock = threading.Lock()
         self.pending_changes: Dict[str, DeviceState] = {}
         self.retry_queue: List[dict] = []
         self.max_retries = max_retries
@@ -22,16 +24,21 @@ class StateSync:
         self.reconciliation_count = 0
 
     def mark_device_changed(self, device_id: str, state: DeviceState):
-        """Marca un dispositivo con cambios pendientes de sincronizar."""
-        self.pending_changes[device_id] = state
+        with self._lock:
+            self.pending_changes[device_id] = state
         logger.debug(f"Marcado para sincronizar: {device_id}")
 
     def sync_pending_changes(self):
-        if not self.pending_changes or not is_backend_reachable():
-            return
+        with self._lock:
+            if not self.pending_changes:
+                return
+            changes_copy = self.pending_changes.copy()
+            self.pending_changes.clear()
 
-        changes_copy = self.pending_changes.copy()
-        self.pending_changes.clear()
+        if not is_backend_reachable():
+            with self._lock:
+                self.pending_changes.update(changes_copy)
+            return
 
         for device_id, state in changes_copy.items():
             self._sync_one(device_id, state)
@@ -110,51 +117,50 @@ class StateSync:
 
     def full_reconciliation(self):
         """
-        Compara el cache local con el backend.
+        Compara el cache local con el backend usando una sola request.
         Si el backend tiene estado mas nuevo, actualiza el cache.
         """
         if not is_backend_reachable():
             return
+        local_cache = device_cache.get_all()
+        if not local_cache:
+            return
         logger.debug("Iniciando reconciliacion completa...")
+        try:
+            response = requests.get(
+                f"{BACKEND_URL}/api/v1/devices/all",
+                headers=HEADERS,
+                timeout=10,
+            )
+            response.raise_for_status()
+            backend_devices: list[dict] = response.json()
+        except Exception as e:
+            logger.warning(f"Error obteniendo dispositivos para reconciliacion: {e}")
+            return
 
-        for device_id, local_state in device_cache.get_all().items():
-            self._reconcile_device(device_id, local_state)
+        backend_map = {d["id"]: d for d in backend_devices}
+        for device_id, local_state in local_cache.items():
+            backend = backend_map.get(device_id)
+            if not backend:
+                continue
+            backend_time_str = backend.get("updated_at")
+            if not backend_time_str:
+                continue
+            try:
+                backend_time = datetime.fromisoformat(backend_time_str.replace("Z", "+00:00")).timestamp()
+                if backend_time > local_state.last_update:
+                    logger.info(f"Backend mas nuevo para {device_id}, actualizando cache")
+                    device_cache.update(
+                        device_id,
+                        backend.get("estado") or {},
+                        backend.get("is_online", False),
+                        source="backend",
+                        confidence=1.0,
+                    )
+            except (ValueError, TypeError):
+                continue
 
         self.reconciliation_count += 1
-
-    def _reconcile_device(self, device_id: str, local_state: DeviceState):
-        try:
-            backend_state = self._fetch_device_status(device_id)
-            if self._backend_is_newer(backend_state, local_state):
-                logger.info(f"Backend mas nuevo para {device_id}, actualizando cache")
-                device_cache.update(
-                    device_id,
-                    backend_state.get("estado", {}),
-                    backend_state.get("is_online", False),
-                    source="backend",
-                    confidence=1.0,
-                )
-        except Exception as e:
-            logger.warning(f"Error en reconciliacion de {device_id}: {e}")
-
-    def _fetch_device_status(self, device_id: str) -> dict:
-        response = requests.get(
-            f"{BACKEND_URL}/api/v1/devices/{device_id}/status",
-            headers=HEADERS,
-            timeout=5,
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def _backend_is_newer(self, backend_state: dict, local_state: DeviceState) -> bool:
-        backend_time_str = backend_state.get("last_update")
-        if not backend_time_str:
-            return False
-        try:
-            backend_time = datetime.fromisoformat(backend_time_str).timestamp()
-            return backend_time > local_state.last_update
-        except (ValueError, TypeError):
-            return False
 
     def get_stats(self) -> dict:
         return {

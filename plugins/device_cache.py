@@ -57,11 +57,6 @@ class DeviceStateCache:
         self.devices[device_id] = device_state
         return device_state
 
-    def mark_stale(self, device_id: str):
-        """Marca un dispositivo como posiblemente desactualizado"""
-        if device_id in self.devices:
-            self.devices[device_id].confidence = 0.3
-
     def mark_offline(self, device_id: str):
         """Marca un dispositivo como offline"""
         if device_id in self.devices:
