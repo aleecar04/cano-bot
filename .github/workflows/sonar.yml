@@ -48,7 +48,7 @@ jobs:
         continue-on-error: true
 
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@5d6ebb23be9e65c9e3b6e66e4b69a8dc06a8d2e3
+        uses: sonarsource/sonarqube-scan-action@v3
         with:
           args: >
             -Dsonar.scanner.force-manual-analysis=true
