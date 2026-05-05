@@ -10,9 +10,8 @@ async def create_user_with_xmpp(
     first_name: str | None = None,
     last_name: str | None = None,
 ) -> dict:
-    """Crea usuario en Supabase Auth + base_user + cuenta XMPP + casa por defecto."""
+    """Crea usuario en Supabase Auth + base_user + cuenta XMPP."""
     from app.services.xmpp import create_xmpp_account
-    from app.services.home import create_user_house
 
     auth_response = supabase.auth.admin.create_user({
         "email": email,
@@ -38,8 +37,6 @@ async def create_user_with_xmpp(
         "p_password": xmpp_password,
         "p_key": settings.XMPP_ENCRYPTION_KEY
     }).execute()
-
-    create_user_house(user_id)
 
     result = supabase.table("base_user").select("*").eq("id", user_id).execute()
     return result.data[0]
