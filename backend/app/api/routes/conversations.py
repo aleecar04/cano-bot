@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.api.deps import CurrentUser
 from app.models import ConversationPublic
 from app.services.messages import (
@@ -19,4 +19,7 @@ def list_conversations(current_user: CurrentUser):
 
 @router.get("/{conversation_id}/messages")
 def conversation_messages(conversation_id: str, current_user: CurrentUser):
+    convs = get_user_conversations(current_user["id"])
+    if not any(str(c["id"]) == conversation_id for c in convs):
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta conversación")
     return get_conversation_messages(conversation_id)
