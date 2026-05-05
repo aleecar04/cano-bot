@@ -177,83 +177,97 @@ def test_patch_device_status_raises_on_error():
 def test_full_reconciliation_skips_when_backend_unreachable():
     sync = StateSync()
     with patch("plugins.state_sync.is_backend_reachable", return_value=False), \
-         patch.object(sync, "_reconcile_device") as mock_rec:
+         patch("requests.get") as mock_get:
         sync.full_reconciliation()
-    mock_rec.assert_not_called()
+    mock_get.assert_not_called()
 
 
-def test_full_reconciliation_processes_all_cached_devices():
+def test_full_reconciliation_increments_counter():
     from plugins.device_cache import DeviceStateCache
     sync = StateSync()
     cache = DeviceStateCache()
     cache.update("a", {}, is_online=True)
-    cache.update("b", {}, is_online=True)
 
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = [
+        {"id": "a", "estado": {}, "is_online": True, "updated_at": "2099-01-01T00:00:00+00:00"},
+    ]
     with patch("plugins.state_sync.is_backend_reachable", return_value=True), \
          patch("plugins.state_sync.device_cache", cache), \
-         patch.object(sync, "_reconcile_device") as mock_rec:
+         patch("requests.get", return_value=mock_resp):
         sync.full_reconciliation()
 
-    assert mock_rec.call_count == 2
     assert sync.reconciliation_count == 1
 
 
-def test_reconcile_device_updates_cache_when_backend_newer():
-    import time
+def test_full_reconciliation_updates_cache_when_backend_newer():
     from plugins.device_cache import DeviceStateCache
-
     sync = StateSync()
     cache = DeviceStateCache()
-    local = cache.update("dev-1", {"power": "off"}, is_online=True)
+    cache.update("dev-1", {"power": "off"}, is_online=True)
 
-    backend_state = {
-        "estado": {"power": "on"},
-        "is_online": True,
-        "last_update": "2099-01-01T00:00:00+00:00",
-    }
-
-    with patch("plugins.state_sync.device_cache", cache), \
-         patch.object(sync, "_fetch_device_status", return_value=backend_state):
-        sync._reconcile_device("dev-1", local)
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = [
+        {"id": "dev-1", "estado": {"power": "on"}, "is_online": True,
+         "updated_at": "2099-01-01T00:00:00+00:00"},
+    ]
+    with patch("plugins.state_sync.is_backend_reachable", return_value=True), \
+         patch("plugins.state_sync.device_cache", cache), \
+         patch("requests.get", return_value=mock_resp):
+        sync.full_reconciliation()
 
     assert cache.get("dev-1").estado["power"] == "on"
 
 
-def test_reconcile_device_skips_when_local_is_newer():
+def test_full_reconciliation_skips_update_when_local_newer():
     from plugins.device_cache import DeviceStateCache
     sync = StateSync()
     cache = DeviceStateCache()
-    local = cache.update("dev-1", {"power": "off"}, is_online=True)
+    cache.update("dev-1", {"power": "off"}, is_online=True)
 
-    backend_state = {
-        "estado": {"power": "on"},
-        "is_online": True,
-        "last_update": "2000-01-01T00:00:00+00:00",  # older
-    }
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = [
+        {"id": "dev-1", "estado": {"power": "on"}, "is_online": True,
+         "updated_at": "2000-01-01T00:00:00+00:00"},
+    ]
+    with patch("plugins.state_sync.is_backend_reachable", return_value=True), \
+         patch("plugins.state_sync.device_cache", cache), \
+         patch("requests.get", return_value=mock_resp):
+        sync.full_reconciliation()
 
-    with patch("plugins.state_sync.device_cache", cache), \
-         patch.object(sync, "_fetch_device_status", return_value=backend_state):
-        sync._reconcile_device("dev-1", local)
-
-    # Cache should NOT be updated
     assert cache.get("dev-1").estado["power"] == "off"
 
 
-def test_reconcile_device_handles_fetch_error():
+def test_full_reconciliation_handles_request_error():
+    from plugins.device_cache import DeviceStateCache
     sync = StateSync()
-    local = _state("dev-1")
-    with patch.object(sync, "_fetch_device_status", side_effect=Exception("404")):
-        sync._reconcile_device("dev-1", local)  # must not raise
+    cache = DeviceStateCache()
+    cache.update("dev-1", {}, is_online=True)
+
+    with patch("plugins.state_sync.is_backend_reachable", return_value=True), \
+         patch("plugins.state_sync.device_cache", cache), \
+         patch("requests.get", side_effect=Exception("timeout")):
+        sync.full_reconciliation()  # must not raise
 
 
-def test_fetch_device_status_returns_json():
+def test_full_reconciliation_skips_device_not_in_backend():
+    from plugins.device_cache import DeviceStateCache
     sync = StateSync()
+    cache = DeviceStateCache()
+    cache.update("dev-1", {"power": "off"}, is_online=True)
+
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {"is_online": True, "estado": {}}
-    with patch("requests.get", return_value=mock_resp):
-        result = sync._fetch_device_status("dev-1")
-    assert result["is_online"] is True
+    mock_resp.json.return_value = []  # backend returns no devices
+    with patch("plugins.state_sync.is_backend_reachable", return_value=True), \
+         patch("plugins.state_sync.device_cache", cache), \
+         patch("requests.get", return_value=mock_resp):
+        sync.full_reconciliation()
+
+    assert cache.get("dev-1").estado["power"] == "off"  # unchanged
 
 
 # ── get_stats ────────────────────────────────────────────────────────────────

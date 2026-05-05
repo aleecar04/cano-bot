@@ -4,15 +4,8 @@ Integration tests for the Control errbot plugin using errbot's TestBot fixture.
 The testbot fixture (from errbot.backends.test) boots a real in-process bot
 with the Test backend. Commands are sent via push_message / pop_message.
 External HTTP calls are intercepted with unittest.mock.patch.
-
-NOTE on driver mocking:
-  control.py does `from drivers import ejecutar_comando`, which binds the function
-  at import time. `drivers` is a MagicMock in sys.modules, so the import captures
-  a MagicMock child. We must configure that same child's return_value — NOT
-  replace the attribute — otherwise control.py keeps the old reference.
 """
 import json
-import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -69,13 +62,6 @@ def _post_router(url, **kwargs):
     return _make_response({}, 200)
 
 
-def _set_driver(ok: bool):
-    """Configure the already-imported ejecutar_comando mock (not replace it)."""
-    drivers = sys.modules["drivers"]
-    if ok:
-        drivers.ejecutar_comando.return_value = {"ok": True}
-    else:
-        drivers.ejecutar_comando.return_value = {"ok": False, "error": "timeout"}
 
 
 # ── list_devices ──────────────────────────────────────────────────────────────
@@ -138,11 +124,16 @@ class TestControlDevice:
 
     def _exec(self, testbot, device_id, accion, payload=None, driver_ok=True):
         """Helper: run !control_device and return parsed JSON result."""
-        _set_driver(driver_ok)
+        driver_result = {"ok": True} if driver_ok else {"ok": False, "error": "timeout"}
         args_dict = {"device_id": device_id, "accion": accion}
         if payload:
             args_dict["payload"] = payload
+        import sys
+        control_mod = sys.modules.get("errbot.plugins.control")
+        patcher = patch.object(control_mod, "ejecutar_comando", return_value=driver_result) if control_mod else None
+        ctx = patcher.__enter__() if patcher else None
         with patch("requests.get",   side_effect=_get_router), \
+             patch("requests.get",   side_effect=_get_router), \
              patch("requests.patch", side_effect=_patch_router), \
              patch("requests.post",  side_effect=_post_router):
             testbot.push_message(f"!control_device {json.dumps(args_dict)}")

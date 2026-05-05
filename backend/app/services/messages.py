@@ -5,7 +5,7 @@ from app.services.xmpp import send_xmpp_message
 from app.services.home import get_bot_jid_for_user
 from app.core.config import settings
 
-_NOW = _NOW
+_NOW = "now()"
 
 async def process_message(body: str, user_id: str, conversation_id: str | None) -> dict:
     import httpx as _httpx

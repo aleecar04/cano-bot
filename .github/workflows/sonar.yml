@@ -29,21 +29,36 @@ jobs:
           pip install -e backend
 
       - name: Run backend tests with coverage
+        working-directory: backend
+        env:
+          PROJECT_NAME: "cano-bot-test"
+          FIRST_SUPERUSER: "test@test.com"
+          FIRST_SUPERUSER_PASSWORD: "TestPassword123!"
+          SUPABASE_URL: "https://fake.supabase.co"
+          SUPABASE_KEY: "fake-supabase-anon-key"
+          SUPABASE_JWT_SECRET: "fake-jwt-secret-32-chars-minimum-x"
+          XMPP_JID: "test@xmpp.test"
+          XMPP_PASSWORD: "testpass"
+          XMPP_BOT_JID: "bot@xmpp.test"
+          XMPP_ADMIN_USER: "admin"
+          XMPP_ADMIN_PASSWORD: "adminpass"
+          XMPP_REST_URL: "http://localhost:9090"
+          XMPP_ENCRYPTION_KEY: "fake-encryption-key-exactly-32ch"
+          WEBHOOK_SECRET: "fake-webhook-secret"
         run: |
-          cd backend
           python -m pytest tests/api/routes/ \
+            --override-ini="addopts=" \
             --cov=app \
             --cov-report=xml:coverage.xml \
-            --cov-config=../.coveragerc \
             -q
         continue-on-error: true
 
       - name: Run bot tests with coverage
         run: |
           python -m pytest tests/ \
+            --override-ini="addopts=" \
             --cov=plugins \
             --cov-report=xml:bot-coverage.xml \
-            --cov-config=.coveragerc \
             -q
         continue-on-error: true
 

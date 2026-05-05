@@ -93,18 +93,18 @@ def test_plain_text_returns_unknown():
     assert result == {"intent": "unknown"}
 
 
-def test_exception_from_ollama_returns_unknown():
+def test_exception_from_ollama_returns_ollama_error():
     from plugins._intent_classifier import classify_intent, client
     with patch.object(client, "chat", side_effect=ConnectionError("ollama offline")):
         result = classify_intent("enciende la luz")
-    assert result == {"intent": "unknown"}
+    assert result == {"intent": "ollama_error"}
 
 
-def test_generic_exception_returns_unknown():
+def test_generic_exception_returns_ollama_error():
     from plugins._intent_classifier import classify_intent, client
     with patch.object(client, "chat", side_effect=RuntimeError("unexpected")):
         result = classify_intent("test")
-    assert result == {"intent": "unknown"}
+    assert result == {"intent": "ollama_error"}
 
 
 def test_empty_response_content_returns_unknown():

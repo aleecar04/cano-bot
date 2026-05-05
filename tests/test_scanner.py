@@ -6,6 +6,8 @@ Only the pure classification logic is tested (no network, no ARP, no scapy).
 import pytest
 # scanner_service lives in plugins/network-scanner/ (hyphen → not a valid package name)
 # conftest.py adds that directory to sys.path so we can import it directly.
+from unittest.mock import MagicMock, patch
+
 from scanner_service import (  # type: ignore[import]
     detect_device_type,
     is_mac_randomized,
@@ -13,6 +15,9 @@ from scanner_service import (  # type: ignore[import]
     _score_vendor,
     _score_ports,
     _score_mdns,
+    get_local_network,
+    _resolve_hostname,
+    _build_device,
     WEIGHTS,
     SKIP_TYPES,
 )
@@ -298,3 +303,151 @@ def test_detect_impresora_all_signals():
         ["_ipp._tcp.local."],
     )
     assert tipo == "Impresora"
+
+
+# ── detect_device_type edge cases ────────────────────────────────────────────
+
+def test_detect_mac_aleatoria_sin_vendor():
+    """mac_randomized=True + no vendor → breakdown includes 'MAC aleatoria'."""
+    _, _, breakdown = detect_device_type(None, None, [], [], mac_randomized=True)
+    assert "MAC aleatoria" in breakdown.get("vendor", "")
+
+
+def test_detect_no_signals_returns_dispositivo():
+    tipo, confianza, _ = detect_device_type(None, None, [], [])
+    assert tipo == "Dispositivo"
+    assert confianza == 0
+
+
+# ── get_local_network ─────────────────────────────────────────────────────────
+
+def test_get_local_network_returns_none_when_no_interfaces():
+    import sys
+    netifaces_mock = sys.modules["netifaces"]
+    netifaces_mock.interfaces.return_value = []
+    ip, net = get_local_network()
+    assert ip is None
+    assert net is None
+
+
+def test_get_local_network_returns_ip_and_network():
+    import sys, ipaddress
+    netifaces_mock = sys.modules["netifaces"]
+    netifaces_mock.interfaces.return_value = ["eth0"]
+    netifaces_mock.AF_INET = 2
+    netifaces_mock.ifaddresses.return_value = {
+        2: [{"addr": "192.168.1.10", "netmask": "255.255.255.0"}]
+    }
+    ip, net = get_local_network()
+    assert ip == "192.168.1.10"
+    assert "192.168.1.0/24" in net
+
+
+def test_get_local_network_skips_loopback():
+    import sys
+    netifaces_mock = sys.modules["netifaces"]
+    netifaces_mock.interfaces.return_value = ["lo"]
+    netifaces_mock.AF_INET = 2
+    netifaces_mock.ifaddresses.return_value = {
+        2: [{"addr": "127.0.0.1", "netmask": "255.0.0.0"}]
+    }
+    ip, net = get_local_network()
+    assert ip is None
+
+
+# ── _resolve_hostname ─────────────────────────────────────────────────────────
+
+def test_resolve_hostname_returns_name():
+    with patch("socket.gethostbyaddr", return_value=("mydevice.local", [], ["192.168.1.5"])):
+        result = _resolve_hostname("192.168.1.5", timeout=2.0)
+    assert result == "mydevice.local"
+
+
+def test_resolve_hostname_returns_none_on_error():
+    with patch("socket.gethostbyaddr", side_effect=Exception("no host")):
+        result = _resolve_hostname("192.168.1.99", timeout=2.0)
+    assert result is None
+
+
+# ── _build_device ─────────────────────────────────────────────────────────────
+
+def test_build_device_returns_device_info():
+    with patch("scanner_service._resolve_hostname", return_value="shelly-plug"), \
+         patch("scanner_service.get_vendor", return_value="Allterco Robotics"), \
+         patch("scanner_service.is_mac_randomized", return_value=False), \
+         patch("scanner_service.scan_ports", return_value=[80]):
+        result = _build_device(
+            "192.168.1.20", "AA:BB:CC:DD:EE:FF", {}, scan_ports_flag=True
+        )
+    assert result is not None
+    assert result.ip == "192.168.1.20"
+
+
+def test_build_device_returns_none_for_skip_type():
+    """If detected type is in SKIP_TYPES, _build_device returns None."""
+    with patch("scanner_service._resolve_hostname", return_value=None), \
+         patch("scanner_service.get_vendor", return_value=None), \
+         patch("scanner_service.is_mac_randomized", return_value=False), \
+         patch("scanner_service.scan_ports", return_value=[]), \
+         patch("scanner_service.detect_device_type",
+               return_value=(next(iter(SKIP_TYPES)), 0, {})):
+        result = _build_device("10.0.0.1", "02:00:00:00:00:01", {}, False)
+    assert result is None
+
+
+def test_build_device_no_port_scan():
+    """scan_ports_flag=False → scan_ports not called."""
+    with patch("scanner_service._resolve_hostname", return_value="router"), \
+         patch("scanner_service.get_vendor", return_value="TP-Link"), \
+         patch("scanner_service.is_mac_randomized", return_value=False), \
+         patch("scanner_service.scan_ports") as mock_scan:
+        _build_device("10.0.0.1", "AA:00:00:00:00:01", {}, scan_ports_flag=False)
+    mock_scan.assert_not_called()
+
+
+# ── get_local_network exception path ─────────────────────────────────────────
+
+def test_get_local_network_exception_returns_none():
+    import sys
+    netifaces_mock = sys.modules["netifaces"]
+    netifaces_mock.interfaces.side_effect = Exception("hardware error")
+    ip, net = get_local_network()
+    assert ip is None
+    assert net is None
+    netifaces_mock.interfaces.side_effect = None  # reset
+
+
+# ── scan_simulation_devices ───────────────────────────────────────────────────
+
+def test_scan_simulation_finds_shelly_device():
+    from scanner_service import scan_simulation_devices
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"type": "SHPLG-S", "mac": "AABBCCDDEEFF"}
+
+    def fake_get(url, timeout=None):
+        if "8181" in url:
+            return mock_resp
+        raise Exception("connection refused")
+
+    with patch("requests.get", side_effect=fake_get):
+        devices = scan_simulation_devices(port_start=8181, port_end=8183)
+    assert len(devices) == 1
+    assert devices[0].ip == "127.0.0.1"
+
+
+def test_scan_simulation_skips_non_200():
+    from scanner_service import scan_simulation_devices
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+
+    with patch("requests.get", return_value=mock_resp):
+        devices = scan_simulation_devices(port_start=8181, port_end=8182)
+    assert devices == []
+
+
+def test_scan_simulation_handles_connection_error():
+    from scanner_service import scan_simulation_devices
+    with patch("requests.get", side_effect=Exception("refused")):
+        devices = scan_simulation_devices(port_start=8181, port_end=8182)
+    assert devices == []

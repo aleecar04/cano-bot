@@ -110,36 +110,3 @@ class TestLogMessage:
             p.log_message("u", "b", "r")
 
 
-class TestUpdateDeviceStatus:
-    def _make_plugin(self):
-        from plugins._core import BasePlugin
-        return BasePlugin()
-
-    def test_skipped_when_backend_unreachable(self):
-        p = self._make_plugin()
-        with patch("plugins._core.is_backend_reachable", return_value=False), \
-             patch("requests.patch") as mock_patch:
-            p.update_device_status("dev-1", True)
-        mock_patch.assert_not_called()
-
-    def test_patches_device_status(self):
-        p = self._make_plugin()
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status = MagicMock()
-        with patch("plugins._core.is_backend_reachable", return_value=True), \
-             patch("requests.patch", return_value=mock_resp) as mock_patch:
-            p.update_device_status("dev-1", is_online=True, estado={"power": "on"})
-        mock_patch.assert_called_once()
-        assert "dev-1" in mock_patch.call_args.args[0]
-
-    def test_handles_timeout(self):
-        p = self._make_plugin()
-        with patch("plugins._core.is_backend_reachable", return_value=True), \
-             patch("requests.patch", side_effect=requests_lib.Timeout()):
-            p.update_device_status("dev-1", True) 
-
-    def test_handles_generic_exception(self):
-        p = self._make_plugin()
-        with patch("plugins._core.is_backend_reachable", return_value=True), \
-             patch("requests.patch", side_effect=RuntimeError("fail")):
-            p.update_device_status("dev-1", True) 

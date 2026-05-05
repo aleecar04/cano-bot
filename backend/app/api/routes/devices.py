@@ -11,7 +11,7 @@ from app.core.db import supabase
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
-_NOT_FOUND = _NOT_FOUND
+_NOT_FOUND = "Dispositivo no encontrado"
 
 
 @router.post(
