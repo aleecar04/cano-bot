@@ -136,6 +136,7 @@ celerybeat.pid
 
 # Environments
 .env
+.bot.env
 .envrc
 .venv
 env/
@@ -228,3 +229,7 @@ yarn-debug.log
 android/app/build/
 ios/Pods/
 ios/build/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

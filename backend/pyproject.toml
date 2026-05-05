@@ -21,6 +21,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest<8.0.0,>=7.4.3",
+    "pytest-cov<5.0.0,>=4.1.0",
     "mypy<2.0.0,>=1.8.0",
     "ruff<1.0.0,>=0.2.2",
     "prek>=0.2.24,<1.0.0",
@@ -30,6 +31,23 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80",
+    "-v",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
 
 [tool.mypy]
 strict = true
@@ -63,6 +81,21 @@ keep-runtime-typing = true
 [tool.coverage.run]
 source = ["app"]
 dynamic_context = "test_function"
+omit = [
+    "app/backend_pre_start.py",   # startup script, no testeable
+    "app/initial_data.py",         # startup script, no testeable
+    "app/tests_pre_start.py",      # test setup
+    "app/utils.py",                # utilidades de email, requieren SMTP
+    "app/crud.py",                 # CRUD SQLModel obsoleto (no se usa con Supabase)
+    "app/core/security.py",        # hashing de passwords (no se usa con Supabase auth)
+    "app/core/db.py",              # inicialización del cliente Supabase, requiere credenciales reales
+    "app/api/routes/private.py",   # ruta privada de la plantilla
+    "app/api/routes/login.py",     # autenticación delegada a Supabase, requiere integración real
+    "app/api/deps.py",             # verificación JWT con Supabase, mockeado en todos los tests
+    "app/services/xmpp.py",        # cliente XMPP, integración real
+    "app/services/messages.py",    # depende de XMPP y Supabase conjuntamente
+    "app/services/users.py",       # gestión de usuarios via Supabase admin API, integración real
+]
 
 [tool.coverage.report]
 show_missing = true
