@@ -44,6 +44,42 @@ class ShellyDriver(BaseDriver):
     def _light_path(self, device: dict) -> str:
         return "/color/0" if self._is_rgb(device) else "/light/0"
 
+    # ── Status helpers ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _sensor_estado(data: dict) -> dict:
+        estado: dict = {}
+        if "tmp" in data:
+            estado["temperature"] = round(data["tmp"].get("value", 0), 1)
+        if "hum" in data:
+            estado["humidity"] = int(data["hum"].get("value", 0))
+        if "flood" in data:
+            estado["flood"] = data["flood"]
+        if "sensor" in data:
+            estado["door"] = data["sensor"].get("state", "unknown")
+        return {"is_online": True, "estado": estado}
+
+    @staticmethod
+    def _cover_estado(data: dict) -> dict:
+        rollers = data.get("rollers", [{}])
+        state = rollers[0].get("state", "stop") if rollers else "stop"
+        pos   = rollers[0].get("current_pos", 0) if rollers else 0
+        return {"is_online": True, "estado": {"power": "on" if state != "stop" else "off", "position": pos}}
+
+    @staticmethod
+    def _luz_estado(data: dict) -> dict:
+        lights = data.get("lights", [{}])
+        is_on      = lights[0].get("ison", False) if lights else False
+        brightness = lights[0].get("brightness", 100) if lights else 100
+        return {"is_online": True, "estado": {"power": "on" if is_on else "off", "brightness": brightness}}
+
+    def _relay_estado(self, data: dict, device: dict) -> dict:
+        relays  = data.get("relays", [])
+        idx     = self._relay_idx(device)
+        is_on   = relays[idx]["ison"] if idx < len(relays) else False
+        power_w = relays[idx].get("power", 0) if idx < len(relays) else 0
+        return {"is_online": True, "estado": {"power": "on" if is_on else "off", "power_w": power_w}}
+
     # ── Status ───────────────────────────────────────────────────────────────────
 
     def get_status(self, device: dict, timeout: float = 2.0) -> dict:
@@ -52,38 +88,13 @@ class ShellyDriver(BaseDriver):
             r = requests.get(self._url(device, "/status"), timeout=timeout)
             r.raise_for_status()
             data = r.json()
-
             if tipo in _SENSOR_TYPES:
-                estado: dict = {}
-                if "tmp" in data:
-                    estado["temperature"] = round(data["tmp"].get("value", 0), 1)
-                if "hum" in data:
-                    estado["humidity"] = int(data["hum"].get("value", 0))
-                if "flood" in data:
-                    estado["flood"] = data["flood"]
-                if "sensor" in data:
-                    estado["door"] = data["sensor"].get("state", "unknown")
-                return {"is_online": True, "estado": estado}
-
+                return self._sensor_estado(data)
             if tipo in _COVER_TYPES:
-                rollers = data.get("rollers", [{}])
-                state   = rollers[0].get("state", "stop") if rollers else "stop"
-                pos     = rollers[0].get("current_pos", 0) if rollers else 0
-                return {"is_online": True, "estado": {"power": "on" if state != "stop" else "off", "position": pos}}
-
+                return self._cover_estado(data)
             if tipo in _LUZ_TYPES:
-                lights = data.get("lights", [{}])
-                is_on  = lights[0].get("ison", False) if lights else False
-                brightness = lights[0].get("brightness", 100) if lights else 100
-                return {"is_online": True, "estado": {"power": "on" if is_on else "off", "brightness": brightness}}
-
-            # Default: relay (Enchufe, IoT)
-            relays  = data.get("relays", [])
-            idx     = self._relay_idx(device)
-            is_on   = relays[idx]["ison"] if idx < len(relays) else False
-            power_w = relays[idx].get("power", 0) if idx < len(relays) else 0
-            return {"is_online": True, "estado": {"power": "on" if is_on else "off", "power_w": power_w}}
-
+                return self._luz_estado(data)
+            return self._relay_estado(data, device)
         except Exception as e:
             return {"is_online": False, "error": str(e)}
 

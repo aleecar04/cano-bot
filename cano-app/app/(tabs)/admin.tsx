@@ -66,9 +66,9 @@ function FilterChip({ label, active, onPress }: {
   );
 }
 
-function FilterInput({ placeholder, value, onChangeText }: {
+function FilterInput({ placeholder, value, onChangeText }: Readonly<{
   placeholder: string; value: string; onChangeText: (v: string) => void;
-}) {
+}>) {
   return (
     <TextInput
       value={value}
@@ -161,15 +161,10 @@ function DevicesSection() {
       {/* Results */}
       <View className={`${STYLES.cards.light}`}>
         <Text className={STYLES.headers.sectionTitle}>Dispositivos ({devices.length})</Text>
-        {loading ? (
-          <ActivityIndicator size="small" color="#3B82F6" />
-        ) : !!error ? (
-          <Text className="text-red-400 text-sm">{error}</Text>
-        ) : devices.length === 0 ? (
-          <EmptyState message="Sin resultados." />
-        ) : (
-          devices.map((d) => <DeviceRow key={d.id} d={d} />)
-        )}
+        {loading && <ActivityIndicator size="small" color="#3B82F6" />}
+        {!loading && Boolean(error) && <Text className="text-red-400 text-sm">{error}</Text>}
+        {!loading && !error && devices.length === 0 && <EmptyState message="Sin resultados." />}
+        {!loading && !error && devices.map((d) => <DeviceRow key={d.id} d={d} />)}
       </View>
     </View>
   );
@@ -271,15 +266,10 @@ function CommandsSection() {
 
       <View className={`${STYLES.cards.light}`}>
         <Text className={STYLES.headers.sectionTitle}>Acciones ({commands.length})</Text>
-        {loading ? (
-          <ActivityIndicator size="small" color="#3B82F6" />
-        ) : !!error ? (
-          <Text className="text-red-400 text-sm">{error}</Text>
-        ) : commands.length === 0 ? (
-          <EmptyState message="Sin resultados." />
-        ) : (
-          commands.map((c) => <CommandRow key={c.id} c={c} />)
-        )}
+        {loading && <ActivityIndicator size="small" color="#3B82F6" />}
+        {!loading && Boolean(error) && <Text className="text-red-400 text-sm">{error}</Text>}
+        {!loading && !error && commands.length === 0 && <EmptyState message="Sin resultados." />}
+        {!loading && !error && commands.map((c) => <CommandRow key={c.id} c={c} />)}
       </View>
     </View>
   );

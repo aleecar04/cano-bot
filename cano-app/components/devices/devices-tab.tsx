@@ -213,22 +213,22 @@ export function DevicesTab({
             </View>
 
             <ScrollView className="flex-1 px-4 py-3">
-              {scanning ? (
+              {scanning && (
                 <View className="py-20 items-center">
                   <ActivityIndicator size="large" color="#6366f1" />
                   <Text className="text-text-secondary text-sm mt-4">Buscando en tu red...</Text>
                 </View>
-              ) : scannedDevices.length > 0 ? (
-                scannedDevices.map((device) => (
-                  <ScanDeviceItem
-                    key={device.ip}
-                    device={device}
-                    onLink={handleOpenLinkModal}
-                    isLinking={false}
-                    isLinked={linkedDevices.some((d) => d.ip === device.ip)}
-                  />
-                ))
-              ) : (
+              )}
+              {!scanning && scannedDevices.length > 0 && scannedDevices.map((device) => (
+                <ScanDeviceItem
+                  key={device.ip}
+                  device={device}
+                  onLink={handleOpenLinkModal}
+                  isLinking={false}
+                  isLinked={linkedDevices.some((d) => d.ip === device.ip)}
+                />
+              ))}
+              {!scanning && scannedDevices.length === 0 && (
                 <View className="py-20 items-center">
                   <Ionicons name="search-outline" size={40} color="#94a3b8" />
                   <Text className="text-text-secondary text-sm text-center mt-3">No se encontraron dispositivos</Text>

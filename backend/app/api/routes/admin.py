@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 from fastapi import APIRouter, Depends, Query
 from app.api.deps import get_current_active_superuser
 from app.core.db import supabase
@@ -101,8 +101,8 @@ def get_all_commands(
     user_id: Optional[str] = Query(None),
     date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
     date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    status: Optional[str] = Query(None, description="pending|sent|executed|failed"),
-    limit: int = Query(50, le=200),
+    status: Annotated[Optional[str], Query(description="pending|sent|executed|failed")] = None,
+    limit: Annotated[int, Query(le=200)] = 50,
 ) -> Any:
     q = supabase.table("commands").select("*").order("created_at", desc=True).limit(limit)
     if user_id:

@@ -29,7 +29,6 @@ jobs:
           pip install -e backend
 
       - name: Run backend tests with coverage
-        working-directory: backend
         env:
           PROJECT_NAME: "cano-bot-test"
           FIRST_SUPERUSER: "test@test.com"
@@ -46,17 +45,19 @@ jobs:
           XMPP_ENCRYPTION_KEY: "fake-encryption-key-exactly-32ch"
           WEBHOOK_SECRET: "fake-webhook-secret"
         run: |
-          python -m pytest tests/api/routes/ \
-            --override-ini="addopts=" \
-            --cov=app \
-            --cov-report=xml:coverage.xml \
+          python -m pytest backend/tests/api/routes/ \
+            --override-ini=addopts= \
+            --cov=backend/app \
+            --cov-report=xml:backend/coverage.xml \
             -q
+          # Fix paths in XML so Sonar can resolve them from project root
+          sed -i 's|filename="|filename="backend/app/|g' backend/coverage.xml || true
         continue-on-error: true
 
       - name: Run bot tests with coverage
         run: |
           python -m pytest tests/ \
-            --override-ini="addopts=" \
+            --override-ini=addopts= \
             --cov=plugins \
             --cov-report=xml:bot-coverage.xml \
             -q

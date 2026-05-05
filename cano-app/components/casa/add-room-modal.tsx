@@ -10,7 +10,7 @@ interface AddRoomModalProps {
   onAddRoom: (floorId: string, roomName: string) => void;
 }
 
-export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }: AddRoomModalProps) {
+export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }: Readonly<AddRoomModalProps>) {
   const [roomName, setRoomName] = useState('');
   const [adding, setAdding]     = useState(false);
 

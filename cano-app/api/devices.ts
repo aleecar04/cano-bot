@@ -135,7 +135,8 @@ export async function getMyCommandHistory(filters: CommandHistoryFilters = {}): 
   if (filters.page)        params.set('page', String(filters.page));
   if (filters.limit)       params.set('limit', String(filters.limit));
   const qs = params.toString();
-  const res = await fetch(`${API_URL}/api/v1/devices/commands${qs ? `?${qs}` : ''}`, { headers });
+  const suffix = qs ? `?${qs}` : '';
+  const res = await fetch(`${API_URL}/api/v1/devices/commands${suffix}`, { headers });
   if (!res.ok) return throwBackendError(res, 'Error cargando historial');
   return res.json();
 }

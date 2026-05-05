@@ -11,7 +11,12 @@ def list_favorites(current_user: CurrentUser):
     return svc.get_favorites(current_user["id"])
 
 
-@router.post("/", response_model=FavoriteActionPublic, status_code=201)
+@router.post(
+    "/",
+    response_model=FavoriteActionPublic,
+    status_code=201,
+    responses={400: {"description": "Device limit reached or duplicate"}},
+)
 def add_favorite(fav_in: FavoriteActionCreate, current_user: CurrentUser):
     try:
         return svc.add_favorite(fav_in, current_user["id"])

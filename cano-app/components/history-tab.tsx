@@ -33,7 +33,7 @@ const SOURCE_FILTERS: { value: CommandDto['source_type'] | 'all'; label: string 
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: CommandDto['status'] }) {
+function StatusBadge({ status }: Readonly<{ status: CommandDto['status'] }>) {
   const config = {
     executed: { color: '#22c55e', bg: '#22c55e15', label: 'OK'        },
     failed:   { color: '#ef4444', bg: '#ef444415', label: 'Error'     },

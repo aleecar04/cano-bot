@@ -64,9 +64,9 @@ def get_my_commands(
     current_user: CurrentUser,
     limit: int = Query(default=50, le=200),
     page: int = Query(default=1, ge=1),
-    source_type: Optional[str] = Query(default=None),
-    date_from: Optional[str] = Query(default=None),
-    date_to: Optional[str] = Query(default=None),
+    source_type: Annotated[Optional[str], Query()] = None,
+    date_from: Annotated[Optional[str], Query()] = None,
+    date_to: Annotated[Optional[str], Query()] = None,
 ):
     """Returns the paginated command history for the current user.
     Supports filtering by source_type and date range (ISO date strings)."""

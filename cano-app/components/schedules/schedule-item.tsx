@@ -74,11 +74,10 @@ export function ScheduleItem({
     ? '#22c55e'
     : '#ef4444';
 
-  const statusLabel = !lastCmd
-    ? 'Sin ejecutar'
-    : lastCmd.status === 'executed'
-    ? 'OK'
-    : 'Error';
+  let statusLabel = 'Sin ejecutar';
+  if (lastCmd) {
+    statusLabel = lastCmd.status === 'executed' ? 'OK' : 'Error';
+  }
 
   return (
     <View className={`border rounded-xl px-4 py-3 mb-3 ${

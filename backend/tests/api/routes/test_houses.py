@@ -334,7 +334,7 @@ class TestDeleteFloorRoom:
 
 class TestInvitationCodes:
     def test_generate_invite_code(self, client: TestClient, supabase_mock: SupabaseMock):
-        house = _setup_house(supabase_mock)
+        _setup_house(supabase_mock)
         supabase_mock.set_data("house_invitations", [{"id": "inv-1", "code": "ABC123"}])
 
         res = client.post("/api/v1/houses/me/invite")

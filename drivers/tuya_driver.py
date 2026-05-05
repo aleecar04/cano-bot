@@ -12,12 +12,12 @@ class TuyaDriver(BaseDriver):
 
     def _get_device(self, device: dict, timeout: float = 2.0):
         cfg = device["config"]
-        kwargs = dict(
-            dev_id=cfg["dev_id"],
-            address=device["ip"],
-            local_key=cfg["local_key"],
-            version=float(cfg.get("version", 3.4)),
-        )
+        kwargs = {
+            "dev_id":    cfg["dev_id"],
+            "address":   device["ip"],
+            "local_key": cfg["local_key"],
+            "version":   float(cfg.get("version", 3.4)),
+        }
         dev = tinytuya.BulbDevice(**kwargs) if self._is_bulb(device) else tinytuya.Device(**kwargs)
         dev.set_socketTimeout(timeout)
         return dev

@@ -178,7 +178,7 @@ def member_check(user_id: str):
     return {"is_member": bool(result.data)}
 
 
-@router.get("/me/members")
+@router.get("/me/members", responses={404: {"description": "Casa no encontrada"}})
 def get_members(current_user: CurrentUser):
     house_id = home_service.get_house_id_for_user(current_user["id"])
     if not house_id:

@@ -61,16 +61,18 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
         </View>
       </View>
 
-      {isLinked ? (
+      {isLinked && (
         <View className="rounded-lg px-3 py-2 flex-row items-center gap-1 bg-bg-secondary">
           <Ionicons name="checkmark-circle" size={14} color="#64748b" />
           <Text className="text-text-secondary text-xs font-semibold">Vinculado</Text>
         </View>
-      ) : nonLinkable ? (
+      )}
+      {!isLinked && nonLinkable && (
         <View className="rounded-lg px-3 py-2 bg-bg/50">
           <Text className="text-text-secondary text-xs font-semibold">No compatible</Text>
         </View>
-      ) : (
+      )}
+      {!isLinked && !nonLinkable && (
         <TouchableOpacity
           className={`rounded-lg px-3 py-2 flex-row items-center gap-1 ${
             isLinking ? 'bg-indigo-500/50' : 'bg-indigo-500'
@@ -79,11 +81,10 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
           disabled={isLinking}
           activeOpacity={0.7}
         >
-          {isLinking ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Ionicons name="link" size={14} color="white" />
-          )}
+          {isLinking
+            ? <ActivityIndicator color="white" size="small" />
+            : <Ionicons name="link" size={14} color="white" />
+          }
           <Text className="text-text text-xs font-semibold">
             {isLinking ? 'Vinculando...' : 'Vincular'}
           </Text>

@@ -25,11 +25,12 @@ class LGTVDriver(BaseDriver):
         if client.client_key and client.client_key != client_key:
             try:
                 backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
-                requests.patch(
+                await asyncio.to_thread(
+                    requests.patch,
                     f"{backend_url}/api/v1/devices/{device['id']}/config",
                     json={**config, "client_key": client.client_key},
                     headers={"X-Webhook-Token": os.getenv("WEBHOOK_SECRET")},
-                    timeout=3
+                    timeout=3,
                 )
             except Exception as e:
                 print(f"[WARN] No se pudo guardar client_key: {e}")
