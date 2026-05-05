@@ -2,7 +2,10 @@ from fastapi import HTTPException
 from app.core.db import supabase
 from app.models import BotWebhookPayload
 from app.services.xmpp import send_xmpp_message
+from app.services.home import get_bot_jid_for_user
 from app.core.config import settings
+
+_NOW = _NOW
 
 async def process_message(body: str, user_id: str, conversation_id: str | None) -> dict:
     import httpx as _httpx
@@ -10,11 +13,16 @@ async def process_message(body: str, user_id: str, conversation_id: str | None) 
     if conversation_id:
         _verify_conversation(conversation_id, user_id)
 
+    bot_jid = get_bot_jid_for_user(user_id)
+    if not bot_jid:
+        raise HTTPException(status_code=400, detail="La casa no tiene un bot configurado")
+
     try:
         xmpp_message_id = await send_xmpp_message(
             body,
             xmpp_account["jid"],
-            xmpp_account["password"]
+            xmpp_account["password"],
+            to_jid=bot_jid,
         )
     except _httpx.HTTPStatusError as e:
         raise HTTPException(
@@ -61,13 +69,11 @@ def _verify_conversation(conversation_id: str, user_id: str) -> None:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
 
-async def handle_webhook(payload: BotWebhookPayload) -> None:
+def handle_webhook(payload: BotWebhookPayload) -> None:
     message = _find_message(payload)
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
     _save_response(message["id"], payload.response)
-    if message.get("command_id"):
-        _mark_command_executed(message["command_id"])
 
 def _find_message(payload: BotWebhookPayload) -> dict | None:
     body = payload.body
@@ -92,33 +98,56 @@ def _find_message(payload: BotWebhookPayload) -> dict | None:
 def _save_response(message_id: str, response: str) -> None:
     supabase.table("messages").update({"response": response}).eq("id", message_id).execute()
 
-def _mark_command_executed(command_id: str) -> None:
-    supabase.table("commands").update({
-        "status": "executed",
-        "executed_at": "now()"
-    }).eq("id", command_id).execute()
 
-def _create_command(user_id: str, device_id: str | None, action: str, payload: dict = {}, status: str = "pending", error: str | None = None) -> str:
+def update_command_result(command_id: str, error: str | None) -> None:
+    error = error or None  # normalize empty string to None
+    status = "failed" if error else "executed"
+    data: dict = {"status": status, "executed_at": _NOW}
+    if error:
+        data["error"] = error
+    supabase.table("commands").update(data).eq("id", command_id).execute()
+
+def _create_command(
+    user_id: str,
+    device_id: str | None,
+    action: str,
+    payload: dict = {},
+    status: str = "pending",
+    error: str | None = None,
+    source_type: str = "conversation",
+    source_id: str | None = None,
+) -> str:
     result = supabase.table("commands").insert({
         "user_id":     user_id,
         "device_id":   device_id,
         "action":      action,
         "payload":     payload,
         "status":      status,
-        "executed_at": "now()" if status == "executed" else None,
-        "error":       error
+        "executed_at": _NOW if status == "executed" else None,
+        "error":       error,
+        "source_type": source_type,
+        "source_id":   source_id,
     }).execute()
     return result.data[0]["id"]
 
 
 def create_command_from_bot(body: dict) -> dict:
+    # Scheduler passes pending=True to register the command before executing
+    if body.get("pending"):
+        status, error = "pending", None
+    else:
+        error = body.get("error") or None
+        status = "failed" if error else "executed"
+
     command_id = _create_command(
         user_id=body["user_id"],
         device_id=body["device_id"],
         action=body["action"],
         payload=body.get("payload", {}),
-        status="executed",
-        error=body.get("error")
+        status=status,
+        error=error,
+        source_type=body.get("source_type") or "conversation",
+        source_id=body.get("source_id") or None,
     )
 
     if body.get("xmpp_message_id"):
@@ -140,12 +169,6 @@ def _create_message(user_id, command_id, xmpp_message_id, body, conversation_id)
         message_data["conversation_id"] = conversation_id
     result = supabase.table("messages").insert(message_data).execute()
     return result.data[0]
-
-def _mark_command_sent(command_id: str, xmpp_message_id: str | None) -> None:
-    supabase.table("commands").update({
-        "xmpp_message_id": xmpp_message_id,
-        "status": "sent"
-    }).eq("id", command_id).execute()
 
 def get_user_messages(user_id: str) -> list:
     result = supabase.table("messages") \
@@ -180,5 +203,5 @@ def get_conversation_messages(conversation_id: str) -> list:
 
 def _touch_conversation(conversation_id: str) -> None:
     supabase.table("conversations").update({
-        "updated_at": "now()"
+        "updated_at": _NOW
     }).eq("id", conversation_id).execute()

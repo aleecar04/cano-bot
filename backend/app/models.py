@@ -157,8 +157,9 @@ class FloorPublic(BaseModel):
 
 class HousePublic(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
+    user_id: uuid.UUID | None = None
     name: str | None = None
+    bot_jid: str | None = None
     floors: list[FloorPublic] = []
 
 class FloorCreate(BaseModel):
@@ -180,16 +181,27 @@ class DeviceVincular(BaseModel):
 class DevicePublic(BaseModel):
     id: uuid.UUID
     owner_id: uuid.UUID
+    house_id: uuid.UUID | None = None
     name: str
     type: str
     driver: str | None = None
     ip: str
+    mac: str | None = None
     location: str | None = None
     config: dict = {}
     estado: dict = {}
     is_online: bool
+    room_id: uuid.UUID | None = None
     last_seen_at: datetime | None = None
     registered_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class DeviceUpdate(BaseModel):
+    name: str | None = None
+    room_id: uuid.UUID | None = None
+    type: str | None = None
+
 
 class DeviceStatusUpdate(BaseModel):
     is_online: bool
@@ -213,14 +225,24 @@ class ConversationsPublic(BaseModel):
     data: list[ConversationPublic]
     count: int
 
+class GroupScheduleCreate(BaseModel):
+    """Body for room/floor bulk-schedule endpoints (device_id is assigned server-side)."""
+    name: str = Field(min_length=1, max_length=100)
+    action: str = Field(min_length=1, max_length=50)
+    payload: dict = {}
+    run_at: datetime | None = None
+    cron_expr: str | None = None
+    timezone: str = "UTC"
+
+
 class ScheduleCreate(BaseModel):
     device_id: uuid.UUID
     name: str = Field(min_length=1, max_length=100)
     action: str = Field(min_length=1, max_length=50)
     payload: dict = {}
-    run_at: datetime | None = None       # one-time
-    cron_expr: str | None = None         # recurring, e.g. "30 22 * * *"
-    is_recurring: bool = False
+    run_at: datetime | None = None   # one-time: when to execute
+    cron_expr: str | None = None     # recurring: cron expression
+    timezone: str = "UTC"
 
 
 class SchedulePublic(BaseModel):
@@ -230,20 +252,29 @@ class SchedulePublic(BaseModel):
     name: str
     action: str
     payload: dict
-    run_at: datetime | None = None
     cron_expr: str | None = None
     next_run_at: datetime
-    is_recurring: bool
     is_active: bool
-    last_run_at: datetime | None = None
-    last_status: str | None = None
-    last_error: str | None = None
+    last_command_id: uuid.UUID | None = None
     created_at: datetime | None = None
 
 
 class ScheduleMarkRun(BaseModel):
-    status: str   # 'ok' or 'error'
+    command_id: str
+
+
+class CommandPublic(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    device_id: uuid.UUID | None = None
+    action: str
+    payload: dict = {}
+    status: str
+    source_type: str = 'direct'
+    source_id: uuid.UUID | None = None
     error: str | None = None
+    executed_at: datetime | None = None
+    created_at: datetime | None = None
 
 
 class ScheduleToggle(BaseModel):
