@@ -1,52 +1,57 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useUserProfile } from '@/context/user-profile';
 
-export function AppHeader() {
-  const router = useRouter();
-
-  const goToProfile = () => {
-    router.push('/profile');
-  };
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
 
   return (
-    <SafeAreaView edges={['top']} className="bg-blue-600">
-      <View className="flex-row items-center justify-between px-4 py-4">
-        {/* Icono de perfil a la izquierda */}
+    <View
+      className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 items-center justify-center"
+    >
+      <Text className="text-primary font-bold text-sm">{initials || '?'}</Text>
+    </View>
+  );
+}
+
+export function AppHeader() {
+  const router  = useRouter();
+  const { profile } = useUserProfile();
+
+  const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ')
+    || profile?.username
+    || '';
+
+  return (
+    <SafeAreaView edges={['top']} className="bg-bg border-b border-border">
+      <View className="flex-row items-center justify-between px-4 py-2.5">
+
+        {/* Brand */}
+        <View className="flex-row items-center gap-2">
+          <Image
+            source={require('../../assets/images/cano.png')}
+            resizeMode="contain"
+            style={{ width: 28, height: 28 }}
+          />
+          <Text className="text-text font-bold text-lg tracking-tight">Cano-bot</Text>
+        </View>
+
+        {/* Avatar → perfil */}
         <TouchableOpacity
-          onPress={goToProfile}
+          onPress={() => router.push('/profile')}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Abrir perfil"
         >
-          <Ionicons name="person-circle" size={32} color="white" />
+          <Avatar name={displayName} />
         </TouchableOpacity>
 
-        {/* Nombre y logo en el centro */}
-        <View className="flex-row items-center justify-center flex-1 gap-2">
-          <Text 
-            className="text-blue-100 font-black"
-            style={{ 
-              fontSize: 24,
-              fontStyle: 'italic',
-              letterSpacing: 1.5,
-              textShadowColor: 'rgba(0, 0, 0, 0.5)',
-              textShadowOffset: { width: 2, height: 2 },
-              textShadowRadius: 3,
-            }}
-          >
-            Cano-Bot
-          </Text>
-          <Image
-            source={require('../../assets/images/cano.png')}
-            resizeMode="contain"
-            style={{ width: 32, height: 32 }}
-          />
-        </View>
-
-        {/* Espacio vacío a la derecha para balancear */}
-        <View style={{ width: 32 }} />
       </View>
     </SafeAreaView>
   );

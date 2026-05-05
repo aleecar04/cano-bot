@@ -15,9 +15,16 @@ type IconSymbolName = keyof typeof MAPPING;
  */
 const MAPPING = {
   'house.fill': 'home',
+  'house': 'home',
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'checkmark.circle.fill': 'check-circle',
+  'checkmark.circle': 'check-circle-outline',
+  'bubble.left.fill': 'chat-bubble',
+  'bubble.left': 'chat-bubble-outline',
+  'person.circle.fill': 'account-circle',
+  'person.circle': 'account-circle',
 } as IconMapping;
 
 /**
@@ -30,12 +37,12 @@ export function IconSymbol({
   size = 24,
   color,
   style,
-}: {
+}: Readonly<{
   name: IconSymbolName;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
-}) {
+}>) {
   return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
 }

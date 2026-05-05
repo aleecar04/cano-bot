@@ -20,7 +20,7 @@ export function ConfirmModal({
   destructive = false,
   onConfirm,
   onCancel,
-}: Props) {
+}: Readonly<Props>) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View className="flex-1 bg-black/50 items-center justify-center px-8">

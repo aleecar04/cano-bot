@@ -8,7 +8,7 @@ type Props = {
   variant?: 'primary' | 'secondary' | 'danger';
 };
 
-export function Button({ label, onPress, loading, disabled, variant = 'primary' }: Props) {
+export function Button({ label, onPress, loading, disabled, variant = 'primary' }: Readonly<Props>) {
   const containerStyles = {
     primary: loading || disabled ? 'bg-primary/60' : 'bg-primary',
     secondary: 'bg-bg-secondary border border-border',
