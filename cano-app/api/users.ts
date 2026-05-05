@@ -10,6 +10,7 @@ export interface UserProfileDto {
   first_name: string | null;
   last_name: string | null;
   is_active: boolean | null;
+  is_superuser: boolean | null;
   xmpp_jid: string | null;
 }
 
