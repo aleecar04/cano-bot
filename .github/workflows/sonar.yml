@@ -28,8 +28,27 @@ jobs:
           pip install -r requirements.txt
           pip install -e backend
 
+      - name: Run backend tests with coverage
+        run: |
+          cd backend
+          python -m pytest tests/api/routes/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-config=../.coveragerc \
+            -q
+        continue-on-error: true
+
+      - name: Run bot tests with coverage
+        run: |
+          python -m pytest tests/ \
+            --cov=plugins \
+            --cov-report=xml:bot-coverage.xml \
+            --cov-config=.coveragerc \
+            -q
+        continue-on-error: true
+
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@v3
+        uses: sonarsource/sonarqube-scan-action@5d6ebb23be9e65c9e3b6e66e4b69a8dc06a8d2e3
         with:
           args: >
             -Dsonar.scanner.force-manual-analysis=true
