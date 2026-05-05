@@ -4,6 +4,7 @@ import ipaddress
 import socket
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -30,30 +31,39 @@ try:
 except ImportError:
     ZEROCONF_AVAILABLE = False
     print("[AVISO] zeroconf no instalado. mDNS desactivado.")
+    
+
 
 
 HOSTNAME_PATTERNS: dict[str, list[str]] = {
-    "Luz":        ["hue", "light", "philips", "nanoleaf", "yeelight", "shelly"],
+    "Luz":        ["hue", "light", "philips", "nanoleaf", "yeelight",
+                   "shellyrgbw", "shellybulb", "shellydimmer", "shrgbw", "shblb", "shdm"],
+    "Enchufe":    ["shelly", "shplg", "shsw", "shelly1", "shelly2", "kasa", "meross"],
+    "Sensor":     ["sensor", "thermometer", "humidity", "shht", "shwt", "shellydw",
+                   "shellyflood", "shellyht", "shsen"],
+    "Persiana":   ["shellyroller", "shelly25", "shelly21"],
     "Altavoz":    ["echo", "dot", "alexa", "speaker", "homepod", "sonos"],
     "SmartTV":    ["samsung", "lg", "sony", "tcl", "roku", "chromecast", "shield", "firetv"],
     "Camara":     ["camera", "cam", "nest", "doorbell", "wyze", "ring"],
     "Ordenador":  ["macbook", "imac", "desktop", "laptop"],
     "Movil":      ["iphone", "ipad", "android", "pixel"],
     "Router":     ["router", "gateway", "firewall", "mikrotik", "ubiquiti"],
-    "Impresora":  ["printer", "canon", "hp", "xerox", "brother"],
+    "Impresora":  ["printer", "canon", "hp", "xerox", "brother", "epson"],
     "Termostato": ["thermostat", "nest", "ecobee", "honeywell"],
     "IoT":        ["tasmota", "esp8266", "esp32", "sonoff", "tuya", "homebridge"],
 }
 
 VENDOR_PATTERNS: dict[str, list[str]] = {
-    "Luz":        ["signify", "philips lighting", "nanoleaf", "shelly"],
+    "Luz":        ["signify", "philips lighting", "nanoleaf"],
+    "Enchufe":    ["allterco robotics", "shelly", "tp-link kasa", "meross"],
     "Router":     ["cisco", "mikrotik", "ubiquiti", "asus", "tp-link", "netgear",
                    "zyxel", "technicolor", "arcadyan", "sagemcom"],
     "Movil":      ["apple", "samsung electronics", "google", "xiaomi", "oneplus",
                    "huawei", "oppo", "vivo", "realme", "motorola"],
     "Ordenador":  ["intel", "dell", "lenovo", "hewlett packard", "apple",
                    "micro-star", "gigabyte", "asustek"],
-    "IoT":        ["espressif", "tuya", "raspberry pi", "arduino"],
+    "IoT":        ["espressif", "tuya", "beken", "lsec", "realtek semiconductor",
+                   "raspberry pi", "arduino", "shenzhen bailing"],
     "Camara":     ["hikvision", "dahua", "wyze", "ring", "axis", "hanwha"],
     "Impresora":  ["canon", "brother", "seiko epson", "xerox", "lexmark", "ricoh"],
     "SmartTV":    ["samsung", "lg electronics", "sony", "tcl", "hisense", "vizio"],
@@ -62,6 +72,7 @@ VENDOR_PATTERNS: dict[str, list[str]] = {
 }
 
 PORT_SIGNATURES: dict[int, Optional[str]] = {
+    6668:  "IoT",      # Tuya local protocol
     9100:  "Impresora",
     631:   "Impresora",
     515:   "Impresora",
@@ -113,6 +124,8 @@ MDNS_SIGNATURES: dict[str, str] = {
     "_sleep-proxy._udp.local.":     "Ordenador",
     "_ecobee._tcp.local.":          "Termostato",
     "_nest._tcp.local.":            "Termostato",
+    "_shelly._tcp.local.":          "Enchufe",
+    "_http._tcp.local.":            None,   # generic HTTP, not enough alone
 }
 MDNS_SERVICE_TYPES = list(MDNS_SIGNATURES.keys())
 
@@ -124,6 +137,45 @@ WEIGHTS: dict[str, int] = {
 }
 
 SKIP_TYPES: frozenset[str] = frozenset({"Router"})
+
+# ── Simulation mode ────────────────────────────────────────────────────────────
+
+_SHELLY_MODEL_MAP: dict[str, str] = {
+    "SHPLG-S":  "Enchufe", "SHPLG-1":  "Enchufe", "SHPLG2-1": "Enchufe",
+    "SHSW-1":   "Enchufe", "SHSW-PM":  "Enchufe", "SHSW-44":  "Enchufe",
+    "SHSW-21":  "Persiana","SHSW-25":  "Persiana",
+    "SHRGBW2":  "Luz",     "SHBLB-1":  "Luz",      "SHDM-1":   "Luz",
+    "SHHT-1":   "Sensor",  "SHWT-1":   "Sensor",   "SHSEN-1":  "Sensor",
+    "SHEM":     "Sensor",
+}
+
+def scan_simulation_devices(port_start: int = 8181, port_end: int = 8199) -> list:
+    """Scan localhost for fake-shelly instances. Used in simulation mode only."""
+    import requests as _req
+    found = []
+    for port in range(port_start, port_end + 1):
+        try:
+            r = _req.get(f"http://127.0.0.1:{port}/shelly", timeout=0.3)
+            if r.status_code != 200:
+                continue
+            data  = r.json()
+            model = data.get("type", "UNKNOWN").upper()
+            tipo  = _SHELLY_MODEL_MAP.get(model, "Enchufe")
+            mac   = data.get("mac", f"SIM{port:04X}FFFF")
+            found.append(DeviceInfo(
+                ip="127.0.0.1",
+                mac=mac,
+                mac_aleatoria=False,
+                hostname=f"fake-shelly-{model.lower()}-{port}",
+                fabricante="Shelly (Simulado)",
+                tipo=tipo,
+                confianza=100,
+                puertos=[port],
+                deteccion={"sim_port": str(port), "shelly_model": model},
+            ))
+        except Exception:
+            pass
+    return found
 
 @dataclass
 class DeviceInfo:
@@ -197,28 +249,25 @@ def discover_mdns(timeout: int = 5) -> dict[str, list[str]]:
     return collector.results
 
 
-def _check_port(ip: str, port: int, timeout: float, results: list[int], lock: threading.Lock) -> None:
+def _check_port(ip: str, port: int, timeout: float) -> int | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(timeout)
             if s.connect_ex((ip, port)) == 0:
-                with lock:
-                    results.append(port)
+                return port
     except Exception:
         pass
+    return None
 
 
 def scan_ports(ip: str, ports: list[int] = PORTS_TO_SCAN, timeout: float = 0.5) -> list[int]:
     open_ports: list[int] = []
-    lock = threading.Lock()
-    threads = [
-        threading.Thread(target=_check_port, args=(ip, p, timeout, open_ports, lock), daemon=True)
-        for p in ports
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    with ThreadPoolExecutor(max_workers=min(len(ports), 32)) as pool:
+        futures = {pool.submit(_check_port, ip, p, timeout): p for p in ports}
+        for fut in as_completed(futures):
+            result = fut.result()
+            if result is not None:
+                open_ports.append(result)
     return open_ports
 
 
@@ -306,11 +355,19 @@ def get_local_network() -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def _resolve_hostname(ip: str) -> Optional[str]:
-    try:
-        return socket.gethostbyaddr(ip)[0]
-    except Exception:
-        return None
+def _resolve_hostname(ip: str, timeout: float = 1.0) -> Optional[str]:
+    result: list = [None]
+
+    def _do_resolve() -> None:
+        try:
+            result[0] = socket.gethostbyaddr(ip)[0]
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_do_resolve, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+    return result[0]
 
 
 def _build_device(ip: str, mac: str, mdns_map: dict[str, list[str]], scan_ports_flag: bool) -> Optional[DeviceInfo]:
@@ -343,6 +400,7 @@ def scan_network(
     network: str,
     scan_ports_flag: bool = True,
     mdns_timeout: int = 5,
+    max_workers: int = 20,
 ) -> list[DeviceInfo]:
     mdns_map: dict[str, list[str]] = {}
 
@@ -364,11 +422,23 @@ def scan_network(
     if mdns_thread:
         mdns_thread.join()
 
+    hosts = [(received.psrc, received.hwsrc) for _, received in arp_results]
+    if not hosts:
+        return []
+
     devices: list[DeviceInfo] = []
-    for _, received in arp_results:
-        device = _build_device(received.psrc, received.hwsrc, mdns_map, scan_ports_flag)
-        if device is not None:
-            devices.append(device)
+    with ThreadPoolExecutor(max_workers=min(len(hosts), max_workers)) as pool:
+        futures = {
+            pool.submit(_build_device, ip, mac, mdns_map, scan_ports_flag): ip
+            for ip, mac in hosts
+        }
+        for fut in as_completed(futures):
+            try:
+                device = fut.result()
+                if device is not None:
+                    devices.append(device)
+            except Exception as e:
+                print(f"[WARN] Error building device {futures[fut]}: {e}")
 
     return devices
 
@@ -398,7 +468,7 @@ if __name__ == "__main__":
 
     print(f"[*] IP local : {my_ip}")
     print(f"[*] Red      : {network}")
-    print(f"[*] Escaneando...")
+    print("[*] Escaneando...")
 
     devices = scan_network(network, scan_ports_flag=True, mdns_timeout=5)
 

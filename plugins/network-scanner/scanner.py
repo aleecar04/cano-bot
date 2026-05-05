@@ -2,7 +2,8 @@ import json
 from dataclasses import asdict
 from errbot import BotPlugin, botcmd
 from plugins._core import BasePlugin
-from scanner_service import get_local_network, scan_network
+from scanner_service import get_local_network, scan_network, scan_simulation_devices
+from plugins.bot_config import SIMULATION_MODE, SIM_PORT_START, SIM_PORT_END
 
 
 class Scanner(BasePlugin, BotPlugin):
@@ -22,6 +23,13 @@ class Scanner(BasePlugin, BotPlugin):
                     return json.dumps({"tipo": "error", "mensaje": "No se pudo detectar la red local"})
 
             dispositivos = scan_network(red)
+
+            if SIMULATION_MODE:
+                sim = scan_simulation_devices(SIM_PORT_START, SIM_PORT_END)
+                if sim:
+                    self.log.info(f"Modo simulación: {len(sim)} dispositivos fake-shelly encontrados")
+                dispositivos = dispositivos + sim
+
             self.log.info(f"Dispositivos encontrados: {len(dispositivos)}")
 
             return json.dumps({
