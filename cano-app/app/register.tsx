@@ -5,17 +5,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { FormField } from '@/components/ui/form-field';
 import { ErrorMessage } from '@/components/ui/error-message';
 import { Button } from '@/components/ui/button';
+import { ONBOARDING_DONE_KEY } from './onboarding';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
 // ── Validation helpers ────────────────────────────────────────────────────────
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/;
 const USERNAME_RE = /^[a-z0-9_]{3,50}$/;
 
 function validate(fields: {
@@ -95,6 +97,12 @@ export default function RegisterScreen() {
 
       const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
       if (loginError) throw new Error(loginError.message);
+
+      // Marcar que hay que mostrar el onboarding en este dispositivo
+      await AsyncStorage.removeItem(ONBOARDING_DONE_KEY);
+
+      // El auth state change debería redirigir automáticamente
+      setLoading(false);
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
