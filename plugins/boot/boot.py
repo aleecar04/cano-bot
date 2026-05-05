@@ -3,13 +3,14 @@ import time
 import socket
 import logging
 import requests
+import netifaces
 from concurrent.futures import ThreadPoolExecutor
-from errbot import BotPlugin
+from errbot import BotPlugin, botcmd
 
 from plugins.device_cache import device_cache
 from plugins.state_sync import state_sync
-from plugins._core import is_backend_reachable
-from drivers import lg_tv, tuya_driver, android_tv, ha_driver
+from plugins._core import is_backend_reachable, consume_backend_recovery
+from drivers import DRIVERS
 
 logger = logging.getLogger(__name__)
 
@@ -29,24 +30,19 @@ class Boot(BotPlugin):
         self.poll_times: list[float] = []
         self.consecutive_all_offline = 0
         self.executor = ThreadPoolExecutor(max_workers=10)
-        self.drivers = {
-            "lg_tv": lg_tv.LGTVDriver(),
-            "tuya_driver": tuya_driver.TuyaDriver(),
-            "android_tv": android_tv.AndroidTVDriver(),
-            "homeassistant": ha_driver.HomeAssistantDriver(),
-        }
 
     def activate(self):
         super().activate()
         logger.info("Boot plugin activating...")
 
         try:
+            self._register_bot()
             self._load_devices()
             self.start_poller(45, self.poll_all_devices)
             logger.info("Device polling started (every 45 s)")
 
-            self.start_poller(30, state_sync.sync_pending_changes)
-            logger.info("State sync started (every 30 s)")
+            self.start_poller(5, state_sync.sync_pending_changes)
+            logger.info("State sync started (every 5 s)")
 
             self.start_poller(120, state_sync.full_reconciliation)
             logger.info("Reconciliation started (every 120 s)")
@@ -56,6 +52,30 @@ class Boot(BotPlugin):
 
         except Exception as e:
             logger.error(f"Error in Boot.activate: {e}", exc_info=True)
+
+    def _register_bot(self):
+        """Find this bot's house on startup. Read-only — house is created by the user."""
+        bot_jid = os.getenv("BOT_USERNAME", "")
+        if not bot_jid:
+            logger.warning("BOT_USERNAME not set — skipping house identification")
+            return
+        if not is_backend_reachable():
+            logger.warning("Backend unreachable — skipping house identification")
+            return
+        try:
+            r = requests.post(
+                f"{BACKEND_URL}/api/v1/houses/bot/identify",
+                json={"bot_jid": bot_jid},
+                headers=WEBHOOK_HEADERS,
+                timeout=5,
+            )
+            data = r.json()
+            if data.get("configured"):
+                logger.info(f"Bot identified — house_id={data.get('house_id')}")
+            else:
+                logger.warning("Bot JID not yet assigned to any house — waiting for owner to configure the app")
+        except Exception as e:
+            logger.error(f"Error identifying bot house: {e}")
 
     def _load_devices(self):
         """Load device list from backend API (not from Supabase directly)."""
@@ -84,6 +104,10 @@ class Boot(BotPlugin):
         self._load_devices()
 
     def poll_all_devices(self):
+        if consume_backend_recovery():
+            logger.info("Backend recovery detected — reloading device list")
+            self._reload_devices()
+
         if not self.devices:
             return
 
@@ -123,29 +147,35 @@ class Boot(BotPlugin):
 
     def _on_wrong_network(self) -> bool:
         if self.consecutive_all_offline >= _WRONG_NETWORK_THRESHOLD:
-            if not self._probe_any_device():
+            if not self._probe_home_network():
                 return True
             self.consecutive_all_offline = 0
         return False
 
-    def _probe_any_device(self) -> bool:
-        for device in self.devices[:5]:
-            ip = device.get("ip")
-            if not ip:
+    def _probe_home_network(self) -> bool:
+        try:
+            gw_info = netifaces.gateways().get("default", {}).get(netifaces.AF_INET)
+            if not gw_info:
+                return False
+            gw_ip = gw_info[0]
+        except Exception:
+            return False
+
+        for port in [53, 80, 443]:
+            try:
+                with socket.create_connection((gw_ip, port), timeout=_REACHABLE_PROBE_TIMEOUT):
+                    return True
+            except ConnectionRefusedError:
+                return True  # el gateway rechazó el puerto → está ahí, estamos en red
+            except OSError:
                 continue
-            for port in (80, 443, 8080):
-                try:
-                    with socket.create_connection((ip, port), timeout=_REACHABLE_PROBE_TIMEOUT):
-                        return True
-                except OSError:
-                    continue
         return False
 
     def _fetch_single_device(self, device: dict) -> dict | None:
         driver_type = device.get("driver")
         if not driver_type:
             return None
-        driver = self.drivers.get(driver_type)
+        driver = DRIVERS.get(driver_type)
         if not driver:
             logger.debug(f"Unknown driver '{driver_type}' for {device.get('name')}")
             return None
@@ -160,14 +190,40 @@ class Boot(BotPlugin):
             logger.debug(f"Timeout polling {device.get('name')}")
             return None
 
-        device_cache.update(
+        old = device_cache.get(device["id"])
+        new_is_online = status.get("is_online", False)
+        new_estado = status.get("estado", {})
+
+        new_state = device_cache.update(
             device_id=device["id"],
-            estado=status.get("estado", {}),
-            is_online=status.get("is_online", False),
+            estado=new_estado,
+            is_online=new_is_online,
             source="poll",
             confidence=1.0,
         )
+
+        # Only push to backend when something actually changed
+        state_changed = (
+            old is None
+            or old.is_online != new_is_online
+            or old.estado != new_estado
+        )
+        if state_changed:
+            state_sync.mark_device_changed(device["id"], new_state)
+
         return status
+
+    @botcmd(hidden=True)
+    def poll_device(self, msg, args):
+        """Internal: immediately poll a single device by id."""
+        device_id = args.strip()
+        device = next((d for d in self.devices if d["id"] == device_id), None)
+        if not device:
+            self._reload_devices()
+            device = next((d for d in self.devices if d["id"] == device_id), None)
+        if device:
+            self.executor.submit(self._fetch_single_device, device)
+        return ""
 
     def deactivate(self):
         logger.info("Boot plugin deactivating...")
