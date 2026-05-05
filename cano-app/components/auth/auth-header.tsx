@@ -6,7 +6,7 @@ type Props = {
   subtitle: string;
 };
 
-export function AuthHeader({ title, subtitle }: Props) {
+export function AuthHeader({ title, subtitle }: Readonly<Props>) {
   return (
     <View className="items-center gap-3">
       <View className="w-20 h-20 rounded-full bg-bg-secondary border-2 border-primary items-center justify-center">
