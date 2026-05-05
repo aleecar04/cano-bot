@@ -11,7 +11,7 @@ type Props = {
   rows: InfoRow[];
 };
 
-export function ProfileInfoCard({ title, rows }: Props) {
+export function ProfileInfoCard({ title, rows }: Readonly<Props>) {
   return (
     <View className={`${STYLES.cards.light} mb-8`}>
       <Text className={`${STYLES.headers.sectionTitle}`}>{title}</Text>
