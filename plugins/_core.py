@@ -6,24 +6,38 @@ from plugins.bot_config import BACKEND_URL, WEBHOOK_HEADERS
 logger = logging.getLogger(__name__)
 
 _backend_available: bool = True
+_backend_just_recovered: bool = False
 _last_backend_check: float = 0.0
 _BACKEND_CHECK_INTERVAL = 30.0  # seconds between connectivity checks
 
 
 def is_backend_reachable() -> bool:
-    global _backend_available, _last_backend_check
+    global _backend_available, _backend_just_recovered, _last_backend_check
     now = time.monotonic()
     if now - _last_backend_check < _BACKEND_CHECK_INTERVAL:
         return _backend_available
+    previous = _backend_available
     try:
         r = requests.get(f"{BACKEND_URL}/health", timeout=3)
         _backend_available = r.status_code < 500
     except Exception:
         _backend_available = False
     _last_backend_check = now
-    if not _backend_available:
+    if not previous and _backend_available:
+        _backend_just_recovered = True
+        logger.info("Backend came back online — flagging for device reload")
+    elif not _backend_available:
         logger.warning("Backend unreachable — skipping webhook calls")
     return _backend_available
+
+
+def consume_backend_recovery() -> bool:
+    """Returns True once when backend transitions from unreachable to reachable."""
+    global _backend_just_recovered
+    if _backend_just_recovered:
+        _backend_just_recovered = False
+        return True
+    return False
 
 
 class BasePlugin:
@@ -51,19 +65,3 @@ class BasePlugin:
         except Exception as e:
             logger.error(f"Error calling webhook: {e}")
 
-    def update_device_status(self, device_id: str, is_online: bool, estado: dict | None = None) -> None:
-        if not is_backend_reachable():
-            logger.info(f"[offline-log] device {device_id} online={is_online}")
-            return
-        try:
-            r = requests.patch(
-                f"{BACKEND_URL}/api/v1/devices/{device_id}/status",
-                json={"is_online": is_online, "estado": estado or {}},
-                headers=WEBHOOK_HEADERS,
-                timeout=3,
-            )
-            r.raise_for_status()
-        except requests.Timeout:
-            logger.warning(f"Timeout updating status for {device_id}")
-        except Exception as e:
-            logger.error(f"Error updating device status: {e}")

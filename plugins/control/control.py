@@ -38,11 +38,14 @@ class Control(BasePlugin, BotPlugin):
                 )
                 state_sync.mark_device_changed(device["id"], state)
             else:
-                device_cache.mark_offline(device["id"])
-
-            # Update device status in backend via webhook (not the chat message — that's
-            # handled by the dispatcher after this function returns).
-            self.update_device_status(device_id=device["id"], is_online=resultado["ok"])
+                state = device_cache.update(
+                    device_id=device["id"],
+                    estado=device_cache.get(device["id"]).estado if device_cache.get(device["id"]) else {},
+                    is_online=False,
+                    source="action",
+                    confidence=0.8,
+                )
+                state_sync.mark_device_changed(device["id"], state)
 
             return json.dumps(resultado)
 
