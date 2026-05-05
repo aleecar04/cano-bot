@@ -1,0 +1,5 @@
+[run]
+# boot.py is a daemon startup file wired to real XMPP/hardware polling loops.
+# It is not unit-testable and is excluded from coverage requirements.
+omit =
+    plugins/boot/*
