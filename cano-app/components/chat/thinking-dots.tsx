@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, View, Text } from 'react-native';
+import { Animated, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 function ThinkingDot({ delay }: Readonly<{ delay: number }>) {

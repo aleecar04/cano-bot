@@ -10,10 +10,10 @@ export type Conversation = {
 export function ConversationItem({
   item,
   onPress,
-}: {
+}: Readonly<{
   item: Conversation;
   onPress: (id: string) => void;
-}) {
+}>) {
   const date = new Date(item.updated_at);
   const formatted = date.toLocaleDateString([], {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',

@@ -8,7 +8,7 @@ interface BotJsonBubbleProps {
   timestamp: Date;
 }
 
-export function BotJsonBubble({ data, timestamp }: BotJsonBubbleProps) {
+export function BotJsonBubble({ data, timestamp }: Readonly<BotJsonBubbleProps>) {
   const tipo = data.tipo as string | undefined;
 
   if (tipo === 'scan_response') {

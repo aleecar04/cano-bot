@@ -7,7 +7,7 @@ type ChatHeaderProps = {
   onHistoryPress: () => void;
 };
 
-export function ChatHeader({ thinking, onHistoryPress }: ChatHeaderProps) {
+export function ChatHeader({ thinking, onHistoryPress }: Readonly<ChatHeaderProps>) {
   return (
     <SafeAreaView edges={['top']} className="bg-bg-secondary">
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-border">

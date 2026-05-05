@@ -21,7 +21,7 @@ import { BotJsonBubble } from '@/components/chat/bot-json-bubble';
 import { ThinkingDots } from '@/components/chat/thinking-dots';
 import { ConversationItem, type Conversation } from '@/components/chat/conversation-item';
 
-const STORAGE_KEY = 'active_conv_id';
+const storageKey = (userId: string) => `@cano4/active_conv_${userId}`;
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 15;
 
@@ -33,29 +33,28 @@ export default function ChatScreen() {
   const [historialVisible, setHistorialVisible] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const flatListRef = useRef<FlatList>(null);
-  // Tracks the conversation that has been persisted to the backend.
-  // We only create the DB record on the first message send, not on screen load.
   const persistedConvId = useRef<string | undefined>(undefined);
+  const userStorageKey = useRef<string>('');
 
   useEffect(() => {
     const initChat = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setLoading(false); return; }
+
+      // Key is scoped to this user — no cross-user contamination
+      userStorageKey.current = storageKey(session.user.id);
+
       try {
-        // Restore last active conversation from storage
-        const savedId = await AsyncStorage.getItem(STORAGE_KEY);
+        const savedId = await AsyncStorage.getItem(userStorageKey.current);
         if (savedId) {
           try {
             const msgs = await getConversationMessages(savedId);
             persistedConvId.current = savedId;
             setMessages(_mapMessagesToUI(msgs));
           } catch {
-            // Conversation no longer exists — start fresh
-            await AsyncStorage.removeItem(STORAGE_KEY);
+            await AsyncStorage.removeItem(userStorageKey.current);
           }
         }
-        // If no saved conversation, leave persistedConvId undefined and create
-        // the DB record lazily on the first message send.
       } catch (err) {
         console.error('initChat error', err);
       } finally {
@@ -79,7 +78,7 @@ export default function ChatScreen() {
   const selectConversation = async (id: string) => {
     setHistorialVisible(false);
     persistedConvId.current = id;
-    await AsyncStorage.setItem(STORAGE_KEY, id);
+    await AsyncStorage.setItem(userStorageKey.current, id);
     try {
       const msgs = await getConversationMessages(id);
       setMessages(_mapMessagesToUI(msgs));
@@ -92,7 +91,7 @@ export default function ChatScreen() {
     // Discard current session conversation (local only — not persisted until first message)
     persistedConvId.current = undefined;
     setMessages([]);
-    AsyncStorage.removeItem(STORAGE_KEY);
+    AsyncStorage.removeItem(userStorageKey.current);
     setHistorialVisible(false);
   };
 
@@ -105,9 +104,9 @@ export default function ChatScreen() {
     try {
       // Ensure we have a persisted conversation before sending
       if (!persistedConvId.current) {
-        const newConv = await createConversation();
+        const newConv = await createConversation(text.slice(0, 60));
         persistedConvId.current = newConv.id;
-        await AsyncStorage.setItem(STORAGE_KEY, persistedConvId.current);
+        await AsyncStorage.setItem(userStorageKey.current, persistedConvId.current);
       }
       let activeId = persistedConvId.current;
 
@@ -124,11 +123,11 @@ export default function ChatScreen() {
         // Stale conversation (404) — create a fresh one and retry once
         if (String(err).includes('Conversation not found') || String(err).includes('404')) {
           persistedConvId.current = undefined;
-          await AsyncStorage.removeItem(STORAGE_KEY);
-          const newConv = await createConversation();
+          await AsyncStorage.removeItem(userStorageKey.current);
+          const newConv = await createConversation(text.slice(0, 60));
           persistedConvId.current = newConv.id;
           activeId = newConv.id;
-          await AsyncStorage.setItem(STORAGE_KEY, persistedConvId.current);
+          await AsyncStorage.setItem(userStorageKey.current, persistedConvId.current);
           data = await apiSendMessage(text, activeId);
         } else {
           throw err;

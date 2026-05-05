@@ -9,7 +9,7 @@ export type Message = {
   timestamp: Date;
 };
 
-export function MessageBubble({ item }: { item: Message }) {
+export function MessageBubble({ item }: Readonly<{ item: Message }>) {
   const isMe = item.from === 'me';
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isMe ? 25 : -25)).current;
@@ -73,7 +73,7 @@ export function MessageBubble({ item }: { item: Message }) {
           
           <Text 
             className={`text-[10px] mt-1 font-medium ${
-              isMe ? 'text-blue-100/90 text-right' : 'text-slate-400'
+              isMe ? 'text-blue-100/90 text-right' : 'text-text-secondary'
             }`}
           >
             {formatTime(item.timestamp)}
