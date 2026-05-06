@@ -146,6 +146,53 @@ def toggle_schedule(
     return result.data[0] if result.data else None
 
 
+def toggle_schedule_any(
+    schedule_id: str, owner_id: str, toggle_in: ScheduleToggle
+) -> dict | None:
+    """Owner-only: toggle any schedule in the house."""
+    member_ids = get_house_member_ids(owner_id)
+    existing = (
+        supabase.table("schedules")
+        .select("cron_expr, timezone, user_id")
+        .eq("id", schedule_id)
+        .in_("user_id", member_ids)
+        .execute()
+    )
+    if not existing.data:
+        return None
+    s = existing.data[0]
+    update: dict = {"is_active": toggle_in.is_active, "updated_at": "now()"}
+    if toggle_in.is_active and s.get("cron_expr"):
+        tz = s.get("timezone") or "UTC"
+        update["next_run_at"] = _next_run(s["cron_expr"], tz).isoformat()
+    result = (
+        supabase.table("schedules")
+        .update(update)
+        .eq("id", schedule_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def delete_completed_schedules(user_id: str) -> int:
+    """Delete one-time completed schedules.
+    Owners delete for the whole house; members delete only their own."""
+    from app.services.home import get_user_role
+    query = (
+        supabase.table("schedules")
+        .delete()
+        .is_("cron_expr", "null")
+        .eq("is_active", False)
+    )
+    if get_user_role(user_id) == "owner":
+        member_ids = get_house_member_ids(user_id)
+        query = query.in_("user_id", member_ids)
+    else:
+        query = query.eq("user_id", user_id)
+    result = query.execute()
+    return len(result.data) if result.data else 0
+
+
 def get_pending_schedules() -> list[dict]:
     """Return all active schedules whose next_run_at is in the past. Called by the bot."""
     now = datetime.now(timezone.utc)

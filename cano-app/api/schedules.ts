@@ -60,6 +60,17 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
   if (!res.ok) throw new Error('Error eliminando tarea');
 }
 
+export async function deleteCompletedSchedules(): Promise<number> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/schedules/completed`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) throw new Error('Error limpiando tareas completadas');
+  const data = await res.json();
+  return data.deleted ?? 0;
+}
+
 export async function toggleSchedule(scheduleId: string, isActive: boolean): Promise<ScheduleDto> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/schedules/${scheduleId}/toggle`, {

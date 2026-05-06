@@ -5,7 +5,7 @@ from app.core.db import supabase
 from app.core.config import settings
 from app.models import DeviceVincular, DeviceStatusUpdate, CommandCreate
 from app.services.xmpp import send_xmpp_message
-from app.services.home import get_house_id_for_user
+from app.services.home import get_house_id_for_user, get_user_role
 
 
 def _detectar_driver_tv(hostname: str) -> str:
@@ -116,27 +116,26 @@ def get_device(device_id: str, user_id: str) -> dict | None:
 
 
 def desvincular_device(device_id: str, user_id: str) -> bool:
-    """Only the original owner can unlink a device."""
-    result = supabase.table("devices")\
-        .delete()\
-        .eq("id", device_id)\
-        .eq("owner_id", user_id)\
-        .execute()
+    """Owner can delete any device in the house. Member can only delete their own."""
+    if get_user_role(user_id) == "owner":
+        house_id = get_house_id_for_user(user_id)
+        if not house_id:
+            return False
+        result = supabase.table("devices").delete().eq("id", device_id).eq("house_id", house_id).execute()
+    else:
+        result = supabase.table("devices").delete().eq("id", device_id).eq("owner_id", user_id).execute()
     return bool(result.data)
 
 
 def update_device(device_id: str, user_id: str, data: dict) -> dict | None:
-    """Any house member can update device metadata."""
-    house_id = get_house_id_for_user(user_id)
-    if not house_id:
-        return None
-    result = (
-        supabase.table("devices")
-        .update(data)
-        .eq("id", device_id)
-        .eq("house_id", house_id)
-        .execute()
-    )
+    """Owner can update any device in the house. Member can only update their own."""
+    if get_user_role(user_id) == "owner":
+        house_id = get_house_id_for_user(user_id)
+        if not house_id:
+            return None
+        result = supabase.table("devices").update(data).eq("id", device_id).eq("house_id", house_id).execute()
+    else:
+        result = supabase.table("devices").update(data).eq("id", device_id).eq("owner_id", user_id).execute()
     return result.data[0] if result.data else None
 
 
@@ -198,6 +197,31 @@ class HAConnectSchema(BaseModel):
     token: str
 
 
+def _ha_entity_mac_map(ha_url: str, token: str) -> dict[str, str]:
+    """Devuelve {entity_id: mac} consultando el registro de HA."""
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        er = requests.get(f"{ha_url}/api/config/entity_registry/list", headers=headers, timeout=5)
+        er.raise_for_status()
+        entity_to_device = {e["entity_id"]: e.get("device_id") for e in er.json()}
+
+        dr = requests.get(f"{ha_url}/api/config/device_registry/list", headers=headers, timeout=5)
+        dr.raise_for_status()
+        device_to_mac: dict[str, str] = {}
+        for d in dr.json():
+            for conn_type, conn_val in d.get("connections", []):
+                if conn_type == "mac":
+                    device_to_mac[d["id"]] = conn_val
+
+        return {
+            eid: device_to_mac[did]
+            for eid, did in entity_to_device.items()
+            if did and did in device_to_mac
+        }
+    except Exception:
+        return {}
+
+
 def connect_ha(user_id: str, data: HAConnectSchema) -> dict:
     house_id = get_house_id_for_user(user_id)
     if not house_id:
@@ -227,7 +251,8 @@ def connect_ha(user_id: str, data: HAConnectSchema) -> dict:
     entidades = r.json()
 
     tipos_utiles = ("light.", "switch.", "climate.", "cover.", "media_player.")
-    importados = 0
+    mac_map      = _ha_entity_mac_map(data.ha_url, data.token)
+    importados   = 0
 
     for e in entidades:
         if not e["entity_id"].startswith(tipos_utiles):
@@ -240,6 +265,7 @@ def connect_ha(user_id: str, data: HAConnectSchema) -> dict:
             "type":         e["entity_id"].split(".")[0],
             "driver":       "homeassistant",
             "ha_entity_id": e["entity_id"],
+            "mac":          mac_map.get(e["entity_id"]),
             "config": {
                 "entity_id": e["entity_id"],
                 "ha_url":    data.ha_url,

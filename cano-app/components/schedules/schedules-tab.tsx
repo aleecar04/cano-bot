@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  createSchedule, deleteSchedule, toggleSchedule,
+  createSchedule, deleteSchedule, toggleSchedule, deleteCompletedSchedules,
   type ScheduleDto, type CreateScheduleParams,
 } from '@/api/schedules';
 import { type DeviceDto } from '@/api/devices';
@@ -33,9 +33,15 @@ export function SchedulesTab({
   onSchedulesChange,
   onToast,
 }: Props) {
-  const [showCreate, setShowCreate]   = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [showCreate, setShowCreate]       = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [cleaning, setCleaning]           = useState(false);
+  const [deleteTarget, setDeleteTarget]   = useState<{ id: string; name: string } | null>(null);
+
+  const isOwner = currentUserRole === 'owner';
+  const completedCount = schedules.filter((s) =>
+    !s.cron_expr && !s.is_active && (isOwner || s.user_id === currentUserId)
+  ).length;
 
   const memberMap = new Map<string, string | null>(
     (houseMembers ?? []).map((m) => [m.user_id, m.username])
@@ -64,6 +70,21 @@ export function SchedulesTab({
     }
   };
 
+  const handleCleanCompleted = async () => {
+    setCleaning(true);
+    try {
+      const count = await deleteCompletedSchedules();
+      onSchedulesChange((prev) => prev.filter((s) =>
+        s.cron_expr || s.is_active || (!isOwner && s.user_id !== currentUserId)
+      ));
+      onToast(`${count} tarea${count !== 1 ? 's' : ''} completada${count !== 1 ? 's' : ''} eliminada${count !== 1 ? 's' : ''}`, 'success');
+    } catch (err) {
+      onToast(friendlyError(err), 'error');
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     const { id, name } = deleteTarget;
@@ -83,14 +104,32 @@ export function SchedulesTab({
         <Text className="text-text-secondary text-xs font-bold uppercase tracking-wider">
           Tareas programadas
         </Text>
-        <TouchableOpacity
-          onPress={() => setShowCreate(true)}
-          className="flex-row items-center gap-1.5 bg-primary rounded-lg px-3 py-2"
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={15} color="white" />
-          <Text className="text-text text-xs font-semibold">Nueva</Text>
-        </TouchableOpacity>
+        <View className="flex-row items-center gap-2">
+          {completedCount > 0 && (
+            <TouchableOpacity
+              onPress={handleCleanCompleted}
+              disabled={cleaning}
+              className="flex-row items-center gap-1.5 bg-bg border border-border rounded-lg px-3 py-2"
+              activeOpacity={0.8}
+            >
+              {cleaning
+                ? <ActivityIndicator size="small" color="#94a3b8" />
+                : <Ionicons name="trash-outline" size={14} color="#94a3b8" />
+              }
+              <Text className="text-text-secondary text-xs font-semibold">
+                Limpiar ({completedCount})
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => setShowCreate(true)}
+            className="flex-row items-center gap-1.5 bg-primary rounded-lg px-3 py-2"
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={15} color="white" />
+            <Text className="text-white text-xs font-semibold">Nueva</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loadingSchedules ? (

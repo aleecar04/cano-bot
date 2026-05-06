@@ -5,7 +5,7 @@ from app.api.deps import CurrentUser
 from app.api.routes.messages import verify_webhook_secret
 from app.models import DeviceVincular, DevicePublic, DeviceUpdate, DeviceStatusUpdate, CommandCreate
 from app.services import devices as device_service
-from app.services.home import require_house
+from app.services.home import require_house, get_user_role, get_house_member_ids
 from app.services.devices import HAConnectSchema
 from app.core.db import supabase
 
@@ -67,15 +67,26 @@ def get_my_commands(
     source_type: Annotated[Optional[str], Query()] = None,
     date_from: Annotated[Optional[str], Query()] = None,
     date_to: Annotated[Optional[str], Query()] = None,
+    member_id: Annotated[Optional[str], Query()] = None,
 ):
-    """Returns the paginated command history for the current user.
-    Supports filtering by source_type and date range (ISO date strings)."""
-    offset = (page - 1) * limit
-    query = (
-        supabase.table("commands")
-        .select("*, devices(name, type)")
-        .eq("user_id", current_user["id"])
-    )
+    """Returns paginated command history.
+    Owners can pass member_id=<uuid> to filter by a specific house member,
+    or member_id=all to see the entire house history."""
+    user_id = current_user["id"]
+    offset  = (page - 1) * limit
+
+    # Resolve which user IDs to query
+    if member_id and get_user_role(user_id) == "owner":
+        if member_id == "all":
+            target_ids = get_house_member_ids(user_id)
+            query = supabase.table("commands").select("*, user_id, devices(name, type)").in_("user_id", target_ids)
+        else:
+            house_ids = get_house_member_ids(user_id)
+            safe_id = member_id if member_id in house_ids else user_id
+            query = supabase.table("commands").select("*, user_id, devices(name, type)").eq("user_id", safe_id)
+    else:
+        query = supabase.table("commands").select("*, user_id, devices(name, type)").eq("user_id", user_id)
+
     if source_type:
         query = query.eq("source_type", source_type)
     if date_from:
@@ -239,6 +250,22 @@ def get_ha_connection(current_user: CurrentUser):
     if not result.data:
         return {"connected": False}
     return {"connected": True, "ha_url": result.data[0]["ha_url"], "created_at": result.data[0]["created_at"]}
+
+
+@router.post("/ha/reimport")
+def ha_reimport(current_user: CurrentUser):
+    """Re-imports HA devices using the already stored credentials."""
+    row = supabase.table("ha_integrations").select("ha_url, token").eq("user_id", current_user["id"]).execute()
+    if not row.data:
+        raise HTTPException(status_code=404, detail="No hay integración de Home Assistant configurada")
+    stored = row.data[0]
+    try:
+        result = device_service.connect_ha(current_user["id"], device_service.HAConnectSchema(
+            ha_url=stored["ha_url"], token=stored["token"]
+        ))
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/ha/connection")
