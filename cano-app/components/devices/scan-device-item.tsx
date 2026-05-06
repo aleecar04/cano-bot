@@ -36,7 +36,7 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
       isLinked || nonLinkable ? 'bg-bg/50 border-border/50' : 'bg-bg-secondary border-border'
     }`}>
       <View className="flex-1">
-        <Text className={`font-semibold text-sm ${isLinked || nonLinkable ? 'text-text-secondary' : 'text-slate-100'}`}>
+        <Text className={`font-semibold text-sm ${isLinked || nonLinkable ? 'text-text-secondary' : 'text-text'}`}>
           {device.hostname || device.ip}
         </Text>
         <Text className="text-text-secondary text-xs">{device.ip}</Text>
@@ -85,7 +85,7 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
             ? <ActivityIndicator color="white" size="small" />
             : <Ionicons name="link" size={14} color="white" />
           }
-          <Text className="text-text text-xs font-semibold">
+          <Text className="text-white text-xs font-semibold">
             {isLinking ? 'Vinculando...' : 'Vincular'}
           </Text>
         </TouchableOpacity>

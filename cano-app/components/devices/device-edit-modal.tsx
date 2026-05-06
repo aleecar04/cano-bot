@@ -8,10 +8,6 @@ import { updateDevice, type DeviceDto } from '@/api/devices';
 import { getMyRooms, type RoomDto } from '@/api/houses';
 import { friendlyError } from '@/utils/friendly-error';
 
-const DEVICE_TYPES = [
-  'Luz', 'SmartTV', 'IoT', 'Termostato', 'Altavoz', 'Ordenador',
-];
-
 interface DeviceEditModalProps {
   visible: boolean;
   device: { id: string; name: string; type?: string; room_id?: string | null };
@@ -22,7 +18,6 @@ interface DeviceEditModalProps {
 
 export function DeviceEditModal({ visible, device, onClose, onSave, onError }: DeviceEditModalProps) {
   const [editName, setEditName]       = useState('');
-  const [editType, setEditType]       = useState('');
   const [editRoomId, setEditRoomId]   = useState<string | null>(null);
   const [rooms, setRooms]             = useState<RoomDto[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
@@ -31,7 +26,6 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: D
   useEffect(() => {
     if (!visible) return;
     setEditName(device.name);
-    setEditType(device.type ?? '');
     setEditRoomId(device.room_id ?? null);
     setLoadingRooms(true);
     getMyRooms()
@@ -45,11 +39,7 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: D
     if (!name) return;
     setSaving(true);
     try {
-      const updated = await updateDevice(device.id, {
-        name,
-        room_id: editRoomId,
-        ...(editType ? { type: editType } : {}),
-      });
+      const updated = await updateDevice(device.id, { name, room_id: editRoomId });
       onSave(updated);
       onClose();
     } catch (err) {
@@ -90,26 +80,12 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: D
               />
             </View>
 
-            <View>
-              <Text className="text-text-secondary text-xs font-semibold mb-2">Tipo de dispositivo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-2 pr-2">
-                  {DEVICE_TYPES.map((t) => (
-                    <TouchableOpacity
-                      key={t}
-                      onPress={() => setEditType(t)}
-                      className={`px-3 py-2 rounded-lg border ${
-                        editType === t ? 'bg-primary border-primary' : 'bg-bg border-border'
-                      }`}
-                      activeOpacity={0.7}
-                    >
-                      <Text className={`text-xs font-semibold ${editType === t ? 'text-white' : 'text-text-secondary'}`}>
-                        {t}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+            <View className="flex-row items-center gap-2 bg-bg border border-border rounded-xl px-4 py-3">
+              <Ionicons name="lock-closed-outline" size={15} color="#64748b" />
+              <View className="flex-1">
+                <Text className="text-text text-sm font-semibold">{device.type}</Text>
+                <Text className="text-text-secondary text-xs mt-0.5">Una vez vinculado, el tipo no se puede cambiar</Text>
+              </View>
             </View>
 
             <View>

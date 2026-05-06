@@ -8,7 +8,8 @@ export interface DeviceDto {
   name: string;
   type: string;
   driver: string | null;
-  ip: string;
+  ip: string | null;
+  mac: string | null;
   config: Record<string, unknown>;
   estado: Record<string, unknown>;
   is_online: boolean;
@@ -106,6 +107,7 @@ export async function sendCommand(
 
 export interface CommandDto {
   id: string;
+  user_id?: string;
   device_id: string | null;
   action: string;
   payload: Record<string, unknown>;
@@ -124,6 +126,8 @@ export interface CommandHistoryFilters {
   date_to?: string;
   page?: number;
   limit?: number;
+  /** Owner-only: uuid of a specific member, or 'all' for entire house */
+  member_id?: string;
 }
 
 export async function getMyCommandHistory(filters: CommandHistoryFilters = {}): Promise<CommandDto[]> {
@@ -134,6 +138,7 @@ export async function getMyCommandHistory(filters: CommandHistoryFilters = {}): 
   if (filters.date_to)     params.set('date_to', filters.date_to);
   if (filters.page)        params.set('page', String(filters.page));
   if (filters.limit)       params.set('limit', String(filters.limit));
+  if (filters.member_id)   params.set('member_id', filters.member_id);
   const qs = params.toString();
   const suffix = qs ? `?${qs}` : '';
   const res = await fetch(`${API_URL}/api/v1/devices/commands${suffix}`, { headers });

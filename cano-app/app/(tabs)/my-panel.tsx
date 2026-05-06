@@ -149,7 +149,11 @@ export default function MyPanelScreen() {
           />
         )}
         {activeTab === 'history' && (
-          <HistoryTab />
+          <HistoryTab
+            currentUserId={currentUserId}
+            currentUserRole={currentUserRole}
+            houseMembers={houseMembers}
+          />
         )}
         <View className="h-6" />
       </ScrollView>

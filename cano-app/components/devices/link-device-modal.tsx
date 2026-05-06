@@ -6,7 +6,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { type RoomDto } from '@/api/houses';
 import { type VincularDeviceParams } from '@/api/devices';
-import { deviceIcon, DEVICE_ICON_MAP } from '@/utils/device-icons';
 
 interface ScannedDevice {
   ip: string;
@@ -24,11 +23,6 @@ interface LinkDeviceModalProps {
   onConfirm: (params: VincularDeviceParams) => void;
 }
 
-// Deduplicate by icon value so each icon appears only once
-const ICON_OPTIONS = Object.entries(DEVICE_ICON_MAP)
-  .filter(([, icon], idx, arr) => arr.findIndex(([, i]) => i === icon) === idx)
-  .map(([type, icon]) => ({ type, icon }));
-
 const TUYA_TYPES = new Set(['Luz', 'IoT', 'Termostato', 'light', 'switch', 'climate']);
 
 export function LinkDeviceModal({
@@ -41,9 +35,6 @@ export function LinkDeviceModal({
 }: LinkDeviceModalProps) {
   const [name, setName] = useState(device.hostname ?? device.ip);
   const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
-  const [selectedIcon, setSelectedIcon] = useState<string>(
-    deviceIcon(device.tipo ?? '')
-  );
   const [tuyaDevId, setTuyaDevId]         = useState('');
   const [tuyaLocalKey, setTuyaLocalKey]   = useState('');
   const [tuyaVersion, setTuyaVersion]     = useState<number>(3.4);
@@ -210,28 +201,6 @@ export function LinkDeviceModal({
               </>
             )}
 
-            {/* Icon selector */}
-            <Text className="text-text text-sm font-semibold mb-2">Icono</Text>
-            <View className="flex-row flex-wrap gap-2 mb-6">
-              {ICON_OPTIONS.map(({ type, icon }) => (
-                <TouchableOpacity
-                  key={type}
-                  onPress={() => setSelectedIcon(icon)}
-                  className={`w-12 h-12 rounded-xl border items-center justify-center ${
-                    selectedIcon === icon
-                      ? 'bg-indigo-500 border-indigo-500'
-                      : 'bg-bg border-border'
-                  }`}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={icon as any}
-                    size={22}
-                    color={selectedIcon === icon ? 'white' : '#64748b'}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
           </ScrollView>
 
           {/* Actions */}

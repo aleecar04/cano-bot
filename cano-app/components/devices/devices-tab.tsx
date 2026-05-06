@@ -145,7 +145,7 @@ export function DevicesTab({
             ? <ActivityIndicator color="white" size="small" />
             : <Ionicons name="search" size={18} color="white" />
           }
-          <Text className="text-text font-semibold text-sm">
+          <Text className="text-white font-semibold text-sm">
             {scanning ? 'Escaneando...' : 'Escanear red'}
           </Text>
         </TouchableOpacity>
@@ -225,7 +225,10 @@ export function DevicesTab({
                   device={device}
                   onLink={handleOpenLinkModal}
                   isLinking={false}
-                  isLinked={linkedDevices.some((d) => d.ip === device.ip)}
+                  isLinked={linkedDevices.some((d) =>
+                    (d.ip && d.ip === device.ip) ||
+                    (d.mac && device.mac && d.mac.toLowerCase() === device.mac.toLowerCase())
+                  )}
                 />
               ))}
               {!scanning && scannedDevices.length === 0 && (
@@ -242,14 +245,14 @@ export function DevicesTab({
                 onPress={() => setShowScanModal(false)}
                 disabled={scanning}
               >
-                <Text className="text-slate-100 font-semibold text-xs">Cerrar</Text>
+                <Text className="text-text font-semibold text-xs">Cerrar</Text>
               </TouchableOpacity>
               {scannedDevices.length > 0 && !scanning && (
                 <TouchableOpacity
                   className="flex-1 bg-indigo-500 rounded-lg py-2.5 items-center"
                   onPress={handleScanDevices}
                 >
-                  <Text className="text-text font-semibold text-xs">Escanear de nuevo</Text>
+                  <Text className="text-white font-semibold text-xs">Escanear de nuevo</Text>
                 </TouchableOpacity>
               )}
             </View>

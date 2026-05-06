@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { sendCommand, waitForCommand, getDevice, type DeviceDto } from '@/api/devices';
-import { addFavorite } from '@/api/favorites';
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { DeviceEditModal } from '@/components/devices/device-edit-modal';
@@ -35,7 +34,8 @@ interface LinkedDevice {
   id: string;
   name: string;
   type: string;
-  ip: string;
+  ip: string | null;
+  mac?: string | null;
   is_online: boolean;
   estado: Record<string, unknown>;
   room_id?: string | null;
@@ -81,6 +81,22 @@ const LUZ_COLORES: { name: string; hex: string }[] = [
 
 const _BULB_TYPES      = new Set(['Luz', 'light']);
 const _TUYA_BULB_TYPES = new Set(['Luz']);
+
+function kelvinToHex(k: number): string {
+  const c = Math.max(2700, Math.min(6500, k));
+  if (c <= 4000) {
+    const t = (c - 2700) / 1300;
+    return `rgb(${Math.round(249 + t * (251 - 249))},${Math.round(115 + t * (191 - 115))},${Math.round(22 + t * (36 - 22))})`;
+  }
+  const t = (c - 4000) / 2500;
+  return `rgb(${Math.round(251 + t * (147 - 251))},${Math.round(191 + t * (197 - 191))},${Math.round(36 + t * (253 - 36))})`;
+}
+
+function closestTempPreset(k: number): number {
+  if (k <= 3350) return 2700;
+  if (k <= 5250) return 4000;
+  return 6500;
+}
 
 const TV_ACCIONES: Accion[] = [
   { accion: 'encender',      icon: 'power',           label: 'Encender' },
@@ -142,8 +158,6 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
 }) => {
   const [loadingAccion, setLoadingAccion] = useState<string | null>(null);
   const [expanded, setExpanded]           = useState(false);
-  const [showPinModal, setShowPinModal]   = useState(false);
-  const [pinning, setPinning]             = useState(false);
   const [picker, setPicker]               = useState<'volumen' | 'app' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
@@ -184,19 +198,6 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
     handleAccion(a.accion, a.payload ?? {});
   };
 
-  const handlePin = async (accion: string, label: string) => {
-    setPinning(true);
-    try {
-      await addFavorite({ device_id: device.id, action: accion, label: `${label} ${device.name}` });
-      setShowPinModal(false);
-      setToast({ message: 'Añadido a la pantalla principal', variant: 'success' });
-    } catch (err) {
-      setToast({ message: friendlyError(err), variant: 'error' });
-    } finally {
-      setPinning(false);
-    }
-  };
-
   const icon  = deviceIcon(device.type);
   const color = deviceColor(device.type);
 
@@ -225,14 +226,6 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
         </View>
 
         <View className="flex-row gap-2">
-          <TouchableOpacity
-            className="rounded-lg px-3 py-2 bg-amber-500/20"
-            onPress={() => setShowPinModal(true)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="star-outline" size={16} color="#f59e0b" />
-          </TouchableOpacity>
-
           <TouchableOpacity
             className="bg-slate-500/20 rounded-lg px-3 py-2"
             onPress={() => setShowEditModal(true)}
@@ -336,44 +329,57 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-text-secondary text-xs font-semibold">Brillo</Text>
                   {typeof device.estado?.brightness === 'number' && (
-                    <Text className="text-text-secondary text-xs">{device.estado.brightness}%</Text>
+                    <Text className="text-text-secondary text-xs">{device.estado.brightness as number}%</Text>
                   )}
                 </View>
                 <View className="flex-row gap-2">
-                  {[25, 50, 75, 100].map((v) => (
-                    <TouchableOpacity
-                      key={v}
-                      className="flex-1 py-2 rounded-lg border border-border bg-bg items-center"
-                      onPress={() => handleAccion('brillo', { valor: v })}
-                      disabled={loadingAccion !== null}
-                      activeOpacity={0.7}
-                    >
-                      <Text className="text-text-secondary text-xs font-semibold">{v}%</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {[25, 50, 75, 100].map((v) => {
+                    const cur = device.estado?.brightness as number | undefined;
+                    const isActive = cur !== undefined && Math.abs(cur - v) < 13;
+                    return (
+                      <TouchableOpacity
+                        key={v}
+                        className={`flex-1 py-2 rounded-lg border items-center ${isActive ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}
+                        onPress={() => handleAccion('brillo', { valor: v })}
+                        disabled={loadingAccion !== null}
+                        activeOpacity={0.7}
+                      >
+                        <Text className={`text-xs font-semibold ${isActive ? 'text-indigo-400' : 'text-text-secondary'}`}>{v}%</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
               {/* Temperatura */}
               <View>
                 <Text className="text-text-secondary text-xs font-semibold mb-2">Temperatura</Text>
+                {typeof device.estado?.color_temp === 'number' && device.estado?.work_mode !== 'colour' && (
+                  <View style={{ height: 14, borderRadius: 7, backgroundColor: kelvinToHex(device.estado.color_temp as number), marginBottom: 8 }} />
+                )}
                 <View className="flex-row gap-2">
                   {[
                     { label: 'Cálida', valor: 2700, color: '#f97316' },
                     { label: 'Neutra', valor: 4000, color: '#fbbf24' },
                     { label: 'Fría',   valor: 6500, color: '#93c5fd' },
-                  ].map(({ label, valor, color }) => (
-                    <TouchableOpacity
-                      key={label}
-                      className="flex-1 py-2 rounded-lg border border-border bg-bg items-center"
-                      onPress={() => handleAccion('temperatura_color', { valor })}
-                      disabled={loadingAccion !== null}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color, marginBottom: 3 }} />
-                      <Text className="text-text-secondary text-xs font-semibold">{label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  ].map(({ label, valor, color }) => {
+                    const curTemp = device.estado?.color_temp as number | undefined;
+                    const isActive = curTemp !== undefined
+                      && device.estado?.work_mode !== 'colour'
+                      && closestTempPreset(curTemp) === valor;
+                    return (
+                      <TouchableOpacity
+                        key={label}
+                        className={`flex-1 py-2 rounded-lg border items-center ${isActive ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}
+                        onPress={() => handleAccion('temperatura_color', { valor })}
+                        disabled={loadingAccion !== null}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color, marginBottom: 3 }} />
+                        <Text className={`text-xs font-semibold ${isActive ? 'text-indigo-400' : 'text-text-secondary'}`}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -381,17 +387,35 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               {hasTuyaColor && (
                 <View>
                   <Text className="text-text-secondary text-xs font-semibold mb-2">Color</Text>
+                  {typeof device.estado?.color_hex === 'string' && device.estado?.work_mode === 'colour' && (
+                    <View className="flex-row items-center gap-2 mb-2">
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: device.estado.color_hex as string, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' }} />
+                      <View style={{ flex: 1, height: 14, borderRadius: 7, backgroundColor: device.estado.color_hex as string, opacity: 0.55 }} />
+                    </View>
+                  )}
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row gap-2 pr-2">
-                      {LUZ_COLORES.map(({ name, hex }) => (
-                        <TouchableOpacity
-                          key={name}
-                          style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: hex, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' }}
-                          onPress={() => handleAccion('color_rgb', { color: name })}
-                          disabled={loadingAccion !== null}
-                          activeOpacity={0.7}
-                        />
-                      ))}
+                      {LUZ_COLORES.map(({ name, hex }) => {
+                        const curHex = device.estado?.color_hex as string | undefined;
+                        const isActive = device.estado?.work_mode === 'colour'
+                          && curHex?.toLowerCase() === hex.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={name}
+                            style={{
+                              width: isActive ? 36 : 30,
+                              height: isActive ? 36 : 30,
+                              borderRadius: isActive ? 18 : 15,
+                              backgroundColor: hex,
+                              borderWidth: isActive ? 3 : 2,
+                              borderColor: isActive ? 'white' : 'rgba(255,255,255,0.2)',
+                            }}
+                            onPress={() => handleAccion('color_rgb', { color: name })}
+                            disabled={loadingAccion !== null}
+                            activeOpacity={0.7}
+                          />
+                        );
+                      })}
                     </View>
                   </ScrollView>
                 </View>
@@ -400,47 +424,6 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
           )}
         </View>
       )}
-
-      {/* Pin to home modal */}
-      <Modal
-        visible={showPinModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPinModal(false)}
-      >
-        <View className="flex-1 bg-black/60 items-center justify-center px-6">
-          <View className="bg-bg-secondary rounded-2xl border border-border w-full max-w-sm">
-            <View className="px-5 pt-5 pb-4 border-b border-border flex-row items-center justify-between">
-              <View>
-                <Text className="text-text font-bold text-base">Fijar en inicio</Text>
-                <Text className="text-text-secondary text-xs mt-1">{device.name}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowPinModal(false)} disabled={pinning}>
-                <Ionicons name="close" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView className="px-5 py-4" style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-              <Text className="text-text-secondary text-xs mb-3">Elige la acción que quieres tener en la pantalla principal:</Text>
-              {acciones.filter(a => !a.picker).map((a) => (
-                <TouchableOpacity
-                  key={a.accion}
-                  onPress={() => handlePin(a.accion, a.label)}
-                  disabled={pinning}
-                  className="flex-row items-center gap-3 bg-bg border border-border rounded-xl px-4 py-3 mb-2"
-                  activeOpacity={0.7}
-                >
-                  {pinning ? (
-                    <ActivityIndicator size="small" color="#f59e0b" />
-                  ) : (
-                    <Ionicons name={a.icon as any} size={20} color="#f59e0b" />
-                  )}
-                  <Text className="text-text font-semibold text-sm">{a.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* Volumen / App picker */}
       <Modal
