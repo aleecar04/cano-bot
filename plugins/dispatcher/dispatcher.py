@@ -10,6 +10,83 @@ from plugins.bot_config import BACKEND_URL, WEBHOOK_HEADERS
 
 _ACCIONES_CON_VALOR = {"brillo", "temperatura_color", "set_volumen"}
 
+_ACCIONES_DESCRIPCION: dict[str, str] = {
+    "encender":          "encender",
+    "apagar":            "apagar",
+    "brillo":            "brillo  (valor: 0-100)",
+    "temperatura_color": "temperatura_color  (cálida=2700K · neutra=4000K · fría=6500K)",
+    "color_rgb":         "color_rgb  (rojo, naranja, amarillo, verde, cyan, azul, morado, violeta, rosa, blanco)",
+    "subir_volumen":     "subir_volumen",
+    "bajar_volumen":     "bajar_volumen",
+    "mute":              "mute",
+    "set_volumen":       "set_volumen  (valor: 0-100)",
+    "abrir_app":         "abrir_app  (netflix, youtube, prime, disney)",
+}
+
+_TIPO_LABEL: dict[str, str] = {
+    "Luz":          "Luz / Bombilla",
+    "SmartTV":      "Smart TV",
+    "Altavoz":      "Altavoz",
+    "Enchufe":      "Enchufe",
+    "Persiana":     "Persiana",
+    "Termostato":   "Termostato",
+    "IoT":          "IoT",
+    "Ordenador":    "Ordenador",
+    "light":        "Luz (HA)",
+    "switch":       "Switch (HA)",
+    "media_player": "Media Player (HA)",
+    "cover":        "Persiana (HA)",
+    "climate":      "Clima (HA)",
+}
+
+_TIPOS_GENERICOS = ["Luz", "SmartTV", "Altavoz", "Enchufe", "Persiana", "Termostato", "IoT", "Ordenador"]
+
+_AYUDA_TEXT = (
+    "¡Hola! Soy Cano-bot. Esto es lo que puedo hacer:\n\n"
+    "Dispositivos:\n"
+    "  • \"enciende la luz\" / \"apaga la tele\"\n"
+    "  • \"lista mis dispositivos\"\n"
+    "  • \"escanea la red\"\n\n"
+    "Luz / Bombilla:\n"
+    "  • \"brillo al 75\"\n"
+    "  • \"luz cálida\" / \"luz neutra\" / \"luz fría\"\n"
+    "  • \"pon la luz en rojo\" / \"luz azul\" / \"luz verde\"...\n\n"
+    "Smart TV:\n"
+    "  • \"sube el volumen\" / \"volumen a 50\" / \"silencia la tele\"\n"
+    "  • \"abre Netflix en la tele\"\n\n"
+    "Ayuda:\n"
+    "  • \"acciones\" → ver todas las acciones por tipo\n"
+    "  • \"acciones de [nombre]\" → ver acciones de un dispositivo concreto"
+)
+
+_TEMP_PRESETS: dict[int, str] = {2700: "Cálida", 4000: "Neutra", 6500: "Fría"}
+_COLOR_NAMES: frozenset[str] = frozenset({
+    "rojo", "naranja", "amarillo", "verde", "cyan",
+    "azul", "morado", "violeta", "rosa", "blanco",
+})
+
+
+def _validate_action_payload(accion: str, payload: dict) -> str | None:
+    if accion == "temperatura_color":
+        valor = payload.get("valor")
+        if valor is None or int(valor) not in _TEMP_PRESETS:
+            return (
+                "Solo acepto estas temperaturas de color:\n"
+                "  • Cálida → 2700K\n"
+                "  • Neutra → 4000K\n"
+                "  • Fría → 6500K\n"
+                "Prueba: \"luz cálida\", \"temperatura neutra\" o \"luz fría\"."
+            )
+    elif accion == "color_rgb":
+        color = str(payload.get("color", "")).lower()
+        if color not in _COLOR_NAMES:
+            return (
+                "Lo siento, ese color no está dentro de los colores soportados. "
+                "Prueba con alguno de los siguientes:\n"
+                "rojo, naranja, amarillo, verde, cyan, azul, morado, violeta, rosa, blanco."
+            )
+    return None
+
 # Acciones soportadas por tipo de dispositivo (None = sin restricción)
 _ACCIONES_POR_TIPO: dict[str, set[str]] = {
     "Luz":          {"encender", "apagar", "brillo", "temperatura_color", "color_rgb"},
@@ -84,6 +161,21 @@ class Dispatcher(BasePlugin, BotPlugin):
                 return
         except (json.JSONDecodeError, TypeError):
             pass
+
+        texto_lower = texto.lower()
+        if any(kw in texto_lower for kw in ("ayuda", "help", "ayúdame", "qué puedes hacer", "que puedes hacer")):
+            self._handle_ayuda(msg, texto)
+            return
+        if any(kw in texto_lower for kw in ("acciones", "qué soporta", "que soporta")):
+            self._handle_acciones(msg, texto)
+            return
+        if any(kw in texto_lower for kw in ("escanear", "escanea", "scan", "buscar dispositivos", "buscar en la red")):
+            metodo = self._get_command_from_plugins("scan_devices")
+            if metodo:
+                respuesta = metodo(msg, "")
+                self.log_message(str(msg.frm), texto, respuesta, getattr(msg, "id", None))
+                self.send(msg.frm, respuesta)
+            return
 
         intent_data = classify_intent(texto)
         intent = intent_data.get("intent", "unknown")
@@ -173,6 +265,12 @@ class Dispatcher(BasePlugin, BotPlugin):
                     payload = {"valor": valor}
                     self.log.info(f"Valor extraído por regex: {valor} para acción '{accion}'")
 
+            error_payload = _validate_action_payload(accion, payload)
+            if error_payload:
+                self.log_message(str(msg.frm), texto, error_payload, getattr(msg, "id", None))
+                self.send(msg.frm, error_payload)
+                return
+
             args = json.dumps({
                 "device_id": device["id"],
                 "accion": accion,
@@ -247,3 +345,50 @@ class Dispatcher(BasePlugin, BotPlugin):
     def _get_command_from_plugins(self, comando: str):
         all_commands = self._bot.all_commands if hasattr(self._bot, "all_commands") else {}
         return all_commands.get(comando)
+
+    def _handle_ayuda(self, msg, texto: str):
+        self.log_message(str(msg.frm), texto, _AYUDA_TEXT, getattr(msg, "id", None))
+        self.send(msg.frm, _AYUDA_TEXT)
+
+    def _handle_acciones(self, msg, texto: str):
+        m = re.search(
+            r'(?:acciones\s+de(?:\s+(?:la|el|los|las|un|una))?\s+|soporta\s+(?:la|el|los|las|un|una)?\s*)(.+)',
+            texto.lower(),
+        )
+        nombre = m.group(1).strip() if m else None
+
+        if nombre:
+            try:
+                user_id = get_user_id_from_jid(str(msg.frm))
+                device  = buscar_dispositivo_por_nombre(nombre, user_id)
+            except Exception:
+                device = None
+
+            if not device:
+                respuesta = f"No he encontrado ningún dispositivo llamado '{nombre}'."
+            else:
+                tipo   = device.get("type", "")
+                label  = _TIPO_LABEL.get(tipo, tipo)
+                acts   = set(_ACCIONES_POR_TIPO.get(tipo, set()))
+                if tipo == "Luz" and device.get("driver") == "tuya":
+                    acts.add("color_rgb")
+                lines = [f"{device['name']} ({label}):"]
+                for a in sorted(acts):
+                    lines.append(f"  • {_ACCIONES_DESCRIPCION.get(a, a)}")
+                respuesta = "\n".join(lines)
+        else:
+            lines = ["Acciones por tipo de dispositivo:\n"]
+            for tipo in _TIPOS_GENERICOS:
+                acts = _ACCIONES_POR_TIPO.get(tipo)
+                if not acts:
+                    continue
+                lines.append(f"{_TIPO_LABEL.get(tipo, tipo)}:")
+                for a in sorted(acts):
+                    lines.append(f"  • {_ACCIONES_DESCRIPCION.get(a, a)}")
+                if tipo == "Luz":
+                    lines.append(f"  • {_ACCIONES_DESCRIPCION['color_rgb']}  [solo Tuya]")
+                lines.append("")
+            respuesta = "\n".join(lines).strip()
+
+        self.log_message(str(msg.frm), texto, respuesta, getattr(msg, "id", None))
+        self.send(msg.frm, respuesta)

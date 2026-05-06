@@ -74,6 +74,20 @@ def buscar_dispositivo_por_nombre(nombre: str, user_id: str) -> dict | None:
     return next((d for d in devices if nombre_lower in d["name"].lower()), None)
 
 
+_COLOR_HEX_MAP: dict[str, str] = {
+    "rojo":     "#ff2020",
+    "naranja":  "#ff6400",
+    "amarillo": "#ffc800",
+    "verde":    "#00c800",
+    "cyan":     "#00c8ff",
+    "azul":     "#0000ff",
+    "morado":   "#8000c8",
+    "violeta":  "#9400d3",
+    "rosa":     "#ff1493",
+    "blanco":   "#ffffff",
+}
+
+
 def calculate_expected_state(device: dict, accion: str, payload: dict) -> dict:
     """
     Predict the device state after executing an action.
@@ -90,6 +104,13 @@ def calculate_expected_state(device: dict, accion: str, payload: dict) -> dict:
         new_state["brightness"] = payload.get("valor", 100)
     elif accion == "temperatura_color":
         new_state["color_temp"] = payload.get("valor", 4000)
+        new_state["work_mode"] = "white"
+    elif accion == "color_rgb":
+        color_name = payload.get("color", "")
+        hex_color = _COLOR_HEX_MAP.get(color_name)
+        if hex_color:
+            new_state["color_hex"] = hex_color
+        new_state["work_mode"] = "colour"
     elif accion == "subir_volumen":
         new_state["volume"] = min(100, new_state.get("volume", 50) + 5)
     elif accion == "bajar_volumen":

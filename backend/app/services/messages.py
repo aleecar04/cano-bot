@@ -107,6 +107,32 @@ def update_command_result(command_id: str, error: str | None) -> None:
         data["error"] = error
     supabase.table("commands").update(data).eq("id", command_id).execute()
 
+    # Push notification for schedule-triggered commands
+    try:
+        cmd = supabase.table("commands").select(
+            "user_id, source_type, action, devices(name)"
+        ).eq("id", command_id).execute()
+        if cmd.data and cmd.data[0].get("source_type") == "schedule":
+            row         = cmd.data[0]
+            device_name = (row.get("devices") or {}).get("name", "dispositivo")
+            action_map  = {
+                "encender": "Encender", "apagar": "Apagar",
+                "brillo": "Brillo", "temperatura_color": "Temperatura color",
+                "subir_volumen": "Subir volumen", "bajar_volumen": "Bajar volumen",
+                "mute": "Silenciar", "set_volumen": "Ajustar volumen",
+                "abrir_app": "Abrir app", "color_rgb": "Color",
+            }
+            action_label = action_map.get(row.get("action", ""), row.get("action", ""))
+            from app.services.push import send_push
+            if error:
+                send_push(row["user_id"], "❌ Tarea fallida",
+                          f"{action_label} {device_name}: {error}")
+            else:
+                send_push(row["user_id"], "✅ Tarea ejecutada",
+                          f"{action_label} {device_name} completado correctamente")
+    except Exception:
+        pass  # push is non-critical
+
 def _create_command(
     user_id: str,
     device_id: str | None,

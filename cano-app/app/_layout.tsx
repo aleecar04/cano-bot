@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -35,6 +36,12 @@ function RootLayoutInner() {
 
   useEffect(() => {
     setMounted(true);
+    // Register Service Worker for Web Push
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('SW registration failed:', err);
+      });
+    }
   }, []);
 
   useEffect(() => {

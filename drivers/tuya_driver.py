@@ -1,8 +1,21 @@
+import colorsys
 import tinytuya
 from .base import BaseDriver
 
 _BULB_TYPES   = frozenset({"Luz", "light"})
 _SENSOR_TYPES = frozenset({"Sensor", "sensor"})
+
+
+def _tuya_hsv_to_hex(hsv_str: str) -> str | None:
+    """Convert Tuya DPS-24 HSV hex string (12 chars) to CSS hex color (#rrggbb)."""
+    try:
+        h = int(hsv_str[0:4], 16) / 360.0
+        s = int(hsv_str[4:8], 16) / 1000.0
+        v = int(hsv_str[8:12], 16) / 1000.0
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+    except Exception:
+        return None
 
 
 class TuyaDriver(BaseDriver):
@@ -55,10 +68,17 @@ class TuyaDriver(BaseDriver):
             estado = {"power": "on" if is_on else "off"}
 
             if self._is_bulb(device):
+                if "21" in dps:
+                    estado["work_mode"] = dps["21"]          # "white" | "colour"
                 if "22" in dps:
-                    estado["brightness"] = dps["22"]
+                    estado["brightness"] = round(dps["22"] / 10)   # 10-1000 → 1-100
                 if "23" in dps:
-                    estado["color_temp"] = dps["23"]
+                    # Tuya 0-1000: 0=warm(2700K), 1000=cold(6500K)
+                    estado["color_temp"] = round(2700 + (dps["23"] / 1000) * (6500 - 2700))
+                if "24" in dps:
+                    hex_color = _tuya_hsv_to_hex(str(dps["24"]))
+                    if hex_color:
+                        estado["color_hex"] = hex_color
 
             return {"is_online": True, "estado": estado}
         except Exception as e:

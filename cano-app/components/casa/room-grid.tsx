@@ -9,20 +9,18 @@ import { friendlyError } from '@/utils/friendly-error';
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-type Frequency = 'once' | 'daily' | 'weekdays' | 'weekends';
+type Frequency = 'once' | 'daily' | 'custom';
 
 const FREQ_OPTIONS: { value: Frequency; label: string; icon: string }[] = [
-  { value: 'once',     label: 'Una vez',        icon: 'calendar-outline' },
-  { value: 'daily',    label: 'Cada día',        icon: 'repeat' },
-  { value: 'weekdays', label: 'Días laborables', icon: 'briefcase-outline' },
-  { value: 'weekends', label: 'Fin de semana',   icon: 'sunny-outline' },
+  { value: 'once',   label: 'Una vez',      icon: 'calendar-outline' },
+  { value: 'daily',  label: 'Cada día',     icon: 'repeat' },
+  { value: 'custom', label: 'Personalizado', icon: 'settings-outline' },
 ];
 
-function buildCron(freq: Frequency, date: Date): string {
+function buildCron(freq: Frequency, date: Date, customCron: string): string {
   const h = date.getHours(), m = date.getMinutes();
-  if (freq === 'daily')    return `${m} ${h} * * *`;
-  if (freq === 'weekdays') return `${m} ${h} * * 1-5`;
-  if (freq === 'weekends') return `${m} ${h} * * 0,6`;
+  if (freq === 'daily')  return `${m} ${h} * * *`;
+  if (freq === 'custom') return customCron.trim();
   return '';
 }
 
@@ -88,6 +86,7 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
   const [dateStr, setDateStr]       = useState(toDateStr(new Date()));
   const [timeStr, setTimeStr]       = useState(toTimeStr(new Date()));
   const [name, setName]             = useState('');
+  const [customCron, setCustomCron] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => {
@@ -107,7 +106,7 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
     const payload: SchedulePayload = {
       name: taskName, action,
       timezone: USER_TZ,
-      ...(isRecurring ? { cron_expr: buildCron(freq, dt) } : { run_at: dt.toISOString() }),
+      ...(isRecurring ? { cron_expr: buildCron(freq, dt, customCron) } : { run_at: dt.toISOString() }),
     };
     setSubmitting(true);
     try {
@@ -178,6 +177,20 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
               ))}
             </View>
 
+            {/* Custom cron */}
+            {freq === 'custom' && (
+              <View className="mb-5">
+                <Text className="text-text text-sm font-semibold mb-1">Expresión cron</Text>
+                <Text className="text-text-secondary text-xs mb-2">Ej. 0 8 * * 1-5 (lunes-viernes a las 8:00)</Text>
+                <TextInput
+                  className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm font-mono"
+                  value={customCron} onChangeText={setCustomCron}
+                  placeholder="m h dom mon dow" placeholderTextColor="#64748b"
+                  editable={!submitting} autoCapitalize="none"
+                />
+              </View>
+            )}
+
             {/* Fecha — solo "Una vez" */}
             {freq === 'once' && (
               <View className="mb-4">
@@ -211,8 +224,8 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
               <Text className="text-text font-semibold text-sm">Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className={`flex-1 rounded-xl py-3 items-center flex-row justify-center gap-2 ${submitting ? 'bg-indigo-500/40' : 'bg-indigo-500'}`}
-              onPress={handleSubmit} disabled={submitting} activeOpacity={0.8}>
+              className={`flex-1 rounded-xl py-3 items-center flex-row justify-center gap-2 ${submitting || (freq === 'custom' && !customCron.trim()) ? 'bg-indigo-500/40' : 'bg-indigo-500'}`}
+              onPress={handleSubmit} disabled={submitting || (freq === 'custom' && !customCron.trim())} activeOpacity={0.8}>
               {submitting ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="checkmark" size={16} color="white" />}
               <Text className="text-text font-semibold text-sm">{submitting ? 'Guardando...' : 'Programar'}</Text>
             </TouchableOpacity>

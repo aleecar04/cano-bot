@@ -2,33 +2,36 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getMyCommandHistory, type CommandDto, type CommandHistoryFilters } from '@/api/devices';
+import { type HouseMemberDto, type HouseMemberRole } from '@/api/houses';
 
 // ── Labels & icons ────────────────────────────────────────────────────────────
 
 const ACTION_LABELS: Record<string, string> = {
-  encender:      'Encender',
-  apagar:        'Apagar',
-  brillo:        'Brillo',
-  subir_volumen: 'Subir volumen',
-  bajar_volumen: 'Bajar volumen',
-  mute:          'Silenciar',
-  set_volumen:   'Ajustar volumen',
-  abrir_app:     'Abrir app',
+  encender:          'Encender',
+  apagar:            'Apagar',
+  brillo:            'Brillo',
+  temperatura_color: 'Temperatura color',
+  subir_volumen:     'Subir volumen',
+  bajar_volumen:     'Bajar volumen',
+  mute:              'Silenciar',
+  set_volumen:       'Ajustar volumen',
+  abrir_app:         'Abrir app',
+  color_rgb:         'Color',
 };
 
 const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  direct:       { label: 'Directo',      icon: 'phone-portrait-outline', color: '#3b82f6' },
-  conversation: { label: 'Chat',         icon: 'chatbubble-outline',     color: '#8b5cf6' },
-  favorite:     { label: 'Favorito',     icon: 'star-outline',           color: '#f59e0b' },
-  schedule:     { label: 'Tarea',        icon: 'time-outline',           color: '#10b981' },
+  direct:       { label: 'Directo',  icon: 'phone-portrait-outline', color: '#3b82f6' },
+  conversation: { label: 'Chat',     icon: 'chatbubble-outline',     color: '#8b5cf6' },
+  favorite:     { label: 'Favorito', icon: 'star-outline',           color: '#f59e0b' },
+  schedule:     { label: 'Tarea',    icon: 'time-outline',           color: '#10b981' },
 };
 
 const SOURCE_FILTERS: { value: CommandDto['source_type'] | 'all'; label: string }[] = [
-  { value: 'all',          label: 'Todos'     },
-  { value: 'direct',       label: 'Directo'   },
-  { value: 'conversation', label: 'Chat'      },
-  { value: 'favorite',     label: 'Favorito'  },
-  { value: 'schedule',     label: 'Tarea'     },
+  { value: 'all',          label: 'Todos'    },
+  { value: 'direct',       label: 'Directo'  },
+  { value: 'conversation', label: 'Chat'     },
+  { value: 'favorite',     label: 'Favorito' },
+  { value: 'schedule',     label: 'Tarea'    },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -59,7 +62,13 @@ function SourceBadge({ sourceType }: { sourceType: string }) {
   );
 }
 
-function CommandRow({ cmd }: { readonly cmd: CommandDto }) {
+interface CommandRowProps {
+  cmd: CommandDto;
+  showUser?: boolean;
+  username?: string | null;
+}
+
+function CommandRow({ cmd, showUser, username }: Readonly<CommandRowProps>) {
   const actionLabel = ACTION_LABELS[cmd.action] ?? cmd.action;
   const deviceName  = cmd.devices?.name ?? null;
   const dateStr     = cmd.executed_at ?? cmd.created_at;
@@ -81,6 +90,12 @@ function CommandRow({ cmd }: { readonly cmd: CommandDto }) {
             )}
             <SourceBadge sourceType={cmd.source_type} />
             <Text className="text-text-secondary text-xs">{date}</Text>
+            {showUser && username && (
+              <View className="flex-row items-center gap-1 bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                <Ionicons name="person-outline" size={10} color="#818cf8" />
+                <Text className="text-indigo-400 text-xs">{username}</Text>
+              </View>
+            )}
           </View>
         </View>
         <StatusBadge status={cmd.status} />
@@ -96,7 +111,15 @@ function CommandRow({ cmd }: { readonly cmd: CommandDto }) {
 
 const PAGE_SIZE = 50;
 
-export function HistoryTab() {
+interface Props {
+  currentUserId?: string;
+  currentUserRole?: HouseMemberRole | null;
+  houseMembers?: HouseMemberDto[];
+}
+
+export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Readonly<Props>) {
+  const isOwner = currentUserRole === 'owner';
+
   const [commands, setCommands]         = useState<CommandDto[]>([]);
   const [loading, setLoading]           = useState(true);
   const [loadingMore, setLoadingMore]   = useState(false);
@@ -105,14 +128,29 @@ export function HistoryTab() {
   const [sourceFilter, setSourceFilter] = useState<CommandDto['source_type'] | 'all'>('all');
   const [dateFrom, setDateFrom]         = useState('');
   const [dateTo, setDateTo]             = useState('');
+  // Owner-only member filter: currentUserId (default) | 'all' | specific member uuid
+  const [memberFilter, setMemberFilter] = useState<string>('');
+
+  // Initialise memberFilter once we know who the current user is
+  useEffect(() => {
+    if (currentUserId && memberFilter === '') setMemberFilter(currentUserId);
+  }, [currentUserId]);
+
+  // Build a username lookup map
+  const memberMap = new Map<string, string | null>(
+    (houseMembers ?? []).map((m) => [m.user_id, m.username])
+  );
 
   const buildFilters = useCallback((p: number): CommandHistoryFilters => {
     const f: CommandHistoryFilters = { limit: PAGE_SIZE, page: p };
     if (sourceFilter !== 'all') f.source_type = sourceFilter;
     if (dateFrom) f.date_from = new Date(`${dateFrom}T00:00:00`).toISOString();
     if (dateTo)   f.date_to   = new Date(`${dateTo}T23:59:59`).toISOString();
+    if (isOwner && memberFilter && memberFilter !== currentUserId) {
+      f.member_id = memberFilter;
+    }
     return f;
-  }, [sourceFilter, dateFrom, dateTo]);
+  }, [sourceFilter, dateFrom, dateTo, memberFilter, isOwner, currentUserId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,7 +182,11 @@ export function HistoryTab() {
     }
   };
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (memberFilter !== '') load();
+  }, [load]);
+
+  const showUserBadge = isOwner && memberFilter === 'all';
 
   return (
     <>
@@ -158,6 +200,47 @@ export function HistoryTab() {
         </TouchableOpacity>
       </View>
 
+      {/* Member filter — only visible to owner */}
+      {isOwner && houseMembers && houseMembers.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+          <View className="flex-row gap-2 pr-4">
+            {/* "Todos" chip */}
+            <TouchableOpacity
+              onPress={() => setMemberFilter('all')}
+              className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
+                memberFilter === 'all' ? 'bg-indigo-500 border-indigo-500' : 'bg-bg-secondary border-border'
+              }`}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="people-outline" size={12} color={memberFilter === 'all' ? 'white' : '#94a3b8'} />
+              <Text className={`text-xs font-semibold ${memberFilter === 'all' ? 'text-white' : 'text-text-secondary'}`}>
+                Todos
+              </Text>
+            </TouchableOpacity>
+            {/* Per-member chips */}
+            {houseMembers.map((m) => {
+              const isSelected = memberFilter === m.user_id;
+              const label = m.user_id === currentUserId ? 'Tú' : (m.username ?? 'Miembro');
+              return (
+                <TouchableOpacity
+                  key={m.user_id}
+                  onPress={() => setMemberFilter(m.user_id)}
+                  className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full border ${
+                    isSelected ? 'bg-indigo-500 border-indigo-500' : 'bg-bg-secondary border-border'
+                  }`}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="person-outline" size={12} color={isSelected ? 'white' : '#94a3b8'} />
+                  <Text className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-text-secondary'}`}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
+
       {/* Source type filter chips */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
         <View className="flex-row gap-2 pr-4">
@@ -166,15 +249,11 @@ export function HistoryTab() {
               key={f.value}
               onPress={() => setSourceFilter(f.value)}
               className={`px-3 py-1.5 rounded-full border ${
-                sourceFilter === f.value
-                  ? 'bg-primary border-primary'
-                  : 'bg-bg-secondary border-border'
+                sourceFilter === f.value ? 'bg-primary border-primary' : 'bg-bg-secondary border-border'
               }`}
               activeOpacity={0.7}
             >
-              <Text className={`text-xs font-semibold ${
-                sourceFilter === f.value ? 'text-white' : 'text-text-secondary'
-              }`}>
+              <Text className={`text-xs font-semibold ${sourceFilter === f.value ? 'text-white' : 'text-text-secondary'}`}>
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -234,7 +313,14 @@ export function HistoryTab() {
         </View>
       ) : (
         <>
-          {commands.map((cmd) => <CommandRow key={cmd.id} cmd={cmd} />)}
+          {commands.map((cmd) => (
+            <CommandRow
+              key={cmd.id}
+              cmd={cmd}
+              showUser={showUserBadge}
+              username={memberMap.get(cmd.user_id ?? '') ?? null}
+            />
+          ))}
           {hasMore && (
             <TouchableOpacity
               onPress={loadMore}
