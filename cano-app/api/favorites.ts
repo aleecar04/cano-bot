@@ -52,6 +52,17 @@ export async function executeFavorite(id: string): Promise<{ ok: boolean; comman
   return res.json();
 }
 
+export async function updateFavorite(id: string, params: { action: string; payload?: Record<string, unknown>; label?: string }): Promise<FavoriteDto> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/favorite-actions/${id}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error('Error actualizando favorito');
+  return res.json();
+}
+
 export async function deleteFavorite(id: string): Promise<void> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/favorite-actions/${id}`, {

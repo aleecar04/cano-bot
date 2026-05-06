@@ -52,6 +52,15 @@ async def execute_favorite(favorite_id: str, user_id: str) -> dict:
     )
 
 
+def update_favorite(favorite_id: str, user_id: str, action: str, payload: dict, label: str | None) -> dict | None:
+    result = supabase.table("favorite_actions")\
+        .update({"action": action, "payload": payload, "label": label})\
+        .eq("id", favorite_id)\
+        .eq("user_id", user_id)\
+        .execute()
+    return result.data[0] if result.data else None
+
+
 def delete_favorite(favorite_id: str, user_id: str) -> bool:
     result = supabase.table("favorite_actions")\
         .delete()\

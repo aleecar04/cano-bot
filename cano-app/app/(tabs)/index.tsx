@@ -1,86 +1,43 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { getDevices, waitForCommand, type DeviceDto } from '@/api/devices';
 import {
-  getFavorites, addFavorite, deleteFavorite, executeFavorite,
-  type FavoriteDto, type AddFavoriteParams,
+  getFavorites, addFavorite, deleteFavorite, executeFavorite, updateFavorite,
+  type FavoriteDto,
 } from '@/api/favorites';
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { AddFavoriteModal } from '@/components/ui/add-favorite-modal';
+import { EditFavoriteModal } from '@/components/ui/edit-favorite-modal';
 import { deviceIcon } from '@/utils/device-icons';
+import {
+  getActionsForType, type PayloadType,
+  LUZ_COLORES, TEMP_PRESETS, kelvinToHex, TV_APPS,
+} from '@/utils/device-actions';
 import { useUserProfile } from '@/context/user-profile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ACTION_ICONS: Record<string, string> = {
-  encender:      'power',
-  apagar:        'power-outline',
-  brillo:        'sunny',
-  subir_volumen: 'volume-high',
-  bajar_volumen: 'volume-low',
-  mute:          'volume-mute',
+const ACTION_ICON_MAP: Record<string, string> = {
+  encender:          'power',
+  apagar:            'power-outline',
+  brillo:            'contrast',
+  temperatura_color: 'thermometer-outline',
+  subir_volumen:     'volume-high',
+  bajar_volumen:     'volume-low',
+  mute:              'volume-mute',
+  set_volumen:       'options-outline',
+  abrir_app:         'apps-outline',
+  color_rgb:         'color-palette-outline',
 };
 
 const ACTION_COLORS = ['#6366f1', '#3B82F6', '#10b981', '#f59e0b'];
-
-const ACCIONES_POR_TIPO: Record<string, { accion: string; icon: string; label: string }[]> = {
-  SmartTV: [
-    { accion: 'encender',      icon: 'power',         label: 'Encender' },
-    { accion: 'apagar',        icon: 'power-outline', label: 'Apagar' },
-    { accion: 'subir_volumen', icon: 'volume-high',   label: 'Vol +' },
-    { accion: 'bajar_volumen', icon: 'volume-low',    label: 'Vol -' },
-    { accion: 'mute',          icon: 'volume-mute',   label: 'Mute' },
-  ],
-  Luz: [
-    { accion: 'encender', icon: 'sunny',        label: 'Encender' },
-    { accion: 'apagar',   icon: 'moon-outline', label: 'Apagar' },
-    { accion: 'brillo',   icon: 'contrast',     label: 'Brillo' },
-  ],
-  Termostato: [
-    { accion: 'encender', icon: 'power',         label: 'Encender' },
-    { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
-  ],
-  IoT: [
-    { accion: 'encender', icon: 'power',         label: 'Encender' },
-    { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
-  ],
-  light: [
-    { accion: 'encender', icon: 'sunny',        label: 'Encender' },
-    { accion: 'apagar',   icon: 'moon-outline', label: 'Apagar' },
-    { accion: 'brillo',   icon: 'contrast',     label: 'Brillo' },
-  ],
-  switch: [
-    { accion: 'encender', icon: 'power',         label: 'Encender' },
-    { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
-  ],
-  climate: [
-    { accion: 'encender', icon: 'power',         label: 'Encender' },
-    { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
-  ],
-  cover: [
-    { accion: 'encender', icon: 'arrow-up',   label: 'Abrir' },
-    { accion: 'apagar',   icon: 'arrow-down', label: 'Cerrar' },
-  ],
-  media_player: [
-    { accion: 'encender',      icon: 'play',        label: 'Play' },
-    { accion: 'apagar',        icon: 'pause',       label: 'Pausa' },
-    { accion: 'subir_volumen', icon: 'volume-high', label: 'Vol +' },
-    { accion: 'bajar_volumen', icon: 'volume-low',  label: 'Vol -' },
-    { accion: 'mute',          icon: 'volume-mute', label: 'Mute' },
-  ],
-};
-
-const DEFAULT_ACCIONES = [
-  { accion: 'encender', icon: 'power',         label: 'Encender' },
-  { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
-];
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -91,8 +48,78 @@ function greeting(): string {
 
 function favoriteLabel(fav: FavoriteDto): string {
   if (fav.label) return fav.label;
-  const action = ACTION_ICONS[fav.action] ? fav.action.replace('_', ' ') : fav.action;
-  return `${action} ${fav.devices?.name ?? ''}`.trim();
+  return `${fav.action.replace('_', ' ')} ${fav.devices?.name ?? ''}`.trim();
+}
+
+function favoriteIcon(fav: FavoriteDto): string {
+  const type    = fav.devices?.type ?? '';
+  const actions = getActionsForType(type);
+  return actions.find((a) => a.accion === fav.action)?.icon
+    ?? ACTION_ICON_MAP[fav.action]
+    ?? 'flash';
+}
+
+// ── Payload badge ─────────────────────────────────────────────────────────────
+
+function FavPayloadBadge({ fav, payloadType }: { fav: FavoriteDto; payloadType: PayloadType }) {
+  const p = fav.payload ?? {};
+
+  if (payloadType === 'brightness' && typeof p.valor === 'number') {
+    return (
+      <View className="flex-row items-center gap-1.5 mt-2.5">
+        <Ionicons name="contrast" size={11} color="#64748b" />
+        <View className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+          <View style={{ width: `${p.valor}%`, height: '100%', backgroundColor: '#6366f1', borderRadius: 99 }} />
+        </View>
+        <Text className="text-text-secondary text-xs">{p.valor}%</Text>
+      </View>
+    );
+  }
+
+  if (payloadType === 'color_temp' && typeof p.valor === 'number') {
+    const preset = TEMP_PRESETS.reduce((a, b) =>
+      Math.abs(b.valor - (p.valor as number)) < Math.abs(a.valor - (p.valor as number)) ? b : a,
+    );
+    return (
+      <View className="flex-row items-center gap-1.5 mt-2.5">
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: kelvinToHex(p.valor as number) }} />
+        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: kelvinToHex(p.valor as number), opacity: 0.6 }} />
+        <Text className="text-text-secondary text-xs">{preset.label}</Text>
+      </View>
+    );
+  }
+
+  if (payloadType === 'color' && typeof p.color === 'string') {
+    const col = LUZ_COLORES.find((c) => c.name === p.color);
+    return (
+      <View className="flex-row items-center gap-1.5 mt-2.5">
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col?.hex ?? '#ffffff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }} />
+        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: col?.hex ?? '#ffffff', opacity: 0.55 }} />
+        <Text className="text-text-secondary text-xs capitalize">{p.color as string}</Text>
+      </View>
+    );
+  }
+
+  if (payloadType === 'volumen' && typeof p.valor === 'number') {
+    return (
+      <View className="flex-row items-center gap-1.5 mt-2.5">
+        <Ionicons name="volume-medium-outline" size={11} color="#64748b" />
+        <Text className="text-text-secondary text-xs">Vol {p.valor}</Text>
+      </View>
+    );
+  }
+
+  if (payloadType === 'app' && typeof p.app === 'string') {
+    const app = TV_APPS.find((a) => a.app === p.app);
+    return (
+      <View className="flex-row items-center gap-1.5 mt-2.5">
+        <Ionicons name={(app?.icon ?? 'apps-outline') as any} size={11} color="#64748b" />
+        <Text className="text-text-secondary text-xs">{app?.label ?? (p.app as string)}</Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -106,10 +133,11 @@ export default function HomeScreen() {
   const [runningId, setRunningId]   = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal]     = useState(false);
-  const [addStep, setAddStep]               = useState<'device' | 'action'>('device');
-  const [pendingDevice, setPendingDevice]   = useState<DeviceDto | null>(null);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [removeTarget, setRemoveTarget]     = useState<FavoriteDto | null>(null);
+  const [editTarget, setEditTarget]         = useState<FavoriteDto | null>(null);
+  const [editSaving, setEditSaving]         = useState(false);
+  const [menuOpenId, setMenuOpenId]         = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -149,20 +177,20 @@ export default function HomeScreen() {
     }
   };
 
-  const handleSelectDevice = (device: DeviceDto) => {
-    setPendingDevice(device);
-    setAddStep('action');
-  };
-
-  const handleSelectAction = async (accion: string, label: string) => {
-    if (!pendingDevice) return;
+  const handleSelectAction = async (
+    device: DeviceDto,
+    accion: string,
+    label: string,
+    payload: Record<string, unknown>,
+  ) => {
     setSavingFavorite(true);
     try {
       const created = await addFavorite({
-        device_id: pendingDevice.id,
+        device_id: device.id,
         action:    accion,
-        label:     `${label} ${pendingDevice.name}`,
-      } as AddFavoriteParams);
+        label:     `${label} ${device.name}`,
+        payload,
+      });
       setFavorites((prev) => [...prev, created]);
       setShowAddModal(false);
       setToast({ message: 'Añadido a acciones rápidas', variant: 'success' });
@@ -170,15 +198,26 @@ export default function HomeScreen() {
       setToast({ message: friendlyError(err), variant: 'error' });
     } finally {
       setSavingFavorite(false);
-      setPendingDevice(null);
-      setAddStep('device');
     }
   };
 
-  const closeAddModal = () => {
-    setShowAddModal(false);
-    setPendingDevice(null);
-    setAddStep('device');
+  const handleEditFavorite = async (
+    id: string,
+    action: string,
+    payload: Record<string, unknown>,
+    label: string,
+  ) => {
+    setEditSaving(true);
+    try {
+      const updated = await updateFavorite(id, { action, payload, label });
+      setFavorites((prev) => prev.map((f) => (f.id === id ? updated : f)));
+      setEditTarget(null);
+      setToast({ message: 'Favorito actualizado', variant: 'success' });
+    } catch (err) {
+      setToast({ message: friendlyError(err), variant: 'error' });
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleConfirmRemove = async () => {
@@ -201,9 +240,8 @@ export default function HomeScreen() {
     );
   }
 
-  const firstName = profile?.first_name || profile?.username || '';
-  const actionItems = ACCIONES_POR_TIPO[pendingDevice?.type ?? ''] ?? DEFAULT_ACCIONES;
-  const canAddMore  = favorites.length < 4;
+  const firstName  = profile?.first_name || profile?.username || '';
+  const canAddMore = favorites.length < 4;
   const onlineCount = devices.filter((d) => d.is_online).length;
 
   return (
@@ -268,34 +306,51 @@ export default function HomeScreen() {
           ) : (
             <View className="flex-row flex-wrap gap-3">
               {favorites.map((fav, idx) => {
-                const color   = ACTION_COLORS[idx % ACTION_COLORS.length];
-                const icon    = ACTION_ICONS[fav.action] ?? 'flash';
-                const label   = favoriteLabel(fav);
-                const running = runningId === fav.id;
+                const color       = ACTION_COLORS[idx % ACTION_COLORS.length];
+                const icon        = favoriteIcon(fav);
+                const label       = favoriteLabel(fav);
+                const running     = runningId === fav.id;
+                const device      = devices.find((d) => d.id === fav.device_id);
+                const isTuya      = device?.driver === 'tuya';
+                const favActions  = getActionsForType(fav.devices?.type ?? device?.type ?? '', isTuya);
+                const payloadType = favActions.find((a) => a.accion === fav.action)?.payloadType;
 
                 return (
-                  <TouchableOpacity
+                  <View
                     key={fav.id}
                     style={{ width: '47%' }}
-                    className="bg-bg-secondary rounded-2xl p-4 border border-border"
-                    onPress={() => handleRunFavorite(fav)}
-                    onLongPress={() => setRemoveTarget(fav)}
-                    activeOpacity={0.75}
+                    className="bg-bg-secondary rounded-2xl border border-border"
                   >
-                    <View
-                      className="w-10 h-10 rounded-xl items-center justify-center mb-3"
-                      style={{ backgroundColor: `${color}20` }}
+                    <TouchableOpacity
+                      className="p-4"
+                      onPress={() => handleRunFavorite(fav)}
+                      activeOpacity={0.75}
                     >
-                      {running
-                        ? <ActivityIndicator color={color} size="small" />
-                        : <Ionicons name={icon as any} size={22} color={color} />
-                      }
-                    </View>
-                    <Text className="text-text text-sm font-bold" numberOfLines={1}>{label}</Text>
-                    <Text className="text-text-secondary text-xs mt-0.5" numberOfLines={1}>
-                      {fav.devices?.name ?? ''}
-                    </Text>
-                  </TouchableOpacity>
+                      <View className="flex-row items-start justify-between mb-3">
+                        <View
+                          className="w-10 h-10 rounded-xl items-center justify-center"
+                          style={{ backgroundColor: `${color}20` }}
+                        >
+                          {running
+                            ? <ActivityIndicator color={color} size="small" />
+                            : <Ionicons name={icon as any} size={22} color={color} />
+                          }
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setMenuOpenId(fav.id)}
+                          hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={18} color="#64748b" />
+                        </TouchableOpacity>
+                      </View>
+                      <Text className="text-text text-sm font-bold" numberOfLines={1}>{label}</Text>
+                      <Text className="text-text-secondary text-xs mt-0.5" numberOfLines={1}>
+                        {fav.devices?.name ?? ''}
+                      </Text>
+                      {payloadType && <FavPayloadBadge fav={fav} payloadType={payloadType} />}
+                    </TouchableOpacity>
+                  </View>
                 );
               })}
 
@@ -321,14 +376,65 @@ export default function HomeScreen() {
       <AddFavoriteModal
         visible={showAddModal}
         devices={devices}
-        step={addStep}
-        pendingDevice={pendingDevice}
-        actionItems={actionItems}
         saving={savingFavorite}
-        onClose={closeAddModal}
-        onSelectDevice={handleSelectDevice}
+        onClose={() => setShowAddModal(false)}
         onSelectAction={handleSelectAction}
-        onBack={() => setAddStep('device')}
+      />
+
+      <Modal
+        visible={menuOpenId !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMenuOpenId(null)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setMenuOpenId(null)}
+        >
+          <TouchableOpacity activeOpacity={1}>
+            <View className="bg-bg-secondary rounded-t-3xl border-t border-border px-5 pt-3 pb-10">
+              <View className="w-10 h-1 bg-border rounded-full self-center mb-5" />
+              <TouchableOpacity
+                className="flex-row items-center gap-3 py-4 border-b border-border"
+                activeOpacity={0.7}
+                onPress={() => {
+                  const fav = favorites.find((f) => f.id === menuOpenId) ?? null;
+                  setMenuOpenId(null);
+                  setEditTarget(fav);
+                }}
+              >
+                <View className="w-9 h-9 rounded-xl bg-indigo-500/20 items-center justify-center">
+                  <Ionicons name="pencil-outline" size={18} color="#818cf8" />
+                </View>
+                <Text className="text-text font-semibold">Editar favorito</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center gap-3 py-4"
+                activeOpacity={0.7}
+                onPress={() => {
+                  const fav = favorites.find((f) => f.id === menuOpenId) ?? null;
+                  setMenuOpenId(null);
+                  setRemoveTarget(fav);
+                }}
+              >
+                <View className="w-9 h-9 rounded-xl bg-red-500/20 items-center justify-center">
+                  <Ionicons name="trash-outline" size={18} color="#f87171" />
+                </View>
+                <Text className="text-red-400 font-semibold">Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <EditFavoriteModal
+        visible={editTarget !== null}
+        favorite={editTarget}
+        devices={devices}
+        saving={editSaving}
+        onClose={() => setEditTarget(null)}
+        onConfirm={handleEditFavorite}
       />
 
       <ConfirmModal
