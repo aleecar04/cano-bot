@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Webhook Security
     WEBHOOK_SECRET: str = secrets.token_urlsafe(32)
 
+    # Web Push (VAPID)
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_CONTACT_EMAIL: str = "admin@cano4.local"
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
