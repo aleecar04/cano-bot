@@ -34,6 +34,16 @@ export async function connectHa(ha_url: string, token: string): Promise<HaConnec
   return res.json();
 }
 
+export async function reimportHa(): Promise<HaConnectResult> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/devices/ha/reimport`, { method: 'POST', headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Error reimportando dispositivos' }));
+    throw new Error(err.detail ?? 'Error reimportando dispositivos');
+  }
+  return res.json();
+}
+
 export async function disconnectHa(): Promise<{ ok: boolean }> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/devices/ha/connection`, {

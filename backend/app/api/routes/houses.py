@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.api.deps import CurrentUser
@@ -7,6 +9,7 @@ from app.services import home as home_service
 from app.services import devices as device_service
 from app.services import schedules as schedule_service
 from app.core.db import supabase
+from app.core.config import settings
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
@@ -220,6 +223,16 @@ def generate_invite(current_user: CurrentUser):
 def join_house(body: JoinRequest, current_user: CurrentUser):
     try:
         house = home_service.consume_invitation_code(body.code, current_user["id"])
+        try:
+            from app.services.push import send_push_to_house_owners
+            username = current_user.get("username") or current_user.get("email") or "Un nuevo miembro"
+            send_push_to_house_owners(
+                house["id"],
+                "🏠 Nuevo miembro",
+                f"{username} se ha unido a tu casa",
+            )
+        except Exception:
+            pass  # push is non-critical
         return {"ok": True, "house_id": house["id"]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -300,6 +313,38 @@ def setup_house(body: HouseSetupRequest, current_user: CurrentUser):
     }).execute()
 
     return {"ok": True, "house_id": house["id"]}
+
+
+# ── House setup: generate bot credentials ────────────────────────────────────
+
+@router.post("/setup/generate", status_code=201)
+async def setup_house_generate(current_user: CurrentUser):
+    """Generate a new XMPP account for the bot, create the house and return credentials once."""
+    from app.services.xmpp import create_xmpp_account
+
+    if home_service.get_house_id_for_user(current_user["id"]):
+        raise HTTPException(status_code=409, detail="Ya perteneces a una casa")
+
+    bot_username = f"cano-bot-{secrets.token_hex(4)}"
+    bot_jid      = f"{bot_username}@{settings.XMPP_DOMAIN}"
+
+    # Verify the JID isn't already taken
+    if supabase.table("houses").select("id").eq("bot_jid", bot_jid).execute().data:
+        raise HTTPException(status_code=409, detail="Conflicto generando JID. Inténtalo de nuevo.")
+
+    try:
+        password = await create_xmpp_account(bot_username)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creando cuenta XMPP: {e}")
+
+    house = supabase.table("houses").insert({"bot_jid": bot_jid, "name": "Mi Casa"}).execute().data[0]
+    supabase.table("house_members").insert({
+        "house_id": house["id"],
+        "user_id":  current_user["id"],
+        "role":     "owner",
+    }).execute()
+
+    return {"jid": bot_jid, "password": password, "house_id": house["id"]}
 
 
 # ── Bot identification (read-only, called on bot startup) ─────────────────────

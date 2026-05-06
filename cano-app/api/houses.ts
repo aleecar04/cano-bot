@@ -93,6 +93,22 @@ export async function setupHouse(botJid: string): Promise<{ ok: boolean; house_i
   return res.json();
 }
 
+export interface GeneratedBotCredentials {
+  jid: string;
+  password: string;
+  house_id: string;
+}
+
+export async function generateBotSetup(): Promise<GeneratedBotCredentials> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/houses/setup/generate`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) return throwBackendError(res, 'Error generando credenciales del bot');
+  return res.json();
+}
+
 export async function joinHouse(code: string): Promise<JoinHouseDto> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/houses/join`, {
