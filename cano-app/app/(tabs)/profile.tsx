@@ -8,12 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/api/supabase';
 import { getUserProfile } from '@/api/api';
-import { getHaConnection, connectHa, disconnectHa, type HaConnectionDto } from '@/api/ha';
+import { getHaConnection, connectHa, disconnectHa, reimportHa, type HaConnectionDto } from '@/api/ha';
 import { generateInviteCode, getMyRole, type HouseMemberRole, type InviteCodeDto } from '@/api/houses';
 import { FormField } from '@/components/ui/form-field';
 import { ErrorMessage } from '@/components/ui/error-message';
 import { Button } from '@/components/ui/button';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { NotificationToggle } from '@/components/ui/notification-toggle';
 import { Toast } from '@/components/ui/toast';
 
 type UserProfile = {
@@ -342,11 +343,24 @@ export default function ProfileScreen() {
                     <View className="flex-row gap-3">
                       <TouchableOpacity
                         className="flex-1 bg-bg border border-border rounded-xl py-3 items-center"
-                        onPress={handleHaConnect}
+                        onPress={async () => {
+                          setHaConnecting(true);
+                          try {
+                            const result = await reimportHa();
+                            setToast({ message: `${result.importados} dispositivos reimportados`, variant: 'success' });
+                          } catch (e) {
+                            setToast({ message: e instanceof Error ? e.message : 'Error reimportando', variant: 'error' });
+                          } finally {
+                            setHaConnecting(false);
+                          }
+                        }}
                         disabled={haConnecting}
                         activeOpacity={0.7}
                       >
-                        <Text className="text-text-secondary font-semibold text-sm">Reimportar</Text>
+                        {haConnecting
+                          ? <ActivityIndicator size="small" color="#94a3b8" />
+                          : <Text className="text-text-secondary font-semibold text-sm">Reimportar</Text>
+                        }
                       </TouchableOpacity>
                       <TouchableOpacity
                         className="flex-1 bg-red-500/10 border border-red-500/30 rounded-xl py-3 items-center"
@@ -383,6 +397,11 @@ export default function ProfileScreen() {
                 )}
               </View>
             </SectionCard>
+
+            {/* Notificaciones */}
+            <View className="bg-bg-secondary border border-border rounded-2xl px-4 mb-4">
+              <NotificationToggle />
+            </View>
 
             {/* Invitar a alguien — owner only */}
             {userRole === 'owner' && (

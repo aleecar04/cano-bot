@@ -20,6 +20,7 @@ from app.models import (
     BaseUserPublic,
 )
 from app.services.users import create_user_simple, create_user_with_xmpp
+from app.api.routes.verification import validate_verification_code
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -163,6 +164,7 @@ def delete_user_me(current_user: CurrentUser) -> Any:
     },
 )
 async def register_user(user_in: UserRegister) -> Any:
+    validate_verification_code(str(user_in.email), user_in.verification_code)
     if supabase.table("base_user").select("id").eq("username", user_in.username).execute().data:
         raise HTTPException(status_code=400, detail="Username already taken")
     return await create_user_with_xmpp(

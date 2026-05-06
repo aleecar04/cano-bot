@@ -28,6 +28,12 @@ def login_access_token(
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     if not auth_response.session:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
+
+    user_id = auth_response.session.user.id
+    row = supabase.table("base_user").select("email_verified").eq("id", user_id).execute()
+    if row.data and not row.data[0].get("email_verified", False):
+        raise HTTPException(status_code=403, detail="Debes verificar tu correo antes de iniciar sesión")
+
     return Token(access_token=auth_response.session.access_token)
 
 

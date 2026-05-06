@@ -1,7 +1,8 @@
 from fastapi import APIRouter
-from app.api.routes import admin, commands, conversations, devices, favorites, houses, schedules, users, utils, messages, login
+from app.api.routes import admin, commands, conversations, devices, favorites, houses, schedules, users, utils, messages, login, push, verification
 
 api_router = APIRouter()
+api_router.include_router(verification.router)
 api_router.include_router(admin.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
@@ -13,3 +14,4 @@ api_router.include_router(commands.router)
 api_router.include_router(houses.router)
 api_router.include_router(schedules.router)
 api_router.include_router(favorites.router)
+api_router.include_router(push.router)

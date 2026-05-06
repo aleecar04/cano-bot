@@ -11,23 +11,45 @@ import { FormField } from '@/components/ui/form-field';
 import { ErrorMessage } from '@/components/ui/error-message';
 import { Button } from '@/components/ui/button';
 
+const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+
+async function resolveIdentifier(identifier: string): Promise<string> {
+  if (identifier.includes('@')) return identifier;
+  const res = await fetch(`${API_URL}/api/v1/auth/resolve-username/${encodeURIComponent(identifier)}`);
+  if (!res.ok) throw new Error('Usuario no encontrado');
+  const data = await res.json();
+  return data.email as string;
+}
+
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword]     = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!identifier.trim() || !password) {
       setError('Rellena todos los campos');
       return;
     }
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    setLoading(false);
+    try {
+      const email = await resolveIdentifier(identifier.trim().toLowerCase());
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) {
+        if (authError.message.toLowerCase().includes('verif')) {
+          setError('Debes verificar tu correo antes de iniciar sesión');
+        } else {
+          setError('Email, usuario o contraseña incorrectos');
+        }
+      }
+    } catch (e: any) {
+      setError(e.message ?? 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,10 +63,11 @@ export default function LoginScreen() {
 
           <View className="gap-4">
             <FormField
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@email.com"
+              label="Email o usuario"
+              value={identifier}
+              onChangeText={setIdentifier}
+              placeholder="tu@email.com  o  mi_usuario"
+              autoCapitalize="none"
               keyboardType="email-address"
             />
             <FormField

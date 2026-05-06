@@ -20,6 +20,7 @@ class UserRegister(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     first_name: str | None = Field(default=None, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
+    verification_code: str = Field(min_length=6, max_length=6)
 
     @field_validator("username")
     @classmethod
@@ -185,7 +186,7 @@ class DevicePublic(BaseModel):
     name: str
     type: str
     driver: str | None = None
-    ip: str
+    ip: str | None = None
     mac: str | None = None
     location: str | None = None
     config: dict = {}
@@ -282,6 +283,12 @@ class ScheduleToggle(BaseModel):
 
 class FavoriteActionCreate(BaseModel):
     device_id: uuid.UUID
+    action: str = Field(min_length=1, max_length=50)
+    payload: dict = {}
+    label: str | None = Field(default=None, max_length=80)
+
+
+class FavoriteActionUpdate(BaseModel):
     action: str = Field(min_length=1, max_length=50)
     payload: dict = {}
     label: str | None = Field(default=None, max_length=80)
