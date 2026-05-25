@@ -1,9 +1,0 @@
-[Core]
-Name = Hello
-Module = hello
-
-[Documentation]
-Description = Comandos de prueba del bot.
-
-[Python]
-Version = 3

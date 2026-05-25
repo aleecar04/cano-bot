@@ -1,1 +1,0 @@
-alter table messages disable row level security;
