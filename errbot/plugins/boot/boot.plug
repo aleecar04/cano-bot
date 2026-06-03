@@ -1,0 +1,6 @@
+[Core]
+Name = Boot
+Module = boot
+
+[Documentation]
+Description = Inicializa servicios de sincronización al arrancar
