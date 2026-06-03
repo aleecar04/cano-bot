@@ -1,9 +1,0 @@
-[Core]
-Name = Dispatcher
-Module = dispatcher
-
-[Documentation]
-Description = Dispatcher y gestor de mensajes del bot. Router principal de comandos y respuestas.
-
-[Python]
-Version = 3

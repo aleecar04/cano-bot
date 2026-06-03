@@ -1,9 +1,0 @@
-[Core]
-Name = BotInfo
-Module = botinfo
-
-[Documentation]
-Description = Información del bot y datos del sistema.
-
-[Python]
-Version = 3
