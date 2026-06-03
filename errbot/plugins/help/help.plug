@@ -1,0 +1,9 @@
+[Core]
+Name = CanoHelp
+Module = help
+
+[Documentation]
+Description = Comandos de ayuda y listado de acciones soportadas.
+
+[Python]
+Version = 3
