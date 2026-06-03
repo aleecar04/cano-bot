@@ -1,16 +1,3 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- CANO4 — Seed de datos de prueba
--- Ejecutar: supabase db reset  (aplica migraciones + este seed)
---           supabase db seed   (solo el seed sobre una BD existente)
---
--- Usuarios creados:
---   admin@cano4.dev   / Admin1234!   → superusuario
---   owner@cano4.dev   / Owner1234!   → propietario de "Casa Demo"
---   member@cano4.dev  / Member1234!  → miembro de "Casa Demo"
--- ═══════════════════════════════════════════════════════════════════════════
-
--- Clave de cifrado XMPP (debe coincidir con XMPP_ENCRYPTION_KEY del .env)
--- Cambia este valor si tu .env usa una clave diferente.
 \set xmpp_key '8mfCXFFyowyTReEM44WqAxrIL0kmln_2gux_BfsWAg8'
 
 -- UUIDs fijos para poder re-ejecutar el seed de forma idempotente
@@ -97,8 +84,15 @@ WHERE NOT EXISTS (SELECT 1 FROM xmpp_accounts WHERE user_id = :'uid_member');
 
 
 -- ── 4. Casa ──────────────────────────────────────────────────────────────────
-INSERT INTO houses (id, user_id, name, bot_jid)
-VALUES (:'uid_house', :'uid_owner', 'Casa Demo', 'bot@xmpp.aleecr.es')
+-- bot_token_hash: SHA-256 del bot_token de demo ('seed_demo_bot_token').
+-- En producción este valor lo genera el backend al ejecutar la rotación;
+-- aquí lo fijamos para que el seed sea idempotente.
+INSERT INTO houses (id, name, bot_token_hash)
+VALUES (
+    :'uid_house',
+    'Casa Demo',
+    encode(digest('seed_demo_bot_token', 'sha256'), 'hex')
+)
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -111,10 +105,10 @@ ON CONFLICT (house_id, user_id) DO NOTHING;
 
 
 -- ── 6. Plantas ───────────────────────────────────────────────────────────────
-INSERT INTO floors (id, house_id, name, level)
+INSERT INTO floors (id, house_id, name)
 VALUES
-    (:'uid_floor0', :'uid_house', 'Planta Baja',    0),
-    (:'uid_floor1', :'uid_house', 'Primera Planta', 1)
+    (:'uid_floor0', :'uid_house', 'Planta Baja'),
+    (:'uid_floor1', :'uid_house', 'Primera Planta')
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -150,11 +144,11 @@ VALUES (
     '{"model":"LG OLED55"}'
 ) ON CONFLICT (id) DO NOTHING;
 
--- Enchufe Cocina: Shelly (simulado)
+-- Enchufe Cocina: Tuya (simulado)
 INSERT INTO devices (id, owner_id, house_id, name, type, driver, ip, mac, room_id, is_online, estado, config)
 VALUES (
     :'uid_dev_enchufe', :'uid_owner', :'uid_house',
-    'Enchufe Cocina', 'Enchufe', 'shelly',
+    'Enchufe Cocina', 'Enchufe', 'tuya',
     '192.168.0.60', '00:aa:bb:cc:dd:02', :'uid_room_k',
     true,
     '{"power":"off"}',
@@ -174,10 +168,10 @@ VALUES (
 
 
 -- ── 9. Favoritos ─────────────────────────────────────────────────────────────
-INSERT INTO favorite_actions (id, user_id, device_id, action, payload, label, position)
+INSERT INTO favorite_actions (id, user_id, device_id, action, payload, label)
 VALUES
-    (:'uid_fav1', :'uid_owner', :'uid_dev_luz', 'encender', '{}', 'Encender Luz Salón', 0),
-    (:'uid_fav2', :'uid_owner', :'uid_dev_tv',  'apagar',   '{}', 'Apagar TV Salón',    1)
+    (:'uid_fav1', :'uid_owner', :'uid_dev_luz', 'encender', '{}', 'Encender Luz Salón'),
+    (:'uid_fav2', :'uid_owner', :'uid_dev_tv',  'apagar',   '{}', 'Apagar TV Salón')
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -269,20 +263,20 @@ INSERT INTO conversations (id, user_id, title)
 VALUES (:'uid_conv', :'uid_owner', 'Demo: Control por chat')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO messages (id, from_user_id, conversation_id, command_id, body, response)
+INSERT INTO messages (id, conversation_id, command_id, body, response)
 VALUES
     (
-        :'uid_msg1', :'uid_owner', :'uid_conv', :'uid_cmd1',
+        :'uid_msg1', :'uid_conv', :'uid_cmd1',
         'enciende la luz del salón',
         'Luz Salón: encender ejecutado.'
     ),
     (
-        :'uid_msg2', :'uid_owner', :'uid_conv', :'uid_cmd2',
+        :'uid_msg2', :'uid_conv', :'uid_cmd2',
         'lista mis dispositivos',
         '{"tipo":"device_list","dispositivos":[{"name":"Luz Salón","type":"Luz","is_online":true,"estado":{"power":"on","brightness":1000}},{"name":"TV Salón","type":"SmartTV","is_online":false,"estado":{"power":"off","volume":20}},{"name":"Enchufe Cocina","type":"Enchufe","is_online":true,"estado":{"power":"off"}},{"name":"Sensor Temperatura","type":"Sensor","is_online":true,"estado":{"temperature":21.5,"humidity":55}}],"total":4}'
     ),
     (
-        :'uid_msg3', :'uid_owner', :'uid_conv', :'uid_cmd3',
+        :'uid_msg3', :'uid_conv', :'uid_cmd3',
         'apaga la tele',
         'TV Salón: apagar ejecutado.'
     )
