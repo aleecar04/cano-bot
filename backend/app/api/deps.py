@@ -3,13 +3,14 @@ import json
 import httpx
 import jwt
 from jwt.algorithms import ECAlgorithm
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from app.core.config import settings
-from app.core.db import supabase
-from app.models import TokenPayload
+from app.core.errors import forbidden, not_found
+from app.models.auth import TokenPayload
+from app.repositories.users import user_repository
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -43,17 +44,13 @@ def get_current_user(token: TokenDep) -> dict:
         token_data = TokenPayload(**payload)
     except (InvalidTokenError, ValidationError) as e:
         print(f"ERROR JWT: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
+        raise forbidden("Could not validate credentials")
 
-    result = supabase.table("base_user").select("*").eq("id", token_data.sub).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="User not found")
-    user = result.data[0]
+    user = user_repository.find_by_id(token_data.sub)
+    if not user:
+        raise not_found("User not found")
     if not user.get("is_active", True):
-        raise HTTPException(status_code=403, detail="User is not active")
+        raise forbidden("User is not active")
     return user
 
 
@@ -62,7 +59,5 @@ CurrentUser = Annotated[dict, Depends(get_current_user)]
 
 def get_current_active_superuser(current_user: CurrentUser) -> dict:
     if not current_user.get("is_superuser"):
-        raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
-        )
+        raise forbidden("The user doesn't have enough privileges")
     return current_user

@@ -3,18 +3,9 @@ import logging
 from pywebpush import webpush, WebPushException
 from app.core.config import settings
 from app.core.db import supabase
+from app.repositories.push import push_subscription_repository
 
 logger = logging.getLogger(__name__)
-
-
-def _get_subscriptions(user_id: str) -> list[dict]:
-    result = (
-        supabase.table("push_subscriptions")
-        .select("id, endpoint, p256dh, auth")
-        .eq("user_id", user_id)
-        .execute()
-    )
-    return result.data or []
 
 
 def _remove_subscription(sub_id: str) -> None:
@@ -41,33 +32,35 @@ def _dispatch(sub: dict, payload: str) -> None:
 
 
 def send_push(user_id: str, title: str, body: str) -> None:
-    """Send a push notification to all subscriptions of a user."""
+    """Envía una push a todas las subscriptions del usuario.
+    Único uso: notificar el resultado de una tarea programada (éxito/fallo)."""
     if not settings.VAPID_PRIVATE_KEY:
         return
     payload = json.dumps({"title": title, "body": body})
-    for sub in _get_subscriptions(user_id):
+    for sub in push_subscription_repository.find_by_user(user_id):
         _dispatch(sub, payload)
 
 
-def send_push_to_house_owners(house_id: str, title: str, body: str) -> None:
-    result = (
-        supabase.table("house_members")
-        .select("user_id")
-        .eq("house_id", house_id)
-        .eq("role", "owner")
-        .execute()
-    )
-    for m in result.data or []:
-        send_push(m["user_id"], title, body)
+# ── Subscriptions ───────────────────────────────────────────────────────────
+def subscribe(user_id: str, endpoint: str, p256dh: str, auth: str) -> None:
+    """Register a push subscription for a user (upsert by endpoint)."""
+    supabase.table("push_subscriptions").upsert(
+        {
+            "user_id":  user_id,
+            "endpoint": endpoint,
+            "p256dh":   p256dh,
+            "auth":     auth,
+        },
+        on_conflict="endpoint",
+    ).execute()
 
 
-def send_push_to_all_owners(title: str, body: str) -> None:
-    """Notify every house owner — used for bot-down alerts."""
-    result = (
-        supabase.table("house_members")
-        .select("user_id")
-        .eq("role", "owner")
+def unsubscribe(user_id: str, endpoint: str) -> None:
+    """Remove a push subscription for a user by endpoint."""
+    (
+        supabase.table("push_subscriptions")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("endpoint", endpoint)
         .execute()
     )
-    for m in result.data or []:
-        send_push(m["user_id"], title, body)
