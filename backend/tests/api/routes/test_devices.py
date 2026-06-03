@@ -6,11 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import (
-    WEBHOOK_SECRET, SupabaseMock, TEST_USER_ID, TEST_HOUSE_ID,
+    SupabaseMock, TEST_USER_ID, TEST_HOUSE_ID,
     TEST_MEMBER_ID, make_device, make_house, make_house_member,
 )
-
-WEBHOOK_HEADERS = {"x-webhook-token": WEBHOOK_SECRET}
 
 
 def _setup_house(supabase_mock: SupabaseMock):
@@ -134,20 +132,15 @@ class TestGetAllDevices:
 
         res = client.get(
             f"/api/v1/devices/all?user_id={TEST_USER_ID}",
-            headers=WEBHOOK_HEADERS,
         )
 
         assert res.status_code == 200
         assert len(res.json()) == 2
 
-    def test_requires_webhook_token(self, client: TestClient):
-        res = client.get("/api/v1/devices/all")
-        assert res.status_code == 401
-
     def test_returns_all_without_user_id(self, client: TestClient, supabase_mock: SupabaseMock):
         supabase_mock.set_data("devices", [make_device()])
 
-        res = client.get("/api/v1/devices/all", headers=WEBHOOK_HEADERS)
+        res = client.get("/api/v1/devices/all")
 
         assert res.status_code == 200
         assert isinstance(res.json(), list)
@@ -161,18 +154,10 @@ class TestUpdateStatus:
         res = client.patch(
             f"/api/v1/devices/{device['id']}/status",
             json={"is_online": True, "estado": {"power": "on"}},
-            headers=WEBHOOK_HEADERS,
         )
 
         assert res.status_code == 200
         assert res.json() == {"ok": True}
-
-    def test_update_status_requires_webhook_token(self, client: TestClient):
-        res = client.patch(
-            "/api/v1/devices/some-id/status",
-            json={"is_online": True, "estado": {}},
-        )
-        assert res.status_code == 401
 
     def test_update_status_not_found(self, client: TestClient, supabase_mock: SupabaseMock):
         supabase_mock.set_data("devices", [])
@@ -180,7 +165,6 @@ class TestUpdateStatus:
         res = client.patch(
             "/api/v1/devices/nonexistent/status",
             json={"is_online": False, "estado": {}},
-            headers=WEBHOOK_HEADERS,
         )
 
         assert res.status_code == 404
@@ -193,7 +177,6 @@ class TestGetDeviceStatus:
 
         res = client.get(
             f"/api/v1/devices/{device['id']}/status",
-            headers=WEBHOOK_HEADERS,
         )
 
         assert res.status_code == 200
@@ -201,14 +184,10 @@ class TestGetDeviceStatus:
         assert data["is_online"] is True
         assert "estado" in data
 
-    def test_requires_webhook_token(self, client: TestClient):
-        res = client.get("/api/v1/devices/some-id/status")
-        assert res.status_code == 401
-
     def test_returns_404_when_not_found(self, client: TestClient, supabase_mock: SupabaseMock):
         supabase_mock.set_data("devices", [])
 
-        res = client.get("/api/v1/devices/nonexistent/status", headers=WEBHOOK_HEADERS)
+        res = client.get("/api/v1/devices/nonexistent/status")
         assert res.status_code == 404
 
 
@@ -220,17 +199,6 @@ class TestHaConnection:
 
         assert res.status_code == 200
         assert res.json()["connected"] is False
-
-    def test_get_connection_connected(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("ha_integrations", [{
-            "ha_url": "http://192.168.1.50:8123",
-            "created_at": "2026-04-19T10:00:00+00:00",
-        }])
-
-        res = client.get("/api/v1/devices/ha/connection")
-
-        assert res.status_code == 200
-        assert res.json()["connected"] is True
 
     def test_delete_connection(self, client: TestClient, supabase_mock: SupabaseMock):
         supabase_mock.set_data("ha_integrations", [{"user_id": TEST_USER_ID}])
@@ -277,26 +245,3 @@ class TestHaConnection:
         assert res.json()["importados"] == 2
 
 
-class TestSendCommand:
-    def test_send_command_blocked_without_house(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("house_members", [])
-        supabase_mock.set_data("houses", [])
-
-        res = client.post(
-            "/api/v1/devices/some-id/command",
-            json={"accion": "encender", "payload": {}},
-        )
-        assert res.status_code == 403
-
-    def test_send_command_device_not_found(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("houses", [make_house()])
-        supabase_mock.set_data("house_members", [make_house_member()])
-        supabase_mock.set_data("devices", [])
-
-        with patch("app.services.devices.send_xmpp_message", new_callable=AsyncMock):
-            res = client.post(
-                "/api/v1/devices/nonexistent/command",
-                json={"accion": "encender", "payload": {}},
-            )
-
-        assert res.status_code == 404

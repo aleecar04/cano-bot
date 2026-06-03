@@ -28,8 +28,9 @@ class TestInferirDriver:
     def test_smarttv_samsung_devuelve_samsung_tv(self):
         assert inferir_driver("SmartTV", hostname="Samsung-TV") == "samsung_tv"
 
-    def test_smarttv_generico_devuelve_android_tv(self):
-        assert inferir_driver("SmartTV", hostname="shield") == "android_tv"
+    def test_smarttv_generico_devuelve_none(self):
+        # No LG ni Samsung: no se puede inferir driver
+        assert inferir_driver("SmartTV", hostname="sony-bravia") is None
 
     def test_altavoz_no_tiene_driver(self):
         # Altavoces (Alexa, Sonos) no son Tuya — no deben tener driver nativo

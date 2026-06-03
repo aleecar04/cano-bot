@@ -53,9 +53,9 @@ class TestAddFavorite:
         assert data["action"] == "encender"
         assert data["label"] == "Luz salón"
 
-    def test_rejects_fifth_favorite(self, client: TestClient, supabase_mock: SupabaseMock):
-        """No se pueden tener más de 4 favoritos."""
-        existing = [make_favorite(position=i) for i in range(4)]
+    def test_rejects_seventh_favorite(self, client: TestClient, supabase_mock: SupabaseMock):
+        """No se pueden tener más de 6 favoritos."""
+        existing = [make_favorite() for _ in range(6)]
         supabase_mock.set_data("favorite_actions", existing)
 
         import uuid
@@ -63,40 +63,30 @@ class TestAddFavorite:
             "device_id": str(uuid.uuid4()),
             "action": "encender",
             "payload": {},
-            "label": "Quinto favorito",
+            "label": "Séptimo favorito",
         }
 
         res = client.post("/api/v1/favorite-actions/", json=payload)
 
         assert res.status_code == 400
-        assert "4" in res.json()["detail"]
+        assert "6" in res.json()["detail"]
 
-    def test_creates_up_to_four_favorites(self, client: TestClient, supabase_mock: SupabaseMock):
-        """Con 3 favoritos existentes se puede añadir el 4to (límite es 4)."""
+    def test_creates_up_to_six_favorites(self, client: TestClient, supabase_mock: SupabaseMock):
+        """Con 5 favoritos existentes se puede añadir el 6to (límite es 6)."""
         import uuid
-        existing = [make_favorite(position=i) for i in range(3)]
-        device_id = str(uuid.uuid4())
-        fourth_fav = make_favorite(position=3, device_id=device_id)
-
-        # El mock devuelve los mismos datos para select e insert.
-        # El servicio llama get_favorites() y verifica len < 4.
-        # Ponemos 3 items para que la validación pase, y el insert retorna el 4to.
-        supabase_mock.set_data("favorite_actions", [*existing, fourth_fav])
-
-        # Sobreescribimos set_data con un mock que devuelve 3 en select
-        # y el 4to en insert. Para simplificar, verificamos que con < 4 pasa:
+        existing = [make_favorite() for _ in range(5)]
         supabase_mock.set_data("favorite_actions", existing)
 
         payload = {
-            "device_id": device_id,
+            "device_id": str(uuid.uuid4()),
             "action": "apagar",
             "payload": {},
-            "label": "Cuarto favorito",
+            "label": "Sexto favorito",
         }
 
         res = client.post("/api/v1/favorite-actions/", json=payload)
 
-        # 3 existentes → 4to es válido (el insert devolverá el primer item del mock como placeholder)
+        # 5 existentes → 6to es válido
         assert res.status_code == 201
 
 
