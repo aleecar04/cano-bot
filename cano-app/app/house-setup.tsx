@@ -6,55 +6,31 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { joinHouse, setupHouse, generateBotSetup, type GeneratedBotCredentials } from '@/api/houses';
-import { useUserProfile } from '@/context/user-profile';
-import { ONBOARDING_DONE_KEY } from './onboarding';
+import { joinHouse, setupHouse } from '@/api/houses';
 
 type Mode = null | 'owner' | 'member';
-type OwnerSubMode = 'manual' | 'generate';
 
 export default function HouseSetupScreen() {
   const router = useRouter();
-  const { profile } = useUserProfile();
 
-  const [mode, setMode]               = useState<Mode>(null);
-  const [ownerSub, setOwnerSub]       = useState<OwnerSubMode>('generate');
-  const [code, setCode]               = useState('');
-  const [botJid, setBotJid]           = useState('');
-  const [joining, setJoining]         = useState(false);
-  const [claiming, setClaiming]       = useState(false);
-  const [generating, setGenerating]   = useState(false);
-  const [credentials, setCredentials] = useState<GeneratedBotCredentials | null>(null);
-  const [error, setError]             = useState<string | null>(null);
+  const [mode, setMode]         = useState<Mode>(null);
+  const [houseName, setHouseName] = useState('');
+  const [code, setCode]         = useState('');
+  const [joining, setJoining]   = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [botToken, setBotToken] = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
 
-  const handleClaim = async () => {
-    const jid = botJid.trim().toLowerCase();
-    if (!jid) { setError('Introduce el JID del bot'); return; }
-    setClaiming(true);
+  const handleCreate = async () => {
+    setCreating(true);
     setError(null);
     try {
-      await setupHouse(jid);
-      await AsyncStorage.setItem(ONBOARDING_DONE_KEY, 'true');
-      router.replace('/(tabs)');
+      const { bot_token } = await setupHouse(houseName.trim() || undefined);
+      setBotToken(bot_token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al configurar la casa');
+      setError(err instanceof Error ? err.message : 'Error creando la casa');
     } finally {
-      setClaiming(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
-    try {
-      const creds = await generateBotSetup();
-      setCredentials(creds);
-      await AsyncStorage.setItem(ONBOARDING_DONE_KEY, 'true');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error generando credenciales');
-    } finally {
-      setGenerating(false);
+      setCreating(false);
     }
   };
 
@@ -68,12 +44,9 @@ export default function HouseSetupScreen() {
     setError(null);
     try {
       await joinHouse(trimmed);
-      // Mark onboarding as done so we skip it and go directly home
-      await AsyncStorage.setItem(ONBOARDING_DONE_KEY, 'true');
       router.replace('/(tabs)');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al unirse al hogar';
-      setError(msg);
+      setError(err instanceof Error ? err.message : 'Error al unirse al hogar');
     } finally {
       setJoining(false);
     }
@@ -123,14 +96,14 @@ export default function HouseSetupScreen() {
                 </View>
                 <View className="flex-1">
                   <Text className="text-text font-bold text-base">Soy el propietario</Text>
-                  <Text className="text-text-secondary text-xs">Configuro el bot del hogar</Text>
+                  <Text className="text-text-secondary text-xs">Creo el hogar y configuro el bot</Text>
                 </View>
                 {mode === 'owner' && (
                   <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
                 )}
               </View>
               <Text className="text-text-secondary text-xs leading-4">
-                Ejecuta el script de configuración del bot y gestiona el hogar como administrador.
+                Creas tu casa y obtienes el token para configurar el bot que corre en tu red local.
               </Text>
             </TouchableOpacity>
 
@@ -167,142 +140,76 @@ export default function HouseSetupScreen() {
           {/* Conditional content */}
           <View className="px-6 mt-6">
 
-            {/* OWNER */}
-            {mode === 'owner' && (
+            {/* OWNER — create house, then show bot_token once */}
+            {mode === 'owner' && !botToken && (
               <View className="gap-4">
-
-                {/* Sub-mode selector */}
-                <View className="flex-row gap-3">
-                  {([
-                    { key: 'generate', label: 'Generar bot nuevo', icon: 'sparkles-outline' },
-                    { key: 'manual',   label: 'Ya tengo un bot',   icon: 'key-outline' },
-                  ] as const).map(({ key, label, icon }) => (
-                    <TouchableOpacity
-                      key={key}
-                      onPress={() => { setOwnerSub(key); setError(null); setCredentials(null); }}
-                      activeOpacity={0.8}
-                      className={`flex-1 rounded-xl border p-3 items-center gap-1.5 ${ownerSub === key ? 'bg-primary/10 border-primary' : 'bg-bg-secondary border-border'}`}
-                    >
-                      <Ionicons name={icon} size={20} color={ownerSub === key ? '#3B82F6' : '#64748b'} />
-                      <Text className={`text-xs font-semibold text-center ${ownerSub === key ? 'text-primary' : 'text-text-secondary'}`}>{label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                <View className="bg-bg-secondary border border-border rounded-2xl p-5 gap-3">
+                  <Text className="text-text font-bold text-sm">Nombre de la casa (opcional)</Text>
+                  <TextInput
+                    className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+                    value={houseName}
+                    onChangeText={(t) => { setHouseName(t); setError(null); }}
+                    placeholder="Mi Casa"
+                    placeholderTextColor="#475569"
+                    editable={!creating}
+                  />
+                  <Text className="text-text-secondary text-xs leading-5">
+                    Al crear la casa obtendrás un token único. Cópialo en tu bot (variable BOT_TOKEN).
+                  </Text>
                 </View>
 
-                {/* ── Generar bot nuevo ── */}
-                {ownerSub === 'generate' && !credentials && (
-                  <View className="gap-4">
-                    <View className="bg-bg-secondary border border-border rounded-2xl p-5">
-                      <Text className="text-text font-bold text-sm mb-2">¿Cómo funciona?</Text>
-                      <Text className="text-text-secondary text-xs leading-5">
-                        Se generará automáticamente una cuenta XMPP para tu bot y se creará tu casa.
-                        Recibirás el JID y la contraseña del bot — guárdalos para configurar errbot.
-                      </Text>
-                    </View>
-
-                    {error && (
-                      <View className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                        <Text className="text-red-400 text-sm text-center">{error}</Text>
-                      </View>
-                    )}
-
-                    <TouchableOpacity
-                      className={`rounded-2xl py-4 items-center flex-row justify-center gap-2 ${generating ? 'bg-primary/40' : 'bg-primary'}`}
-                      onPress={handleGenerate}
-                      disabled={generating}
-                      activeOpacity={0.8}
-                    >
-                      {generating
-                        ? <ActivityIndicator color="white" />
-                        : <Ionicons name="sparkles-outline" size={18} color="white" />
-                      }
-                      <Text className="text-white font-semibold text-base">
-                        {generating ? 'Generando...' : 'Generar credenciales'}
-                      </Text>
-                    </TouchableOpacity>
+                {error && (
+                  <View className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                    <Text className="text-red-400 text-sm text-center">{error}</Text>
                   </View>
                 )}
 
-                {/* ── Credenciales generadas — mostrar una sola vez ── */}
-                {ownerSub === 'generate' && credentials && (
-                  <View className="gap-4">
-                    <View className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex-row items-start gap-2">
-                      <Ionicons name="warning-outline" size={16} color="#f59e0b" style={{ marginTop: 1 }} />
-                      <Text className="text-amber-400 text-xs leading-5 flex-1">
-                        Estas credenciales solo se muestran una vez. Guárdalas ahora para configurar errbot.
-                      </Text>
-                    </View>
+                <TouchableOpacity
+                  className={`rounded-2xl py-4 items-center flex-row justify-center gap-2 ${creating ? 'bg-primary/40' : 'bg-primary'}`}
+                  onPress={handleCreate}
+                  disabled={creating}
+                  activeOpacity={0.8}
+                >
+                  {creating
+                    ? <ActivityIndicator color="white" />
+                    : <Ionicons name="add-circle-outline" size={18} color="white" />
+                  }
+                  <Text className="text-white font-semibold text-base">
+                    {creating ? 'Creando...' : 'Crear casa'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-                    <View className="bg-bg-secondary border border-border rounded-2xl p-5 gap-4">
-                      <View>
-                        <Text className="text-text-secondary text-xs font-semibold mb-1.5">JID del bot</Text>
-                        <View className="bg-bg border border-border rounded-xl px-4 py-3">
-                          <Text className="text-text font-mono text-sm" selectable>{credentials.jid}</Text>
-                        </View>
-                      </View>
-                      <View>
-                        <Text className="text-text-secondary text-xs font-semibold mb-1.5">Contraseña</Text>
-                        <View className="bg-bg border border-border rounded-xl px-4 py-3">
-                          <Text className="text-text font-mono text-sm" selectable>{credentials.password}</Text>
-                        </View>
-                      </View>
-                      <View className="bg-bg border border-border rounded-xl px-4 py-3">
-                        <Text className="text-text-secondary text-xs leading-4">
-                          Usa estos datos al ejecutar <Text className="font-mono text-indigo-400">bash setup-bot.sh</Text> o al configurar errbot manualmente.
-                        </Text>
-                      </View>
-                    </View>
+            {/* OWNER — token shown once */}
+            {mode === 'owner' && botToken && (
+              <View className="gap-4">
+                <View className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex-row items-start gap-2">
+                  <Ionicons name="warning-outline" size={16} color="#f59e0b" style={{ marginTop: 1 }} />
+                  <Text className="text-amber-400 text-xs leading-5 flex-1">
+                    Este token solo se muestra una vez. Cópialo ahora; si lo pierdes, deberás
+                    regenerarlo desde el perfil de tu casa.
+                  </Text>
+                </View>
 
-                    <TouchableOpacity
-                      className="rounded-2xl py-4 items-center bg-green-600"
-                      onPress={() => router.replace('/(tabs)')}
-                      activeOpacity={0.8}
-                    >
-                      <Text className="text-white font-semibold text-base">Ya lo he guardado — Continuar</Text>
-                    </TouchableOpacity>
+                <View className="bg-bg-secondary border border-border rounded-2xl p-5 gap-3">
+                  <Text className="text-text-secondary text-xs font-semibold">Token del bot (BOT_TOKEN)</Text>
+                  <View className="bg-bg border border-border rounded-xl px-4 py-3">
+                    <Text className="text-text font-mono text-sm" selectable>{botToken}</Text>
                   </View>
-                )}
+                  <Text className="text-text-secondary text-xs leading-4">
+                    Pégalo al ejecutar <Text className="font-mono text-indigo-400">bash setup-bot.sh</Text> o
+                    en la variable <Text className="font-mono text-indigo-400">BOT_TOKEN</Text> del archivo .bot.env del bot.
+                  </Text>
+                </View>
 
-                {/* ── Ya tengo un bot (manual) ── */}
-                {ownerSub === 'manual' && (
-                  <View className="gap-4">
-                    <View className="bg-bg-secondary border border-border rounded-2xl p-5 gap-3">
-                      <Text className="text-text font-bold text-sm">JID del bot</Text>
-                      <Text className="text-text-secondary text-xs">
-                        Introdúcelo tal como aparece en la configuración (ej: cano-bot@tuservidor.com)
-                      </Text>
-                      <TextInput
-                        className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
-                        value={botJid}
-                        onChangeText={(t) => { setBotJid(t); setError(null); }}
-                        placeholder="cano-bot@tuservidor.com"
-                        placeholderTextColor="#475569"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        editable={!claiming}
-                      />
-                    </View>
-
-                    {error && (
-                      <View className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                        <Text className="text-red-400 text-sm text-center">{error}</Text>
-                      </View>
-                    )}
-
-                    <TouchableOpacity
-                      className={`rounded-2xl py-4 items-center ${botJid.trim() && !claiming ? 'bg-primary' : 'bg-primary/40'}`}
-                      onPress={handleClaim}
-                      disabled={!botJid.trim() || claiming}
-                      activeOpacity={0.8}
-                    >
-                      {claiming
-                        ? <ActivityIndicator color="white" />
-                        : <Text className="text-white font-semibold text-base">Vincular casa</Text>
-                      }
-                    </TouchableOpacity>
-                  </View>
-                )}
-
+                <TouchableOpacity
+                  className="rounded-2xl py-4 items-center bg-green-600"
+                  onPress={() => router.replace('/(tabs)')}
+                  activeOpacity={0.8}
+                >
+                  <Text className="text-white font-semibold text-base">Ya lo he guardado — Continuar</Text>
+                </TouchableOpacity>
               </View>
             )}
 

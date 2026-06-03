@@ -6,10 +6,8 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
 import { Session } from '@supabase/supabase-js';
-import { ONBOARDING_DONE_KEY } from './onboarding';
 import { UserProfileProvider, useUserProfile } from '@/context/user-profile';
 import { getMyHouse, NoHouseError } from '@/api/houses';
 
@@ -68,35 +66,27 @@ function RootLayoutInner() {
 
     const seg0 = (segments[0] as string) ?? '';
     const inAuth  = seg0 === 'login' || seg0 === 'register';
-    const inSetup = seg0 === 'house-setup' || seg0 === 'onboarding';
+    const inSetup = seg0 === 'house-setup';
 
     if (!session) {
       if (!inAuth) router.replace('/login' as any);
       return;
     }
 
-    // Already in a setup flow — don't interfere
     if (inSetup) return;
 
-    // Authenticated: check onboarding then house for every entry point
-    AsyncStorage.getItem(ONBOARDING_DONE_KEY).then(async (done) => {
-      if (!done) {
-        router.replace('/onboarding' as any);
-        return;
-      }
+    (async () => {
       try {
         await getMyHouse();
         if (inAuth) router.replace('/(tabs)' as any);
       } catch (err) {
-        // Only redirect to house-setup for 404 (no house configured)
         if (err instanceof NoHouseError) {
           router.replace('/house-setup' as any);
         } else if (inAuth) {
-          // Other errors coming from auth → go to tabs anyway
           router.replace('/(tabs)' as any);
         }
       }
-    });
+    })();
   }, [mounted, session, loading]);
 
   return (
@@ -105,7 +95,6 @@ function RootLayoutInner() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="house-setup" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
