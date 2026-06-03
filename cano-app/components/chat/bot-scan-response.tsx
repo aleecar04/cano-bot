@@ -12,10 +12,7 @@ interface ScannedDevice {
   ip: string;
   mac: string;
   hostname: string;
-  fabricante: string;
   tipo: string;
-  confianza: number;
-  mac_aleatoria: boolean;
 }
 
 interface BotScanResponseProps {

@@ -62,7 +62,7 @@ export function ScheduleItem({
   creatorUsername,
   onToggle,
   onDelete,
-}: ScheduleItemProps) {
+}: Readonly<ScheduleItemProps>) {
   const actionLabel = ACTION_LABELS[schedule.action] ?? schedule.action;
   const actionIcon  = ACTION_ICONS[schedule.action]  ?? 'flash';
   const deviceName  = schedule.devices?.name ?? 'Dispositivo';

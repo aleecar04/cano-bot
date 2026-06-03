@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type DeviceDto } from '@/api/devices';
 import { deviceIcon } from '@/utils/device-icons';
@@ -10,7 +10,7 @@ import {
   type ActionDef,
 } from '@/utils/device-actions';
 
-type Step = 'device' | 'action' | 'payload';
+type Step = 'device' | 'action' | 'payload' | 'name';
 
 interface AddFavoriteModalProps {
   visible: boolean;
@@ -26,6 +26,8 @@ export function AddFavoriteModal({
   const [step, setStep]                   = useState<Step>('device');
   const [pendingDevice, setPendingDevice] = useState<DeviceDto | null>(null);
   const [pendingAction, setPendingAction] = useState<ActionDef | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown>>({});
+  const [customLabel, setCustomLabel]     = useState('');
 
   // payload state — presets only
   const [brightnessVal, setBrightnessVal] = useState(75);
@@ -41,7 +43,15 @@ export function AddFavoriteModal({
     setStep('device');
     setPendingDevice(null);
     setPendingAction(null);
+    setPendingPayload({});
+    setCustomLabel('');
     onClose();
+  };
+
+  const _goToName = (action: ActionDef, payload: Record<string, unknown>) => {
+    setPendingPayload(payload);
+    setCustomLabel(action.label);  // prefill con la etiqueta de la acción; el usuario puede renombrar
+    setStep('name');
   };
 
   const handleSelectDevice = (device: DeviceDto) => {
@@ -50,19 +60,16 @@ export function AddFavoriteModal({
   };
 
   const handleSelectAction = (action: ActionDef) => {
+    setPendingAction(action);
     if (!actionNeedsPayload(action)) {
-      if (pendingDevice) onSelectAction(pendingDevice, action.accion, action.label, {});
-      setStep('device');
-      setPendingDevice(null);
-      setPendingAction(null);
+      _goToName(action, {});
       return;
     }
-    setPendingAction(action);
     setStep('payload');
   };
 
   const handleConfirmPayload = () => {
-    if (!pendingAction || !pendingDevice) return;
+    if (!pendingAction) return;
     let payload: Record<string, unknown> = {};
     switch (pendingAction.payloadType) {
       case 'brightness': payload = { valor: brightnessVal }; break;
@@ -71,21 +78,26 @@ export function AddFavoriteModal({
       case 'app':        payload = { app: selectedApp }; break;
       case 'color':      payload = { color: selectedColor }; break;
     }
-    onSelectAction(pendingDevice, pendingAction.accion, pendingAction.label, payload);
-    setStep('device');
-    setPendingDevice(null);
-    setPendingAction(null);
+    _goToName(pendingAction, payload);
+  };
+
+  const handleConfirmName = () => {
+    if (!pendingAction || !pendingDevice) return;
+    const label = customLabel.trim() || pendingAction.label;
+    onSelectAction(pendingDevice, pendingAction.accion, label, pendingPayload);
   };
 
   const handleBack = () => {
-    if (step === 'payload') { setStep('action'); setPendingAction(null); }
+    if (step === 'name') { setStep(actionNeedsPayload(pendingAction!) ? 'payload' : 'action'); }
+    else if (step === 'payload') { setStep('action'); setPendingAction(null); }
     else if (step === 'action') { setStep('device'); setPendingDevice(null); }
   };
 
   const title =
     step === 'device'  ? 'Selecciona dispositivo' :
     step === 'action'  ? 'Selecciona acción' :
-                         'Configura valor';
+    step === 'payload' ? 'Configura valor' :
+                         'Nombra tu favorito';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
@@ -244,12 +256,38 @@ export function AddFavoriteModal({
 
                 <TouchableOpacity className="mt-6 bg-indigo-500 rounded-xl py-3 items-center flex-row justify-center gap-2"
                   onPress={handleConfirmPayload} disabled={saving} activeOpacity={0.8}>
+                  <Ionicons name="arrow-forward" size={16} color="white" />
+                  <Text className="text-white font-semibold text-sm">Siguiente</Text>
+                </TouchableOpacity>
+
+              </View>
+            )}
+
+            {/* Step: name */}
+            {step === 'name' && pendingAction && (
+              <View className="py-2">
+                <Text className="text-text text-sm font-semibold mb-2">Nombre del favorito</Text>
+                <Text className="text-text-secondary text-xs mb-3">
+                  Así se mostrará en tu panel. Puedes dejarlo como está o ponerle uno propio.
+                </Text>
+                <TextInput
+                  className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+                  value={customLabel}
+                  onChangeText={setCustomLabel}
+                  placeholder={pendingAction.label}
+                  placeholderTextColor="#475569"
+                  maxLength={80}
+                  editable={!saving}
+                  autoFocus
+                />
+
+                <TouchableOpacity className="mt-6 bg-indigo-500 rounded-xl py-3 items-center flex-row justify-center gap-2"
+                  onPress={handleConfirmName} disabled={saving} activeOpacity={0.8}>
                   {saving
                     ? <ActivityIndicator color="white" size="small" />
                     : <Ionicons name="checkmark" size={16} color="white" />}
-                  <Text className="text-white font-semibold text-sm">{saving ? 'Guardando...' : 'Confirmar'}</Text>
+                  <Text className="text-white font-semibold text-sm">{saving ? 'Guardando...' : 'Guardar favorito'}</Text>
                 </TouchableOpacity>
-
               </View>
             )}
 

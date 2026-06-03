@@ -29,7 +29,6 @@ interface ScanDeviceItemProps {
 export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, isLinking, isLinked = false }) => {
   const nonLinkable  = NON_LINKABLE_TYPES.has(device.tipo ?? '');
   const suggestHA    = SUGGEST_HA_TYPES.has(device.tipo ?? '');
-  const isSimulated  = (device.hostname ?? '').startsWith('fake-shelly');
 
   return (
     <View className={`border rounded-lg p-3 mb-2 flex-row items-center justify-between ${
@@ -45,12 +44,6 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
             <Text className={`text-xs ${isLinked || nonLinkable ? 'text-text-secondary' : 'text-indigo-400'}`}>
               {device.tipo}
             </Text>
-          )}
-          {isSimulated && !isLinked && (
-            <View className="bg-orange-500/20 rounded px-1.5 py-0.5 flex-row items-center gap-1">
-              <Ionicons name="flask-outline" size={10} color="#f97316" />
-              <Text className="text-orange-400 text-xs font-semibold">SIM</Text>
-            </View>
           )}
           {suggestHA && !isLinked && (
             <View className="bg-amber-500/20 rounded px-1.5 py-0.5 flex-row items-center gap-1">

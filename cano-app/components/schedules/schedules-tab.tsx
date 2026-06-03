@@ -32,7 +32,7 @@ export function SchedulesTab({
   houseMembers,
   onSchedulesChange,
   onToast,
-}: Props) {
+}: Readonly<Props>) {
   const [showCreate, setShowCreate]       = useState(false);
   const [saving, setSaving]               = useState(false);
   const [cleaning, setCleaning]           = useState(false);

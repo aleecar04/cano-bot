@@ -4,8 +4,7 @@ import {
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { sendMessage, getMessages, type MessageDto } from '@/api/conversations';
-import { vincularDevice, waitForDeviceStatus, type DeviceDto, type VincularDeviceParams } from '@/api/devices';
+import { vincularDevice, waitForDeviceStatus, scanNetwork, waitForCommand, type DeviceDto, type VincularDeviceParams } from '@/api/devices';
 import { getMyRooms, type RoomDto } from '@/api/houses';
 import { friendlyError } from '@/utils/friendly-error';
 import { ScanDeviceItem } from '@/components/devices/scan-device-item';
@@ -49,27 +48,13 @@ export function DevicesTab({
     setScannedDevices([]);
     setShowScanModal(true);
     try {
-      const response = await sendMessage('escanear dispositivos');
-      const messageId = response?.id;
-      if (!messageId) throw new Error('No message ID in response');
-
-      await new Promise((r) => setTimeout(r, 3000));
-
-      let found = false;
-      for (let i = 0; i < 15 && !found; i++) {
-        const messages: MessageDto[] = await getMessages();
-        const msg = messages.find((m) => m.id === messageId);
-        if (msg?.response) {
-          found = true;
-          const parsed = JSON.parse(msg.response);
-          if (Array.isArray(parsed.dispositivos)) {
-            setScannedDevices(parsed.dispositivos);
-          }
-        } else {
-          await new Promise((r) => setTimeout(r, 1500));
-        }
+      const { command_id } = await scanNetwork();
+      const command = await waitForCommand(command_id);
+      if (command.status === 'failed') throw new Error(command.error ?? 'Error al escanear');
+      const data = (command.result_data ?? {}) as { dispositivos?: ScannedDevice[] };
+      if (Array.isArray(data.dispositivos)) {
+        setScannedDevices(data.dispositivos);
       }
-      if (!found) throw new Error('timeout');
     } catch (err) {
       const msg = String(err).includes('timeout')
         ? 'El escaneo tardó demasiado. Asegúrate de que el asistente está activo e inténtalo de nuevo.'

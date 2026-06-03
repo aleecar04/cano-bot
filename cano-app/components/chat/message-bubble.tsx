@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 export type Message = {
   id: string;
   from: string;
-  text: string;
+  text?: string;
+  result?: Record<string, unknown>;
   timestamp: Date;
 };
 

@@ -32,7 +32,7 @@ export function LinkDeviceModal({
   linking,
   onClose,
   onConfirm,
-}: LinkDeviceModalProps) {
+}: Readonly<LinkDeviceModalProps>) {
   const [name, setName] = useState(device.hostname ?? device.ip);
   const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
   const [tuyaDevId, setTuyaDevId]         = useState('');

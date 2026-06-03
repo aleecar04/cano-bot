@@ -13,7 +13,7 @@ const UserProfileContext = createContext<UserProfileContextValue>({
   clearProfile: () => {},
 });
 
-export function UserProfileProvider({ children }: { children: ReactNode }) {
+export function UserProfileProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
 
   const loadProfile = useCallback(async () => {

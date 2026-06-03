@@ -16,7 +16,7 @@ interface DeviceEditModalProps {
   onError: (message: string) => void;
 }
 
-export function DeviceEditModal({ visible, device, onClose, onSave, onError }: DeviceEditModalProps) {
+export function DeviceEditModal({ visible, device, onClose, onSave, onError }: Readonly<DeviceEditModalProps>) {
   const [editName, setEditName]       = useState('');
   const [editRoomId, setEditRoomId]   = useState<string | null>(null);
   const [rooms, setRooms]             = useState<RoomDto[]>([]);

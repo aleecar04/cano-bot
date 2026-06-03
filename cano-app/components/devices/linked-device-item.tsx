@@ -9,6 +9,7 @@ import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { DeviceEditModal } from '@/components/devices/device-edit-modal';
 import { deviceIcon, deviceColor } from '@/utils/device-icons';
+import { TV_APPS } from '@/utils/device-actions';
 
 const WOL_TYPES = new Set(['SmartTV']);
 
@@ -56,13 +57,6 @@ type Accion = {
   payload?: Record<string, unknown>;
   picker?: 'volumen' | 'app';
 };
-
-const TV_APPS: { app: string; label: string; icon: string }[] = [
-  { app: 'netflix',  label: 'Netflix',  icon: 'logo-netflix' },
-  { app: 'youtube',  label: 'YouTube',  icon: 'logo-youtube' },
-  { app: 'prime',    label: 'Prime',    icon: 'cart-outline' },
-  { app: 'disney',   label: 'Disney+',  icon: 'star-outline' },
-];
 
 const TV_VOLUMES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
@@ -118,11 +112,6 @@ const SWITCH_ACCIONES: Accion[] = [
   { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
 ];
 
-const COVER_ACCIONES: Accion[] = [
-  { accion: 'encender', icon: 'arrow-up-outline',   label: 'Abrir' },
-  { accion: 'apagar',   icon: 'arrow-down-outline', label: 'Cerrar' },
-];
-
 const MEDIA_ACCIONES: Accion[] = [
   { accion: 'encender',      icon: 'play',            label: 'Play' },
   { accion: 'apagar',        icon: 'pause',           label: 'Pausa' },
@@ -136,16 +125,11 @@ const ACCIONES: Record<string, Accion[]> = {
   SmartTV:      TV_ACCIONES,
   Luz:          LUZ_ACCIONES,
   Enchufe:      SWITCH_ACCIONES,
-  Persiana:     COVER_ACCIONES,
-  Sensor:       [],
-  Termostato:   SWITCH_ACCIONES,
   IoT:          SWITCH_ACCIONES,
   light:        LUZ_ACCIONES,
   switch:       SWITCH_ACCIONES,
   climate:      SWITCH_ACCIONES,
-  cover:        COVER_ACCIONES,
   media_player: MEDIA_ACCIONES,
-  sensor:       [],
 };
 
 const DEFAULT_ACCIONES: Accion[] = [
