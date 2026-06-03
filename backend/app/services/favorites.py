@@ -1,48 +1,36 @@
-from app.core.db import supabase
-from app.models import FavoriteActionCreate
-from app.services.command_executor import execute_command, CommandSource
+from fastapi import HTTPException, status
 
-MAX_FAVORITES = 4
+from app.core.db import supabase
+from app.core.errors import bad_request, not_found
+from app.models.favorites import FavoriteActionCreate
+from app.services.command_executor import execute_command, CommandSource
+from app.repositories.favorites import favorite_repository
+
+MAX_FAVORITES = 6
 
 
 def get_favorites(user_id: str) -> list[dict]:
-    result = supabase.table("favorite_actions")\
-        .select("*, devices(name, type)")\
-        .eq("user_id", user_id)\
-        .order("position")\
-        .execute()
-    return result.data or []
+    return favorite_repository.find_by_user(user_id)
 
 
 def add_favorite(fav_in: FavoriteActionCreate, user_id: str) -> dict:
     existing = get_favorites(user_id)
     if len(existing) >= MAX_FAVORITES:
-        raise ValueError(f"Solo puedes tener {MAX_FAVORITES} acciones favoritas")
+        raise bad_request(f"Solo puedes tener {MAX_FAVORITES} acciones favoritas")
 
-    position = len(existing)
-    result = supabase.table("favorite_actions").insert({
-        "user_id":   user_id,
-        "device_id": str(fav_in.device_id),
-        "action":    fav_in.action,
-        "payload":   fav_in.payload,
-        "label":     fav_in.label,
-        "position":  position,
-    }).execute()
+    data = fav_in.model_dump(mode="json")
+    data["user_id"] = user_id
+    result = supabase.table("favorite_actions").insert(data).execute()
 
     if not result.data:
-        raise RuntimeError("Error al guardar favorito")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Error al guardar favorito")
     return result.data[0]
 
 
 async def execute_favorite(favorite_id: str, user_id: str) -> dict:
-    result = supabase.table("favorite_actions")\
-        .select("*")\
-        .eq("id", favorite_id)\
-        .eq("user_id", user_id)\
-        .execute()
-    if not result.data:
-        raise ValueError("Favorito no encontrado")
-    fav = result.data[0]
+    fav = favorite_repository.find_by_id_and_user(favorite_id, user_id)
+    if not fav:
+        raise not_found("Favorito no encontrado")
     return await execute_command(
         device_id=fav["device_id"],
         action=fav["action"],

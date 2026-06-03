@@ -65,9 +65,11 @@ async def _complete_add_user_command(client: httpx.AsyncClient, session_id: str,
     r.raise_for_status()
 
 
-async def send_xmpp_message(body: str, from_jid: str, xmpp_password: str, to_jid: str) -> str | None:
+async def send_xmpp_message(
+    body: str, from_jid: str, xmpp_password: str, to_jid: str, message_id: str | None = None
+) -> str | None:
     username = from_jid.split("@")[0]
-    message_id = str(uuid.uuid4())
+    message_id = message_id or str(uuid.uuid4())
     recipient = to_jid
     async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
         r = await client.post(

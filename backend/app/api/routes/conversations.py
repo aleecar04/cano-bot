@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from app.api.deps import CurrentUser
-from app.models import ConversationPublic
+from app.core.errors import forbidden
+from app.models.conversations import ConversationPublic
 from app.services.messages import (
     create_conversation,
     get_user_conversations,
@@ -21,5 +22,5 @@ def list_conversations(current_user: CurrentUser):
 def conversation_messages(conversation_id: str, current_user: CurrentUser):
     convs = get_user_conversations(current_user["id"])
     if not any(str(c["id"]) == conversation_id for c in convs):
-        raise HTTPException(status_code=403, detail="No tienes acceso a esta conversación")
+        raise forbidden("No tienes acceso a esta conversación")
     return get_conversation_messages(conversation_id)

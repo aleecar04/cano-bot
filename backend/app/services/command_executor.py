@@ -1,16 +1,14 @@
-"""
-Central command execution service.
-All command origins (direct, conversation, favorite, schedule) go through
-execute_command(), which ensures every execution is recorded in the commands
-table before the action is dispatched to the bot.
-"""
 from __future__ import annotations
 
 import json
 from app.core.db import supabase
 from app.core.config import settings
+from app.core.errors import bad_request, conflict, not_found
 from app.services.xmpp import send_xmpp_message
-from app.services.home import get_bot_jid_for_user
+from app.services.home import get_bot_target_for_user, get_house_id_for_user
+from app.services.device_catalog import is_action_supported, validate_payload
+from app.repositories.devices import device_repository
+from app.repositories.users import xmpp_account_repository
 
 
 # ── Strategy pattern ─────────────────────────────────────────────────────────
@@ -36,7 +34,7 @@ class ScheduleSource(CommandSource):
 
     def post_execute(self, schedule_id: str | None, command_id: str) -> None:
         from app.services.schedules import mark_schedule_run
-        from app.models import ScheduleMarkRun
+        from app.models.schedules import ScheduleMarkRun
         mark_schedule_run(self.source_id, ScheduleMarkRun(command_id=command_id))
 
 
@@ -44,7 +42,8 @@ class ScheduleSource(CommandSource):
 
 def _create_pending_command(
     user_id: str,
-    device_id: str,
+    device_id: str | None,
+    target_type: str,
     action: str,
     payload: dict,
     source_type: str,
@@ -53,6 +52,7 @@ def _create_pending_command(
     result = supabase.table("commands").insert({
         "user_id":     user_id,
         "device_id":   device_id,
+        "target_type": target_type,
         "action":      action,
         "payload":     payload,
         "status":      "pending",
@@ -70,60 +70,85 @@ def _update_command(command_id: str, error: str | None) -> None:
     supabase.table("commands").update(data).eq("id", command_id).execute()
 
 
+def _get_xmpp_context(user_id: str) -> tuple[str, str, str]:
+    """Devuelve (user_jid, user_password, bot_target). Lanza ValueError si falta algo.
+    bot_target es el JID compartido del bot con resource derivado de la casa."""
+    jid = xmpp_account_repository.find_jid_by_user(user_id)
+    if not jid:
+        raise not_found("Cuenta XMPP no encontrada")
+    password_result = supabase.rpc("get_xmpp_password", {
+        "p_user_id": user_id,
+        "p_key": settings.XMPP_ENCRYPTION_KEY,
+    }).execute()
+    bot_target = get_bot_target_for_user(user_id)
+    if not bot_target:
+        raise bad_request("La casa no tiene un bot configurado")
+    return jid, password_result.data, bot_target
+
+
+def _resolve_target(user_id: str, device_id: str | None) -> tuple[str, dict | None]:
+    """Valida acceso y devuelve (target_type, device row). Para 'device' devuelve la
+    fila completa (la usaremos para validar la acción contra su tipo)."""
+    if not device_id:
+        return "system", None
+    house_id = get_house_id_for_user(user_id)
+    device = device_repository.find_by_id_and_house(device_id, house_id)
+    if not device:
+        raise not_found("Dispositivo no encontrado")
+    return "device", device
+
+
+def _build_command_body(device_id: str | None, action: str, payload: dict, command_id: str) -> str:
+    """Mensaje XMPP para el bot: comando de dispositivo o de sistema."""
+    if device_id:
+        return json.dumps({
+            "device_id":  device_id,
+            "action":     action,
+            "payload":    payload,
+            "command_id": command_id,
+        })
+    return json.dumps({"type": action, "command_id": command_id})  # system, p.ej. "scan"
+
+
 async def execute_command(
-    device_id: str,
     action: str,
     payload: dict,
     user_id: str,
     source: CommandSource,
+    device_id: str | None = None,
+    target_type: str | None = None,
 ) -> dict:
-    """
-    1. Create pending command record.
-    2. Dispatch to bot via XMPP.
-    3. post_execute hook (only ScheduleSource does anything here).
-    Returns {"ok": True, "command_id": ...}.
-    """
-    device = supabase.table("devices").select("*").eq("id", device_id).execute()
-    if not device.data:
-        raise ValueError("Dispositivo no encontrado")
+    """Ejecuta un comando: valida acción + payload, crea el comando pendiente,
+    lo manda al bot por XMPP y dispara post_execute. Si no se pasa target_type,
+    se infiere por device_id (device si lo trae, system si no). 409 si la acción
+    no es válida para el tipo de dispositivo o el payload no cumple las reglas."""
+    jid, xmpp_password, bot_target = _get_xmpp_context(user_id)
+    device = None
+    if target_type is None:
+        target_type, device = _resolve_target(user_id, device_id)
 
-    # Get user XMPP credentials
-    jid_result = supabase.table("xmpp_accounts").select("jid").eq("user_id", user_id).execute()
-    if not jid_result.data:
-        raise ValueError("Cuenta XMPP no encontrada")
-    jid = jid_result.data[0]["jid"]
-
-    password_result = supabase.rpc("get_xmpp_password", {
-        "p_user_id": user_id,
-        "p_key": settings.XMPP_ENCRYPTION_KEY
-    }).execute()
-    xmpp_password = password_result.data
-
-    bot_jid = get_bot_jid_for_user(user_id)
-    if not bot_jid:
-        raise ValueError("La casa no tiene un bot configurado")
+    if target_type == "device":
+        if device is None:
+            _, device = _resolve_target(user_id, device_id)
+        if device and not is_action_supported(device.get("type", ""), action):
+            raise conflict(f"{device['name']} no soporta la acción '{action}'.")
+        err = validate_payload(action, payload)
+        if err:
+            raise conflict(err)
 
     command_id = _create_pending_command(
         user_id=user_id,
         device_id=device_id,
+        target_type=target_type,
         action=action,
         payload=payload,
         source_type=source.source_type,
         source_id=source.source_id,
     )
 
+    body = _build_command_body(device_id, action, payload, command_id)
     try:
-        await send_xmpp_message(
-            body=json.dumps({
-                "device_id":  device_id,
-                "accion":     action,
-                "payload":    payload,
-                "command_id": command_id,
-            }),
-            from_jid=jid,
-            xmpp_password=xmpp_password,
-            to_jid=bot_jid,
-        )
+        await send_xmpp_message(body=body, from_jid=jid, xmpp_password=xmpp_password, to_jid=bot_target)
     except Exception as e:
         _update_command(command_id, error=f"XMPP error: {e}")
         raise

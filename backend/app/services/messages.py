@@ -1,42 +1,269 @@
-from fastapi import HTTPException
+import httpx
+import inspect
+import json
+from datetime import date
+from typing import Callable
+
 from app.core.db import supabase
-from app.models import BotWebhookPayload
+from app.core.errors import bad_request, forbidden, not_found, service_unavailable
+from app.models.xmpp import BotWebhookPayload
 from app.services.xmpp import send_xmpp_message
-from app.services.home import get_bot_jid_for_user
+from app.services.home import get_bot_target_for_user, get_house_id_for_user
+from app.services.ollama import classify_intent
+from app.services.command_kinds import lookup_prefix_command
+from app.repositories.devices import device_repository
+from app.repositories.messages import message_repository, conversation_repository
+from app.repositories.users import xmpp_account_repository
+from app.repositories.houses import house_member_repository
 from app.core.config import settings
 
 _NOW = "now()"
 
-async def process_message(body: str, user_id: str, conversation_id: str | None) -> dict:
-    import httpx as _httpx
+# Intents que el backend puede resolver sin pasar por el bot.
+_BACKEND_RESOLVED_INTENTS: dict[str, str] = {
+    "unknown":      "No te he entendido, prueba de otra forma.",
+    "ollama_error": "Estoy teniendo problemas para clasificar tu mensaje, inténtalo de nuevo en breves.",
+}
+
+# Callback que entrega un texto al usuario. Puede ser sync (PWA: guarda en BD)
+# o async (Gajim: persiste + relay XMPP). El helper hace `await` si es awaitable.
+ResolveCallback = Callable[[str, str], object]
+
+
+class _DeviceNotFound(Exception):
+    """Device no encontrado al resolver un control_device."""
+
+class _ValidationError(Exception):
+    """Acción no soportada o payload inválido en control_device."""
+    def __init__(self, msg: str):
+        super().__init__(msg)
+        self.message = msg
+
+
+# ── Entry points públicos ────────────────────────────────────────────────────
+
+async def process_message(body: str, user_id: str, conversation_id: str) -> dict:
+    """Mensaje desde la PWA: persiste, clasifica, intenta resolver en backend
+    o lo reenvía al bot. La respuesta se guarda en messages.response."""
+    _verify_conversation(conversation_id, user_id)
+    bot_target = _require_bot_target(user_id)
+
+    message = _create_message(None, body, conversation_id)
+    intent_data = await _classify(body)
+
+    if await _try_resolve_in_backend(intent_data, user_id, message, _save_response):
+        _touch_conversation(conversation_id)
+        return message
+
+    await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
+    _touch_conversation(conversation_id)
+    return message
+
+
+async def process_gajim_message(from_jid: str, body: str, house_id: str) -> dict:
+    """Mensaje natural reenviado por el bot desde un cliente XMPP directo (Gajim).
+    Misma lógica que process_message pero la respuesta vuelve al usuario por XMPP."""
+    user_id = _authenticate_gajim_sender(from_jid, house_id)
+    bot_target = _require_bot_target(user_id)
+    conv_id = _get_or_create_xmpp_conversation_today(user_id)
+
+    message = _create_message(None, body, conv_id)
+    correlation_id = str(message["id"])
+    intent_data = await _classify(body)
+
+    async def on_resolve(mid: str, text: str) -> None:
+        await _resolve_for_gajim(mid, correlation_id, user_id, text)
+
+    if await _try_resolve_in_backend(intent_data, user_id, message, on_resolve):
+        return message
+
+    await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
+    return message
+
+
+def handle_webhook(payload: BotWebhookPayload, house_id: str) -> None:
+    """Webhook del bot tras manejar un mensaje. Si el message ya existe (PWA),
+    actualiza su response; si no (Gajim directo), lo crea en la conversación
+    del día. En ambos casos valida que el usuario pertenezca a la casa del bot."""
+    message = _find_message(payload)
+    if message:
+        owner = conversation_repository.find_user_id_by_id(message["conversation_id"])
+        if not owner or house_member_repository.find_house_id_by_user(owner) != house_id:
+            raise forbidden("El mensaje no pertenece a esta casa")
+        _save_response(message["id"], payload.response)
+        return
+
+    jid_bare = payload.from_jid.split("/")[0]
+    user_id = xmpp_account_repository.find_user_id_by_jid(jid_bare)
+    if not user_id or house_member_repository.find_house_id_by_user(user_id) != house_id:
+        raise not_found("JID desconocido en esta casa")
+    conv_id = _get_or_create_xmpp_conversation_today(user_id)
+    supabase.table("messages").insert({
+        "conversation_id": conv_id,
+        "body":            payload.body,
+        "response":        payload.response,
+    }).execute()
+
+
+# ── Pasos del pipeline (orquestación) ────────────────────────────────────────
+
+def _require_bot_target(user_id: str) -> str:
+    bot_target = get_bot_target_for_user(user_id)
+    if not bot_target:
+        raise bad_request("La casa no tiene un bot configurado")
+    return bot_target
+
+
+def _authenticate_gajim_sender(from_jid: str, house_id: str) -> str:
+    """Resuelve el JID a user_id y valida que pertenezca a la casa autenticada."""
+    jid_bare = from_jid.split("/")[0]
+    user_id = xmpp_account_repository.find_user_id_by_jid(jid_bare)
+    if not user_id or house_member_repository.find_house_id_by_user(user_id) != house_id:
+        raise not_found("JID desconocido en esta casa")
+    return user_id
+
+
+async def _classify(body: str) -> dict | None:
+    """Devuelve un intent_data sintético si el body es un !comando conocido;
+    si es texto natural, llama a Ollama. None solo si el cuerpo está vacío."""
+    intent_data = lookup_prefix_command(body)
+    if intent_data is not None:
+        return intent_data
+    if body.startswith("!"):
+        return None  # !comando desconocido — backend lo resuelve sin clasificar
+    return await classify_intent(body)
+
+
+async def _try_resolve_in_backend(
+    intent_data: dict | None, user_id: str, message: dict,
+    on_resolve: ResolveCallback,
+) -> bool:
+    """Cierra el mensaje desde el backend sin pasar por el bot.
+    Devuelve True si lo manejó (caller no debe seguir reenviando)."""
+    message_id = message["id"]
+
+    if intent_data is None:
+        # !comando desconocido detectado en _classify
+        await _maybe_await(on_resolve(message_id, _BACKEND_RESOLVED_INTENTS["unknown"]))
+        return True
+
+    intent = intent_data.get("intent")
+
+    if intent == "control_device":
+        try:
+            await _dispatch_device_from_nlp(intent_data, user_id, message_id)
+            return True
+        except _ValidationError as e:
+            await _maybe_await(on_resolve(message_id, e.message))
+            return True
+        except _DeviceNotFound:
+            await _maybe_await(on_resolve(message_id, _device_not_found_message(intent_data)))
+            return True
+
+    if intent in _BACKEND_RESOLVED_INTENTS:
+        await _maybe_await(on_resolve(message_id, _BACKEND_RESOLVED_INTENTS[intent]))
+        return True
+
+    return False
+
+
+async def _maybe_await(result: object) -> None:
+    """Permite que ResolveCallback sea sync o async sin que el caller lo sepa."""
+    if inspect.isawaitable(result):
+        await result
+
+
+def _device_not_found_message(intent_data: dict) -> str:
+    nombre = intent_data.get("dispositivo") or ""
+    if nombre:
+        return f"No he encontrado ningún dispositivo llamado '{nombre}'."
+    return "No he entendido qué dispositivo quieres controlar."
+
+
+async def _forward_to_bot(
+    body: str, intent_data: dict | None, message_id: str, user_id: str, bot_target: str,
+) -> None:
+    """Empaqueta el intent_data como natural_classified y lo manda al bot por XMPP.
+    Si XMPP falla, borra el message para no dejar huérfano."""
+    correlation_id = message_id
+    payload = json.dumps({
+        "type": "natural_classified",
+        "intent_data": intent_data,
+        "original_body": body,
+    })
+    xmpp_body = f"{correlation_id}|{payload}"
     xmpp_account = _get_base_user(user_id)
-    if conversation_id:
-        _verify_conversation(conversation_id, user_id)
-
-    bot_jid = get_bot_jid_for_user(user_id)
-    if not bot_jid:
-        raise HTTPException(status_code=400, detail="La casa no tiene un bot configurado")
-
     try:
-        xmpp_message_id = await send_xmpp_message(
-            body,
-            xmpp_account["jid"],
-            xmpp_account["password"],
-            to_jid=bot_jid,
+        await send_xmpp_message(
+            xmpp_body, xmpp_account["jid"], xmpp_account["password"],
+            to_jid=bot_target, message_id=correlation_id,
         )
-    except _httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Error enviando mensaje XMPP: {e.response.status_code} {e.response.text[:200]}"
+    except httpx.HTTPStatusError as e:
+        supabase.table("messages").delete().eq("id", message_id).execute()
+        raise service_unavailable(
+            f"Error enviando mensaje XMPP: {e.response.status_code} {e.response.text[:200]}"
         )
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Servicio XMPP no disponible: {e}")
+        supabase.table("messages").delete().eq("id", message_id).execute()
+        raise service_unavailable(f"Servicio XMPP no disponible: {e}")
 
-    message = _create_message(user_id, None, xmpp_message_id, body, conversation_id)
 
-    if conversation_id:
-        _touch_conversation(conversation_id)
-    return message
+async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id: str) -> None:
+    from app.services.command_executor import execute_command, CommandSource
+    from app.services.device_catalog import is_action_supported, validate_payload
+
+    # El prompt de Ollama devuelve estos campos en español por convención.
+    action = intent_data.get("accion")
+    name = (intent_data.get("dispositivo") or "").lower()
+    if not action or not name:
+        raise _DeviceNotFound
+
+    house_id = get_house_id_for_user(user_id)
+    if not house_id:
+        raise _DeviceNotFound
+
+    device = device_repository.find_by_name_and_house(name, house_id)
+    if not device:
+        raise _DeviceNotFound
+
+    if not is_action_supported(device.get("type", ""), action):
+        raise _ValidationError(f"{device['name']} no soporta la acción '{action}'.")
+
+    payload = intent_data.get("payload") or {}
+    err = validate_payload(action, payload)
+    if err:
+        raise _ValidationError(err)
+
+    result = await execute_command(
+        action=action, payload=payload, user_id=user_id,
+        source=CommandSource(source_type="conversation", source_id=message_id),
+        device_id=device["id"],
+    )
+    command_id = result.get("command_id")
+    if command_id:
+        supabase.table("messages").update({"command_id": command_id}).eq("id", message_id).execute()
+
+
+async def _resolve_for_gajim(message_id: str, correlation_id: str, user_id: str, text: str) -> None:
+    """Persiste el texto como response y manda un relay XMPP para que el bot lo
+    entregue al cliente XMPP del usuario. Si XMPP falla, la PWA aún ve el texto en BD."""
+    _save_response(message_id, text)
+    bot_target = get_bot_target_for_user(user_id)
+    if not bot_target:
+        return
+    payload = json.dumps({"type": "relay", "text": text})
+    xmpp_account = _get_base_user(user_id)
+    try:
+        await send_xmpp_message(
+            f"{correlation_id}|{payload}",
+            xmpp_account["jid"], xmpp_account["password"],
+            to_jid=bot_target, message_id=correlation_id,
+        )
+    except Exception:
+        pass
+
+
+# ── Helpers de acceso a datos ────────────────────────────────────────────────
 
 def _get_base_user(user_id: str) -> dict:
     jid_result = supabase.table("xmpp_accounts") \
@@ -44,165 +271,68 @@ def _get_base_user(user_id: str) -> dict:
         .eq("user_id", user_id) \
         .execute()
     if not jid_result.data:
-        raise HTTPException(
-            status_code=404,
-            detail="Cuenta XMPP no encontrada. El registro puede haberse completado sin crear la cuenta XMPP."
+        raise not_found(
+            "Cuenta XMPP no encontrada. El registro puede haberse completado sin crear la cuenta XMPP."
         )
-
     password_result = supabase.rpc("get_xmpp_password", {
         "p_user_id": user_id,
         "p_key": settings.XMPP_ENCRYPTION_KEY
     }).execute()
-
     return {
         "jid": jid_result.data[0]["jid"],
         "password": password_result.data
     }
 
+
 def _verify_conversation(conversation_id: str, user_id: str) -> None:
-    result = supabase.table("conversations") \
-        .select("id") \
-        .eq("id", conversation_id) \
-        .eq("user_id", user_id) \
-        .execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    if not conversation_repository.find_by_id_and_user(conversation_id, user_id):
+        raise not_found("Conversation not found")
 
 
-def handle_webhook(payload: BotWebhookPayload) -> None:
-    message = _find_message(payload)
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-    _save_response(message["id"], payload.response)
+def _get_or_create_xmpp_conversation_today(user_id: str) -> str:
+    """Una conversación XMPP por usuario y día, titulada 'XMPP - YYYY-MM-DD'."""
+    title = f"XMPP - {date.today().isoformat()}"
+    existing = conversation_repository.find_by_user_and_title(user_id, title)
+    if existing:
+        return existing["id"]
+    new_conv = supabase.table("conversations").insert(
+        {"user_id": user_id, "title": title}
+    ).execute()
+    return new_conv.data[0]["id"]
+
 
 def _find_message(payload: BotWebhookPayload) -> dict | None:
-    body = payload.body
-    if "|" in body:
-        _, body = body.split("|", 1)
-    if payload.message_id:
-        result = supabase.table("messages") \
-            .select("*") \
-            .eq("xmpp_message_id", payload.message_id) \
-            .order("created_at", desc=True) \
-            .limit(1) \
-            .execute()
-    else:
-        result = supabase.table("messages") \
-            .select("*") \
-            .ilike("body", body) \
-            .order("created_at", desc=True) \
-            .limit(1) \
-            .execute()
-    return result.data[0] if result.data else None
+    if not payload.message_id:
+        return None
+    return message_repository.find_by_id(payload.message_id)
+
 
 def _save_response(message_id: str, response: str) -> None:
     supabase.table("messages").update({"response": response}).eq("id", message_id).execute()
 
 
-def update_command_result(command_id: str, error: str | None) -> None:
-    error = error or None  # normalize empty string to None
-    status = "failed" if error else "executed"
-    data: dict = {"status": status, "executed_at": _NOW}
-    if error:
-        data["error"] = error
-    supabase.table("commands").update(data).eq("id", command_id).execute()
+def _touch_conversation(conversation_id: str) -> None:
+    supabase.table("conversations").update({
+        "updated_at": _NOW
+    }).eq("id", conversation_id).execute()
 
-    # Push notification for schedule-triggered commands
-    try:
-        cmd = supabase.table("commands").select(
-            "user_id, source_type, action, devices(name)"
-        ).eq("id", command_id).execute()
-        if cmd.data and cmd.data[0].get("source_type") == "schedule":
-            row         = cmd.data[0]
-            device_name = (row.get("devices") or {}).get("name", "dispositivo")
-            action_map  = {
-                "encender": "Encender", "apagar": "Apagar",
-                "brillo": "Brillo", "temperatura_color": "Temperatura color",
-                "subir_volumen": "Subir volumen", "bajar_volumen": "Bajar volumen",
-                "mute": "Silenciar", "set_volumen": "Ajustar volumen",
-                "abrir_app": "Abrir app", "color_rgb": "Color",
-            }
-            action_label = action_map.get(row.get("action", ""), row.get("action", ""))
-            from app.services.push import send_push
-            if error:
-                send_push(row["user_id"], "❌ Tarea fallida",
-                          f"{action_label} {device_name}: {error}")
-            else:
-                send_push(row["user_id"], "✅ Tarea ejecutada",
-                          f"{action_label} {device_name} completado correctamente")
-    except Exception:
-        pass  # push is non-critical
 
-def _create_command(
-    user_id: str,
-    device_id: str | None,
-    action: str,
-    payload: dict = {},
-    status: str = "pending",
-    error: str | None = None,
-    source_type: str = "conversation",
-    source_id: str | None = None,
-) -> str:
-    result = supabase.table("commands").insert({
-        "user_id":     user_id,
-        "device_id":   device_id,
-        "action":      action,
-        "payload":     payload,
-        "status":      status,
-        "executed_at": _NOW if status == "executed" else None,
-        "error":       error,
-        "source_type": source_type,
-        "source_id":   source_id,
+def _create_message(command_id, body, conversation_id) -> dict:
+    result = supabase.table("messages").insert({
+        "conversation_id": conversation_id,
+        "command_id":      command_id,
+        "body":            body,
+        "response":        None,
     }).execute()
-    return result.data[0]["id"]
-
-
-def create_command_from_bot(body: dict) -> dict:
-    # Scheduler passes pending=True to register the command before executing
-    if body.get("pending"):
-        status, error = "pending", None
-    else:
-        error = body.get("error") or None
-        status = "failed" if error else "executed"
-
-    command_id = _create_command(
-        user_id=body["user_id"],
-        device_id=body["device_id"],
-        action=body["action"],
-        payload=body.get("payload", {}),
-        status=status,
-        error=error,
-        source_type=body.get("source_type") or "conversation",
-        source_id=body.get("source_id") or None,
-    )
-
-    if body.get("xmpp_message_id"):
-        supabase.table("messages").update({
-            "command_id": command_id
-        }).eq("xmpp_message_id", body["xmpp_message_id"]).execute()
-
-    return {"ok": True, "command_id": command_id}
-
-def _create_message(user_id, command_id, xmpp_message_id, body, conversation_id) -> dict:
-    message_data = {
-        "from_user_id": user_id,
-        "command_id": command_id,
-        "xmpp_message_id": xmpp_message_id,
-        "body": body,
-        "response": None
-    }
-    if conversation_id:
-        message_data["conversation_id"] = conversation_id
-    result = supabase.table("messages").insert(message_data).execute()
     return result.data[0]
 
+
+# ── CRUD simple ──────────────────────────────────────────────────────────────
+
 def get_user_messages(user_id: str) -> list:
-    result = supabase.table("messages") \
-        .select("*") \
-        .eq("from_user_id", user_id) \
-        .order("created_at", desc=True) \
-        .execute()
-    return result.data
+    conv_ids = conversation_repository.find_ids_by_user(user_id)
+    return message_repository.find_by_conversation_ids(conv_ids)
+
 
 def create_conversation(user_id: str, title: str = "Nueva conversación") -> dict:
     result = supabase.table("conversations").insert({
@@ -211,23 +341,10 @@ def create_conversation(user_id: str, title: str = "Nueva conversación") -> dic
     }).execute()
     return result.data[0]
 
+
 def get_user_conversations(user_id: str) -> list:
-    result = supabase.table("conversations") \
-        .select("*") \
-        .eq("user_id", user_id) \
-        .order("updated_at", desc=True) \
-        .execute()
-    return result.data
+    return conversation_repository.find_by_user(user_id)
+
 
 def get_conversation_messages(conversation_id: str) -> list:
-    result = supabase.table("messages") \
-        .select("*") \
-        .eq("conversation_id", conversation_id) \
-        .order("created_at") \
-        .execute()
-    return result.data
-
-def _touch_conversation(conversation_id: str) -> None:
-    supabase.table("conversations").update({
-        "updated_at": _NOW
-    }).eq("id", conversation_id).execute()
+    return message_repository.find_by_conversation(conversation_id)
