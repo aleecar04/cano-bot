@@ -7,18 +7,6 @@ import { LinkedDeviceItem } from '@/components/devices/linked-device-item';
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 
-function getRoomIcon(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('cocina'))                          return 'restaurant-outline';
-  if (n.includes('salon') || n.includes('salón'))    return 'tv-outline';
-  if (n.includes('dormitorio') || n.includes('cuarto')) return 'bed-outline';
-  if (n.includes('baño'))                            return 'water-outline';
-  if (n.includes('oficina'))                         return 'briefcase-outline';
-  if (n.includes('comedor'))                         return 'restaurant-outline';
-  if (n.includes('terraza') || n.includes('jardín')) return 'leaf-outline';
-  return 'home-outline';
-}
-
 interface RoomDevice {
   id: string;
   name: string;
@@ -81,7 +69,7 @@ export function RoomDevicesModal({
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center gap-3">
                 <View className="w-8 h-8 rounded-xl bg-primary/10 items-center justify-center">
-                  <Ionicons name={getRoomIcon(roomName) as any} size={16} color="#3B82F6" />
+                  <Ionicons name="home-outline" size={16} color="#3B82F6" />
                 </View>
                 <Text className="text-text font-bold text-base">{roomName}</Text>
               </View>

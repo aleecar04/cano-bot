@@ -55,18 +55,6 @@ interface RoomGridProps {
   onToast?: (message: string, variant: 'success' | 'error') => void;
 }
 
-const getIconForRoom = (roomName: string): string => {
-  const name = roomName.toLowerCase();
-  if (name.includes('cocina')) return 'restaurant';
-  if (name.includes('salon') || name.includes('salón')) return 'tv';
-  if (name.includes('dormitorio') || name.includes('cuarto')) return 'bed';
-  if (name.includes('baño')) return 'water';
-  if (name.includes('oficina')) return 'briefcase';
-  if (name.includes('comedor')) return 'restaurant-outline';
-  if (name.includes('terraza') || name.includes('jardín')) return 'leaf';
-  return 'home-outline';
-};
-
 // ── Schedule Modal ─────────────────────────────────────────────────────────────
 
 export type ScheduleTarget =
@@ -370,7 +358,7 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
                   onPress={() => onRoomPress?.(room)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={getIconForRoom(room.name) as any} size={18} color="#3B82F6" />
+                  <Ionicons name="home-outline" size={18} color="#3B82F6" />
                   <Text numberOfLines={1} className="text-xs font-medium text-center text-text mt-1 px-1">
                     {room.name}
                   </Text>

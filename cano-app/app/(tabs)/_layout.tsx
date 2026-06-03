@@ -11,22 +11,22 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useUserProfile } from '@/context/user-profile';
 import "../../global.css"
 
-function FlashIcon({ color, focused }: { color: string; focused: boolean }) {
+function FlashIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'flash-sharp' : 'flash-outline'} size={28} color={color} />;
 }
-function GridIcon({ color, focused }: { color: string; focused: boolean }) {
+function GridIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'grid-sharp' : 'grid-outline'} size={28} color={color} />;
 }
-function HomeIcon({ color, focused }: { color: string; focused: boolean }) {
+function HomeIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'home-sharp' : 'home-outline'} size={28} color={color} />;
 }
-function ChatIcon({ color, focused }: { color: string; focused: boolean }) {
+function ChatIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'chatbox-sharp' : 'chatbox-outline'} size={28} color={color} />;
 }
-function ShieldIcon({ color, focused }: { color: string; focused: boolean }) {
+function ShieldIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} size={28} color={color} />;
 }
-function PersonIcon({ color, focused }: { color: string; focused: boolean }) {
+function PersonIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'person-sharp' : 'person-outline'} size={28} color={color} />;
 }
 

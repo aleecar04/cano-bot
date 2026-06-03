@@ -61,7 +61,7 @@ function favoriteIcon(fav: FavoriteDto): string {
 
 // ── Payload badge ─────────────────────────────────────────────────────────────
 
-function FavPayloadBadge({ fav, payloadType }: { fav: FavoriteDto; payloadType: PayloadType }) {
+function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payloadType: PayloadType }>) {
   const p = fav.payload ?? {};
 
   if (payloadType === 'brightness' && typeof p.valor === 'number') {
@@ -188,7 +188,7 @@ export default function HomeScreen() {
       const created = await addFavorite({
         device_id: device.id,
         action:    accion,
-        label:     `${label} ${device.name}`,
+        label,  // nombre que el usuario ha escrito en el modal
         payload,
       });
       setFavorites((prev) => [...prev, created]);
@@ -241,7 +241,7 @@ export default function HomeScreen() {
   }
 
   const firstName  = profile?.first_name || profile?.username || '';
-  const canAddMore = favorites.length < 4;
+  const canAddMore = favorites.length < 6;
   const onlineCount = devices.filter((d) => d.is_online).length;
 
   return (

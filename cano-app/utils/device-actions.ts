@@ -26,10 +26,9 @@ export const LUZ_COLORES: { name: string; hex: string }[] = [
 ];
 
 export const TV_APPS: { app: string; label: string; icon: string }[] = [
-  { app: 'netflix', label: 'Netflix',  icon: 'logo-netflix' },
-  { app: 'youtube', label: 'YouTube',  icon: 'logo-youtube' },
-  { app: 'prime',   label: 'Prime',    icon: 'cart-outline' },
-  { app: 'disney',  label: 'Disney+',  icon: 'star-outline' },
+  { app: 'netflix', label: 'Netflix', icon: 'logo-netflix' },
+  { app: 'youtube', label: 'YouTube', icon: 'logo-youtube' },
+  { app: 'prime',   label: 'Prime',   icon: 'cart-outline' },
 ];
 
 export const TV_VOLUMES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -102,33 +101,19 @@ const LUZ_TUYA_ACCIONES: ActionDef[] = [
   { accion: 'color_rgb', icon: 'color-palette-outline', label: 'Color', payloadType: 'color' },
 ];
 
-const COVER_ACCIONES: ActionDef[] = [
-  { accion: 'encender', icon: 'arrow-up-outline',   label: 'Abrir' },
-  { accion: 'apagar',   icon: 'arrow-down-outline', label: 'Cerrar' },
-];
-
 // ── Type → actions map ────────────────────────────────────────────────────────
 
 const ACTIONS_MAP: Record<string, ActionDef[]> = {
   SmartTV:      TV_ACCIONES,
   Luz:          LUZ_ACCIONES,       // Tuya variant resolved at runtime via getActionsForType
   Enchufe:      ON_OFF,
-  Persiana:     COVER_ACCIONES,
-  Termostato:   ON_OFF,
   IoT:          ON_OFF,
   Altavoz:      SPEAKER_ACCIONES,
-  Ordenador:    ON_OFF,
-  Impresora:    ON_OFF,
-  Sensor:       [],
-  Camara:       [],
   // Home Assistant domains
   light:        LUZ_ACCIONES,
   switch:       ON_OFF,
   climate:      ON_OFF,
-  cover:        COVER_ACCIONES,
   media_player: MEDIA_ACCIONES,
-  sensor:       [],
-  camera:       [],
 };
 
 export const DEFAULT_ACCIONES: ActionDef[] = ON_OFF;

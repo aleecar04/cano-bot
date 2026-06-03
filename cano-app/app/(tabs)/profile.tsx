@@ -37,14 +37,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function SectionCard({
   icon, title, badge, expanded, onToggle, children,
-}: {
+}: Readonly<{
   icon: string;
   title: string;
   badge?: string;
   expanded: boolean;
   onToggle: () => void;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <View className="bg-bg-secondary border border-border rounded-2xl mb-4 overflow-hidden">
       <TouchableOpacity

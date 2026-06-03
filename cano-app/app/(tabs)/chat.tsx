@@ -144,18 +144,22 @@ export default function ChatScreen() {
           const msg = msgs.find((m: any) => m.id === messageId);
           if (msg?.response || attempts >= MAX_POLL_ATTEMPTS) {
             clearInterval(poll);
-            const botResponse = msg?.response ?? null;
-            if (botResponse) {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `${messageId}_bot`,
-                  from: 'bot' as const,
-                  text: botResponse,
-                  timestamp: new Date(),
-                },
-              ]);
+            // Si el usuario ha cambiado de conversación, la respuesta ya está
+            // guardada en el backend y aparecerá al volver. No la pintamos en
+            // la conversación actual (sería la equivocada).
+            if (persistedConvId.current !== activeId) {
+              setThinking(false);
+              return;
             }
+            const newItems: Message[] = [];
+            if (msg?.response) {
+              newItems.push({ id: `${messageId}_bot`, from: 'bot', text: msg.response, timestamp: new Date() });
+            }
+            const data = msg?.command?.result_data;
+            if (data) {
+              newItems.push({ id: `${messageId}_data`, from: 'bot', result: data, timestamp: new Date() });
+            }
+            if (newItems.length) setMessages((prev) => [...prev, ...newItems]);
             setThinking(false);
           }
         } catch {
@@ -257,15 +261,8 @@ export default function ChatScreen() {
             }
             ListFooterComponent={thinking ? <ThinkingDots /> : null}
             renderItem={({ item }) => {
-              if (item.from === 'bot') {
-                try {
-                  const parsed = JSON.parse(item.text);
-                  if (parsed && typeof parsed.tipo === 'string') {
-                    return <BotJsonBubble data={parsed} timestamp={item.timestamp} />;
-                  }
-                } catch {
-                  // Not JSON — fall through to normal bubble
-                }
+              if (item.result) {
+                return <BotJsonBubble data={item.result} timestamp={item.timestamp} />;
               }
               return <MessageBubble item={item} />;
             }}
@@ -300,10 +297,18 @@ export default function ChatScreen() {
 }
 
 function _mapMessagesToUI(rawMessages: any[]): Message[] {
-  return rawMessages.flatMap((m) => [
-    { id: m.id, from: 'me' as const, text: m.body, timestamp: new Date(m.created_at) },
-    ...(m.response
-      ? [{ id: `${m.id}_bot`, from: 'bot' as const, text: m.response, timestamp: new Date(m.created_at) }]
-      : []),
-  ]);
+  return rawMessages.flatMap(_messageToUiItems);
+}
+
+function _messageToUiItems(m: any): Message[] {
+  const ts = new Date(m.created_at);
+  const items: Message[] = [{ id: m.id, from: 'me', text: m.body, timestamp: ts }];
+  if (m.response) {
+    items.push({ id: `${m.id}_bot`, from: 'bot', text: m.response, timestamp: ts });
+  }
+  const data = m.command?.result_data;
+  if (data) {
+    items.push({ id: `${m.id}_data`, from: 'bot', result: data, timestamp: ts });
+  }
+  return items;
 }
