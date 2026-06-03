@@ -9,7 +9,6 @@ export interface FavoriteDto {
   action: string;
   payload: Record<string, unknown>;
   label: string | null;
-  position: number;
   created_at: string | null;
   devices: { name: string; type: string } | null;
 }

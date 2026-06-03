@@ -16,13 +16,11 @@ export interface FloorDto {
   id: string;
   house_id: string;
   name: string;
-  level: number;
   rooms: RoomDto[];
 }
 
 export interface HouseDto {
   id: string;
-  user_id: string;
   name: string | null;
   floors: FloorDto[];
 }
@@ -82,30 +80,29 @@ export async function generateInviteCode(): Promise<InviteCodeDto> {
   return res.json();
 }
 
-export async function setupHouse(botJid: string): Promise<{ ok: boolean; house_id: string }> {
+export interface HouseSetupResult {
+  house_id: string;
+  bot_token: string;
+}
+
+export async function setupHouse(name?: string): Promise<HouseSetupResult> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/houses/setup`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ bot_jid: botJid }),
+    body: JSON.stringify({ name: name ?? null }),
   });
-  if (!res.ok) return throwBackendError(res, 'JID de bot no válido');
+  if (!res.ok) return throwBackendError(res, 'Error creando la casa');
   return res.json();
 }
 
-export interface GeneratedBotCredentials {
-  jid: string;
-  password: string;
-  house_id: string;
-}
-
-export async function generateBotSetup(): Promise<GeneratedBotCredentials> {
+export async function regenerateBotToken(): Promise<{ bot_token: string }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/v1/houses/setup/generate`, {
+  const res = await fetch(`${API_URL}/api/v1/houses/me/bot-token/regenerate`, {
     method: 'POST',
     headers,
   });
-  if (!res.ok) return throwBackendError(res, 'Error generando credenciales del bot');
+  if (!res.ok) return throwBackendError(res, 'Error regenerando el token del bot');
   return res.json();
 }
 
@@ -140,12 +137,12 @@ export async function getMyRooms(): Promise<RoomDto[]> {
   return res.json();
 }
 
-export async function addFloor(name: string, level = 0): Promise<FloorDto> {
+export async function addFloor(name: string): Promise<FloorDto> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/houses/me/floors`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name, level }),
+    body: JSON.stringify({ name }),
   });
   if (!res.ok) return throwBackendError(res, 'Error creando planta');
   return res.json();

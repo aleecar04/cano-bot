@@ -1,12 +1,15 @@
 import { getAuthHeaders } from './auth';
+import type { CommandDto } from './devices';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
 export interface MessageDto {
   id: string;
+  conversation_id: string;
   body: string;
   response: string | null;
-  conversation_id: string | null;
+  command_id: string | null;
+  command: CommandDto | null;
   created_at: string;
 }
 
@@ -45,14 +48,12 @@ export async function getConversationMessages(conversationId: string): Promise<M
 
 // ── Messages ──────────────────────────────────────────────────────────────────
 
-export async function sendMessage(body: string, conversationId?: string): Promise<MessageDto> {
+export async function sendMessage(body: string, conversationId: string): Promise<MessageDto> {
   const headers = await getAuthHeaders();
-  const payload: Record<string, string> = { body };
-  if (conversationId) payload.conversation_id = conversationId;
   const res = await fetch(`${API_URL}/api/v1/messages/`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ body, conversation_id: conversationId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Error enviando mensaje' }));

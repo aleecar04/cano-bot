@@ -89,14 +89,14 @@ export async function getDevice(deviceId: string): Promise<DeviceDto> {
 
 export async function sendCommand(
   deviceId: string,
-  accion: string,
+  action: string,
   payload: Record<string, unknown> = {},
 ): Promise<{ ok: boolean; command_id: string }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/v1/devices/${deviceId}/command`, {
+  const res = await fetch(`${API_URL}/api/v1/commands`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ accion, payload }),
+    body: JSON.stringify({ action, device_id: deviceId, payload }),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: 'Error desconocido' }));
@@ -105,10 +105,22 @@ export async function sendCommand(
   return res.json();
 }
 
+export async function scanNetwork(): Promise<{ ok: boolean; command_id: string }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/commands`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'scan' }),
+  });
+  if (!res.ok) return throwBackendError(res, 'Error iniciando escaneo');
+  return res.json();
+}
+
 export interface CommandDto {
   id: string;
   user_id?: string;
   device_id: string | null;
+  target_type: 'device' | 'system';
   action: string;
   payload: Record<string, unknown>;
   status: 'pending' | 'sent' | 'executed' | 'failed';
@@ -116,6 +128,7 @@ export interface CommandDto {
   source_id: string | null;
   executed_at: string | null;
   error: string | null;
+  result_data: Record<string, unknown> | null;
   created_at: string;
   devices?: { name: string; type: string } | null;
 }
