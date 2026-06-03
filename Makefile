@@ -59,7 +59,6 @@ sonar: ## Genera coverage y lanza SonarCloud (uso: make sonar SONAR_TOKEN=tu_tok
 		--cov-report=xml:../backend-coverage.xml \
 		-q
 	@sed -i 's|$(shell cd backend && pwd)/app|backend/app|g' backend-coverage.xml
-	@sed -i 's|filename="|filename="backend/app/|g' backend-coverage.xml
 	@echo "→ Generando coverage bot"
 	. $(VENV) && cd $(BOT_DIR) && $(PYTHON) -m pytest tests/ \
 		--override-ini=addopts= \
@@ -67,7 +66,6 @@ sonar: ## Genera coverage y lanza SonarCloud (uso: make sonar SONAR_TOKEN=tu_tok
 		--cov-report=xml:../bot-coverage.xml \
 		-q
 	@sed -i 's|$(shell cd errbot && pwd)/plugins|errbot/plugins|g' bot-coverage.xml
-	@sed -i 's|filename="|filename="errbot/plugins/|g' bot-coverage.xml
 	@echo "→ Lanzando Sonar"
 	/opt/sonar-scanner/bin/sonar-scanner \
 		-Dsonar.token=$(SONAR_TOKEN) \

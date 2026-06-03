@@ -50,7 +50,6 @@ jobs:
             -q
           cd ..
           sed -i 's|/home/runner/work/.*/backend/app|backend/app|g' backend-coverage.xml
-          sed -i 's|filename="|filename="backend/app/|g' backend-coverage.xml
         continue-on-error: true
 
       - name: Run bot tests with coverage
@@ -62,7 +61,6 @@ jobs:
             -q
           cd ..
           sed -i 's|/home/runner/work/.*/errbot/plugins|errbot/plugins|g' bot-coverage.xml
-          sed -i 's|filename="|filename="errbot/plugins/|g' bot-coverage.xml
         continue-on-error: true
 
       - name: SonarCloud Scan
