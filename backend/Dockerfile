@@ -27,7 +27,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-workspace --package app
 
-COPY ./scripts /app/backend/scripts
 COPY ./pyproject.toml /app/backend/
 COPY ./app /app/backend/app
 

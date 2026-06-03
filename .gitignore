@@ -45,7 +45,6 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-bot-coverage.xml
 *.cover
 *.py.cover
 .hypothesis/
@@ -234,3 +233,4 @@ ios/build/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+.scannerwork/

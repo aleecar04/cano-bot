@@ -1,8 +1,8 @@
-.PHONY: help test test-bot test-backend test-all lint docker-up docker-down dev-backend
+.PHONY: help test test-bot test-backend test-all lint docker-up docker-down dev-backend sonar
 
 PYTHON  := python
 VENV    := venv/bin/activate
-BOT_DIR := .
+BOT_DIR := errbot
 BACK_DIR := backend
 
 help: ## Muestra esta ayuda
@@ -20,7 +20,7 @@ test-bot: ## Ejecuta los tests del bot errbot (plugins/)
 
 test-backend: ## Ejecuta los tests del backend FastAPI (backend/app/)
 	@echo "→ Tests backend FastAPI (backend/app/)"
-	. $(VENV) && cd $(BACK_DIR) && $(PYTHON) -m pytest tests/api/routes/ -v \
+	. $(VENV) && cd $(BACK_DIR) && $(PYTHON) -m pytest tests/ -v \
 		--cov=app \
 		--cov-report=term-missing \
 		--cov-report=html:htmlcov \
@@ -40,7 +40,7 @@ test-all: ## Ejecuta TODOS los tests (bot + backend)
 	@echo "════════════════════════════════════════"
 	@echo "  TESTS BACKEND (FastAPI)"
 	@echo "════════════════════════════════════════"
-	. $(VENV) && cd $(BACK_DIR) && $(PYTHON) -m pytest tests/api/routes/ \
+	. $(VENV) && cd $(BACK_DIR) && $(PYTHON) -m pytest tests/ \
 		--cov=app \
 		--cov-report=term-missing \
 		--cov-report=html:htmlcov \
@@ -49,13 +49,37 @@ test-all: ## Ejecuta TODOS los tests (bot + backend)
 	@echo ""
 	@echo "✓ Todos los tests completados"
 
+# ── Sonar ─────────────────────────────────────────────────────────────────────
+
+sonar: ## Genera coverage y lanza SonarCloud (uso: make sonar SONAR_TOKEN=tu_token)
+	@echo "→ Generando coverage backend"
+	. $(VENV) && cd $(BACK_DIR) && $(PYTHON) -m pytest tests/ \
+		--override-ini=addopts= \
+		--cov=app \
+		--cov-report=xml:../backend-coverage.xml \
+		-q
+	@sed -i 's|$(shell cd backend && pwd)/app|backend/app|g' backend-coverage.xml
+	@sed -i 's|filename="|filename="backend/app/|g' backend-coverage.xml
+	@echo "→ Generando coverage bot"
+	. $(VENV) && cd $(BOT_DIR) && $(PYTHON) -m pytest tests/ \
+		--override-ini=addopts= \
+		--cov=plugins \
+		--cov-report=xml:../bot-coverage.xml \
+		-q
+	@sed -i 's|$(shell cd errbot && pwd)/plugins|errbot/plugins|g' bot-coverage.xml
+	@sed -i 's|filename="|filename="errbot/plugins/|g' bot-coverage.xml
+	@echo "→ Lanzando Sonar"
+	/opt/sonar-scanner/bin/sonar-scanner \
+		-Dsonar.token=$(SONAR_TOKEN) \
+		-Dsonar.branch.name=$(shell git branch --show-current)
+
 # ── Linting ───────────────────────────────────────────────────────────────────
 
 lint: ## Ejecuta ruff en backend y plugins
 	@echo "→ Lint backend"
 	. $(VENV) && cd $(BACK_DIR) && ruff check app/
 	@echo "→ Lint plugins"
-	. $(VENV) && ruff check plugins/
+	. $(VENV) && cd $(BOT_DIR) && ruff check plugins/
 
 # ── Backend dev ───────────────────────────────────────────────────────────────
 

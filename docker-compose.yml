@@ -14,7 +14,7 @@ services:
 
   errbot:
     build:
-      context: .
+      context: ./errbot
       dockerfile: Dockerfile
     env_file:
       - .env

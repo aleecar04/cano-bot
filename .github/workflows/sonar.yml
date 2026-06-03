@@ -35,9 +35,6 @@ jobs:
           FIRST_SUPERUSER_PASSWORD: "TestPassword123!"
           SUPABASE_URL: "https://fake.supabase.co"
           SUPABASE_KEY: "fake-supabase-anon-key"
-          SUPABASE_JWT_SECRET: "fake-jwt-secret-32-chars-minimum-x"
-          XMPP_JID: "test@xmpp.test"
-          XMPP_PASSWORD: "testpass"
           XMPP_BOT_JID: "bot@xmpp.test"
           XMPP_ADMIN_USER: "admin"
           XMPP_ADMIN_PASSWORD: "adminpass"
@@ -45,29 +42,30 @@ jobs:
           XMPP_ENCRYPTION_KEY: "fake-encryption-key-exactly-32ch"
           WEBHOOK_SECRET: "fake-webhook-secret"
         run: |
-          python -m pytest backend/tests/api/routes/ \
+          cd backend && python -m pytest tests/ \
             --override-ini=addopts= \
-            --cov=backend/app \
-            --cov-report=xml:backend/coverage.xml \
+            --cov=app \
+            --cov-report=xml:../backend-coverage.xml \
             -q
-          # Fix paths in XML so Sonar can resolve them from project root
-          sed -i 's|filename="|filename="backend/app/|g' backend/coverage.xml || true
+          cd ..
+          sed -i 's|/home/runner/work/.*/backend/app|backend/app|g' backend-coverage.xml
+          sed -i 's|filename="|filename="backend/app/|g' backend-coverage.xml
         continue-on-error: true
 
       - name: Run bot tests with coverage
         run: |
-          python -m pytest tests/ \
+          cd errbot && python -m pytest tests/ \
             --override-ini=addopts= \
             --cov=plugins \
-            --cov-report=xml:bot-coverage.xml \
+            --cov-report=xml:../bot-coverage.xml \
             -q
+          cd ..
+          sed -i 's|/home/runner/work/.*/errbot/plugins|errbot/plugins|g' bot-coverage.xml
+          sed -i 's|filename="|filename="errbot/plugins/|g' bot-coverage.xml
         continue-on-error: true
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@v3
-        with:
-          args: >
-            -Dsonar.scanner.force-manual-analysis=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR }}
