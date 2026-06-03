@@ -1,11 +1,16 @@
 """
 Configuración de tests para el backend FastAPI.
 Estrategia: mock completo del cliente Supabase + override de get_current_user.
+
+IMPORTANTE: el supabase_mock se inyecta en app.core.db ANTES de cualquier import
+de los módulos de la app. Si lo hiciéramos dentro de un fixture, los módulos
+ya importados al colectar tests tendrían una referencia al supabase real,
+causando contaminación entre tests de services y tests de routes.
 """
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -84,28 +89,36 @@ TEST_MEMBER_ID = str(uuid.uuid4())  # second user in same house
 WEBHOOK_SECRET = "test-webhook-secret"
 
 
+# ── Inyección de supabase_mock antes de cualquier import de la app ───────────
+
+_SUPABASE_MOCK = SupabaseMock()
+import app.core.db  # noqa: E402
+app.core.db.supabase = _SUPABASE_MOCK
+
+
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="session")
 def supabase_mock() -> SupabaseMock:
-    return SupabaseMock()
+    return _SUPABASE_MOCK
 
 
 @pytest.fixture(scope="session")
 def client(supabase_mock: SupabaseMock) -> TestClient:
-    """TestClient con Supabase mockeado y autenticación anulada."""
-    with patch("app.core.db.supabase", supabase_mock):
-        from app.main import app
-        from app.api.deps import get_current_user
-        from app.core.config import settings
+    """TestClient con autenticación anulada. bot_auth se sobreescribe para
+    devolver la house de test, así los endpoints con bot_token funcionan
+    sin necesidad de header."""
+    from app.main import app
+    from app.api.deps import get_current_user
+    from app.api.bot_auth import bot_auth
 
-        app.dependency_overrides[get_current_user] = lambda: TEST_USER
-        settings.WEBHOOK_SECRET = WEBHOOK_SECRET
+    app.dependency_overrides[get_current_user] = lambda: TEST_USER
+    app.dependency_overrides[bot_auth] = lambda: {"id": TEST_HOUSE_ID}
 
-        with TestClient(app) as c:
-            yield c
+    with TestClient(app) as c:
+        yield c
 
-        app.dependency_overrides.clear()
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -122,7 +135,7 @@ def make_house(**kwargs) -> dict:
         "id": TEST_HOUSE_ID,
         "user_id": TEST_USER_ID,
         "name": "Mi Casa",
-        "bot_jid": None,
+        "bot_token_hash": "a" * 64,  # sha256 hex de prueba
         **kwargs,
     }
 
@@ -196,7 +209,7 @@ def make_schedule(**kwargs) -> dict:
     }
 
 
-def make_favorite(position: int = 0, **kwargs) -> dict:
+def make_favorite(**kwargs) -> dict:
     return {
         "id": str(uuid.uuid4()),
         "user_id": TEST_USER_ID,
@@ -204,7 +217,6 @@ def make_favorite(position: int = 0, **kwargs) -> dict:
         "action": "encender",
         "payload": {},
         "label": "Encender luz salón",
-        "position": position,
         "created_at": "2026-04-16T10:00:00+00:00",
         **kwargs,
     }

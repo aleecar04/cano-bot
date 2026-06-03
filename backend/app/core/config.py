@@ -38,23 +38,6 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
 
-    # Email
-    SMTP_TLS: bool = True
-    SMTP_SSL: bool = False
-    SMTP_PORT: int = 587
-    SMTP_HOST: str | None = None
-    SMTP_USER: str | None = None
-    SMTP_PASSWORD: str | None = None
-    EMAILS_FROM_EMAIL: EmailStr | None = None
-    EMAILS_FROM_NAME: str | None = None
-
-    @model_validator(mode="after")
-    def _set_default_emails_from(self) -> Self:
-        if not self.EMAILS_FROM_NAME:
-            self.EMAILS_FROM_NAME = self.PROJECT_NAME
-        return self
-
-    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
@@ -62,17 +45,19 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str
     SUPABASE_KEY: str
-    SUPABASE_JWT_SECRET: str
 
     # XMPP
-    XMPP_JID: str
-    XMPP_PASSWORD: str
     XMPP_BOT_JID: str
     XMPP_ADMIN_USER: str
     XMPP_ADMIN_PASSWORD: str
     XMPP_DOMAIN: str = "xmpp.aleecr.es"
     XMPP_REST_URL: str
-    XMPP_ENCRYPTION_KEY: str 
+    XMPP_ENCRYPTION_KEY: str
+
+    # Ollama (clasificador NLP) — apunta al VPS remoto por defecto, para
+    # poder ejecutar el backend en local sin necesidad de instalar Ollama.
+    OLLAMA_HOST: str = "http://194.164.164.171:11434"
+    OLLAMA_MODEL: str = "qwen2.5:3b"
 
     # Webhook Security
     WEBHOOK_SECRET: str = secrets.token_urlsafe(32)
