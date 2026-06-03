@@ -1,28 +1,30 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, Depends
 from app.api.deps import CurrentUser
-from app.core.config import settings
-from app.models import BotWebhookPayload, MessageCreate, MessagePublic
-from app.services.messages import get_user_messages, process_message, handle_webhook
+from app.api.bot_auth import bot_auth
+from app.models.messages import MessageCreate, MessagePublic
+from app.models.xmpp import BotWebhookPayload, GajimMessagePayload
+from app.services.messages import get_user_messages, process_message, process_gajim_message, handle_webhook
 from app.services.home import require_house
-from typing import Annotated
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
-def verify_webhook_secret(x_webhook_token: str = Header(None)) -> None:
-    if not x_webhook_token or x_webhook_token != settings.WEBHOOK_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid webhook token")
 
 @router.post("/webhook")
-async def bot_webhook(payload: BotWebhookPayload, _: Annotated[None, Depends(verify_webhook_secret)]):
-    handle_webhook(payload)
+async def bot_webhook(payload: BotWebhookPayload, house: dict = Depends(bot_auth)):
+    handle_webhook(payload, house["id"])
+    return {"ok": True}
+
+
+@router.post("/from-gajim")
+async def from_gajim(payload: GajimMessagePayload, house: dict = Depends(bot_auth)):
+    """El bot reenvía aquí los mensajes naturales que recibe directamente de un
+    cliente XMPP (Gajim). El backend clasifica y orquesta el dispatch."""
+    await process_gajim_message(payload.from_jid, payload.body, house["id"])
     return {"ok": True}
 
 @router.post("/", response_model=MessagePublic)
 async def send_message(message_in: MessageCreate, current_user: CurrentUser):
-    try:
-        require_house(current_user["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    require_house(current_user["id"])
     return await process_message(
         body=message_in.body,
         user_id=current_user["id"],

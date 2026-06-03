@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from app.api.deps import CurrentUser
-from app.models import ScheduleCreate, SchedulePublic, ScheduleToggle
+from app.core.errors import not_found
+from app.models.schedules import ScheduleCreate, SchedulePublic, ScheduleToggle
 from app.services import schedules as svc
 from app.services.home import get_user_role
 
@@ -14,10 +15,7 @@ def list_schedules(current_user: CurrentUser):
 
 @router.post("/", response_model=SchedulePublic, status_code=201)
 def create_schedule(schedule_in: ScheduleCreate, current_user: CurrentUser):
-    try:
-        return svc.create_schedule(schedule_in, current_user["id"])
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return svc.create_schedule(schedule_in, current_user["id"])
 
 
 @router.delete("/completed", status_code=200)
@@ -35,7 +33,7 @@ def delete_schedule(schedule_id: str, current_user: CurrentUser):
         if get_user_role(user_id) == "owner":
             deleted = svc.delete_schedule_any(schedule_id, user_id)
         if not deleted:
-            raise HTTPException(status_code=404, detail="Tarea no encontrada")
+            raise not_found("Tarea no encontrada")
 
 
 @router.patch("/{schedule_id}/toggle", response_model=SchedulePublic)
@@ -46,5 +44,5 @@ def toggle_schedule(schedule_id: str, toggle_in: ScheduleToggle, current_user: C
         if get_user_role(user_id) == "owner":
             result = svc.toggle_schedule_any(schedule_id, user_id, toggle_in)
         if not result:
-            raise HTTPException(status_code=404, detail="Tarea no encontrada")
+            raise not_found("Tarea no encontrada")
     return result
