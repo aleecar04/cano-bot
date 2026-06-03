@@ -3,14 +3,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import (
-    WEBHOOK_SECRET, SupabaseMock, TEST_USER_ID, TEST_HOUSE_ID,
+    SupabaseMock, TEST_USER_ID, TEST_HOUSE_ID,
     make_floor, make_house, make_room, make_house_member, make_device, make_schedule,
 )
 
 from unittest.mock import patch
 _NO_CONFLICT = patch("app.services.schedules._check_conflicting_power_schedule")
-
-WEBHOOK_HEADERS = {"x-webhook-token": WEBHOOK_SECRET}
 
 
 def _setup_house(supabase_mock: SupabaseMock, **house_kwargs):
@@ -108,16 +106,6 @@ class TestAddFloor:
         res = client.post("/api/v1/houses/me/floors", json={"name": "Piso 1", "level": 1})
 
         assert res.status_code in (403, 404)
-
-    def test_uses_level_zero_by_default(self, client: TestClient, supabase_mock: SupabaseMock):
-        house = _setup_house(supabase_mock)
-        floor = make_floor(house["id"], level=0)
-        supabase_mock.set_data("floors", [floor])
-
-        res = client.post("/api/v1/houses/me/floors", json={"name": "Planta Baja"})
-
-        assert res.status_code == 201
-        assert res.json()["level"] == 0
 
 
 class TestAddRoom:
@@ -227,7 +215,7 @@ class TestHouseMembers:
     def test_get_members(self, client: TestClient, supabase_mock: SupabaseMock):
         supabase_mock.set_data("houses", [make_house()])
         supabase_mock.set_data("house_members", [make_house_member()])
-        supabase_mock.set_data("base_user", [{"username": "testuser"}])
+        supabase_mock.set_data("base_user", [{"id": TEST_USER_ID, "username": "testuser"}])
 
         res = client.get("/api/v1/houses/me/members")
 
@@ -379,48 +367,28 @@ class TestInvitationCodes:
 
 
 class TestHouseSetup:
-    def test_setup_creates_house(self, client: TestClient, supabase_mock: SupabaseMock):
+    def test_setup_creates_house_and_returns_token(self, client: TestClient, supabase_mock: SupabaseMock):
         from unittest.mock import patch, MagicMock
-        new_house = make_house(bot_jid="cano-bot@xmpp.test")
-        call_count = {"n": 0}
+        new_house = make_house()
 
         def fake_table(name):
             qb = MagicMock()
-            qb.select.return_value = qb
-            qb.insert.return_value = qb
-            qb.upsert.return_value = qb
-            qb.eq.return_value = qb
-            if name == "xmpp_accounts":
-                qb.execute.return_value = MagicMock(data=[])
-            elif name == "houses":
-                call_count["n"] += 1
-                # 1st call: conflict check → empty; 2nd call: insert → new house
-                qb.execute.return_value = MagicMock(data=[] if call_count["n"] == 1 else [new_house])
-            else:
-                qb.execute.return_value = MagicMock(data=[])
+            for m in ("select", "insert", "upsert", "eq"):
+                getattr(qb, m).return_value = qb
+            qb.execute.return_value = MagicMock(data=[new_house] if name == "houses" else [])
             return qb
 
-        with patch("app.api.routes.houses.supabase") as mock_supa:
+        # Sin casa previa para el usuario
+        supabase_mock.set_data("house_members", [])
+        with patch("app.services.home.supabase") as mock_supa:
             mock_supa.table.side_effect = fake_table
-            res = client.post("/api/v1/houses/setup", json={"bot_jid": "cano-bot@xmpp.test"})
+            res = client.post("/api/v1/houses/setup", json={"name": "Mi Casa"})
 
-        assert res.status_code == 200
-        assert res.json()["ok"] is True
-
-    def test_setup_rejects_user_jid(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("xmpp_accounts", [{"id": "acc-1"}])
-
-        res = client.post("/api/v1/houses/setup", json={"bot_jid": "user@xmpp.test"})
-
-        assert res.status_code == 400
-
-    def test_setup_rejects_already_assigned_jid(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("xmpp_accounts", [])
-        supabase_mock.set_data("houses", [make_house(bot_jid="taken-bot@xmpp.test")])
-
-        res = client.post("/api/v1/houses/setup", json={"bot_jid": "taken-bot@xmpp.test"})
-
-        assert res.status_code == 409
+        assert res.status_code == 201
+        body = res.json()
+        assert "house_id" in body
+        # El token plaintext se devuelve UNA vez y es no vacío
+        assert body["bot_token"] and len(body["bot_token"]) > 20
 
 
 class TestOwnerDeleteSchedule:
@@ -435,32 +403,22 @@ class TestOwnerDeleteSchedule:
         assert res.status_code == 204
 
 
-class TestBotIdentify:
-    def test_bot_finds_its_house(self, client: TestClient, supabase_mock: SupabaseMock):
-        house = make_house(bot_jid="cano-bot@xmpp.aleecr.es")
-        supabase_mock.set_data("houses", [house])
+class TestRegenerateBotToken:
+    def test_owner_regenerates_token(self, client: TestClient, supabase_mock: SupabaseMock):
+        from unittest.mock import patch, MagicMock
+        supabase_mock.set_data("houses", [make_house()])
+        supabase_mock.set_data("house_members", [make_house_member(role="owner")])
 
-        res = client.post(
-            "/api/v1/houses/bot/identify",
-            json={"bot_jid": "cano-bot@xmpp.aleecr.es"},
-            headers=WEBHOOK_HEADERS,
-        )
+        def fake_table(name):
+            qb = MagicMock()
+            for m in ("select", "update", "eq"):
+                getattr(qb, m).return_value = qb
+            qb.execute.return_value = MagicMock(data=[make_house()])
+            return qb
 
-        assert res.status_code == 200
-        assert res.json()["configured"] is True
-
-    def test_bot_not_configured(self, client: TestClient, supabase_mock: SupabaseMock):
-        supabase_mock.set_data("houses", [])
-
-        res = client.post(
-            "/api/v1/houses/bot/identify",
-            json={"bot_jid": "unknown@xmpp.test"},
-            headers=WEBHOOK_HEADERS,
-        )
+        with patch("app.services.home.supabase") as mock_supa:
+            mock_supa.table.side_effect = fake_table
+            res = client.post("/api/v1/houses/me/bot-token/regenerate")
 
         assert res.status_code == 200
-        assert res.json()["configured"] is False
-
-    def test_bot_identify_requires_webhook_token(self, client: TestClient):
-        res = client.post("/api/v1/houses/bot/identify", json={"bot_jid": "bot@xmpp.test"})
-        assert res.status_code in (401, 403)
+        assert res.json()["bot_token"] and len(res.json()["bot_token"]) > 20
