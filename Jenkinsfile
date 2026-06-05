@@ -46,8 +46,8 @@ pipeline {
             when { expression { params.DEPLOY_BACKEND } }
             steps {
                 sh 'cp /opt/cano4-secrets/.env .env'
-                sh 'docker compose build backend'
-                sh 'docker compose up -d backend'
+                sh 'docker-compose build backend'
+                sh 'docker-compose up -d backend'
                 sh '''
                     sleep 5
                     curl -fsS http://localhost:8000/health || (echo "Backend no responde"; exit 1)
