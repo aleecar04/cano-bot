@@ -33,6 +33,26 @@ def _hash_bot_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+# ── House / member helpers ───────────────────────────────────────────────────
+def _create_house(name: str, bot_token_hash: str) -> dict:
+    """Inserta la fila de houses con su bot_token_hash y devuelve la fila creada."""
+    return supabase.table("houses").insert({
+        "bot_token_hash": bot_token_hash,
+        "name":           name,
+    }).execute().data[0]
+
+
+def _add_house_member(house_id: str, user_id: str, role: str, *, idempotent: bool = False) -> None:
+    """Añade un miembro a una casa. Con idempotent=True usa upsert (al unirse por
+    código de invitación se repite la operación sin fallar)."""
+    data = {"house_id": house_id, "user_id": user_id, "role": role}
+    table = supabase.table("house_members")
+    if idempotent:
+        table.upsert(data, on_conflict="house_id,user_id").execute()
+    else:
+        table.insert(data).execute()
+
+
 def generate_invitation_code(house_id: str, created_by: str) -> str:
     """Generate a 6-char invitation code valid for 24 hours."""
     code = "".join(secrets.choice(_CODE_CHARS) for _ in range(_CODE_LEN))
@@ -56,11 +76,7 @@ def consume_invitation_code(code: str, user_id: str) -> dict:
         raise bad_request("El código ha caducado")
 
     house_id = inv["house_id"]
-    supabase.table("house_members").upsert({
-        "house_id": house_id,
-        "user_id":  user_id,
-        "role":     "member",
-    }, on_conflict="house_id,user_id").execute()
+    _add_house_member(house_id, user_id, "member", idempotent=True)
 
     supabase.table("house_invitations").update({"used_at": now.isoformat()}).eq("id", inv["id"]).execute()
 
@@ -282,19 +298,10 @@ def setup_house(user_id: str, name: str = _DEFAULT_HOUSE_NAME) -> dict:
         raise conflict("Ya perteneces a una casa")
 
     bot_token = _generate_bot_token()
-    bot_token_hash = _hash_bot_token(bot_token)
-
-    house = supabase.table("houses").insert({
-        "bot_token_hash": bot_token_hash,
-        "name":           name,
-    }).execute().data[0]
+    house = _create_house(name, _hash_bot_token(bot_token))
 
     try:
-        supabase.table("house_members").insert({
-            "house_id": house["id"],
-            "user_id":  user_id,
-            "role":     "owner",
-        }).execute()
+        _add_house_member(house["id"], user_id, "owner")
     except Exception:
         # Rollback: si no se pudo añadir el owner, la house queda huérfana
         # y bloquearía futuros intentos del mismo usuario. La borramos best-effort.

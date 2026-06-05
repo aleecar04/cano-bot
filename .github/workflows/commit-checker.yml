@@ -24,7 +24,7 @@ jobs:
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           echo "You are in this branch: $BRANCH_NAME"
           git fetch origin develop
-          commits=$(git log origin/develop..HEAD --oneline)
+          commits=$(git log origin/develop..HEAD --no-merges --oneline)
           echo "Commits to validate:"
           echo "$commits"
           if [ -z "$commits" ]; then

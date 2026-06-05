@@ -84,9 +84,9 @@ class Dispatcher(BasePlugin, BotPlugin):
             return None
         return sender_id
 
+
+    #para acciones que devuelvan json estructurado
     def _handle_structured_message(self, text: str, msg) -> bool:
-        """Procesa los mensajes JSON estructurados que envía el backend.
-        Devuelve True si el mensaje fue consumido y no hay que seguir."""
         try:
             data = json.loads(text)
         except (json.JSONDecodeError, TypeError):
@@ -107,9 +107,9 @@ class Dispatcher(BasePlugin, BotPlugin):
             return True
         return False
 
+
+    #si el comando recibido ha sido envíado por el bakcend y clasificado por ollama
     def _extract_natural_classified(self, text: str) -> tuple[dict | None, str]:
-        """Si el body es un natural_classified del backend, devuelve
-        (intent_data, original_body). En cualquier otro caso, (None, text)."""
         try:
             data = json.loads(text)
         except (json.JSONDecodeError, TypeError):
@@ -118,9 +118,9 @@ class Dispatcher(BasePlugin, BotPlugin):
             return None, text
         return data.get("intent_data") or {}, data.get("original_body", "")
 
+
+    #Si se ha recibido por gajim
     def _forward_natural_to_backend(self, msg, text: str) -> None:
-        """Texto natural sin clasificar: viene de un cliente XMPP directo (Gajim).
-        El backend es el único clasificador; el bot solo reenvía."""
         if not is_backend_reachable():
             self.send(msg.frm, "El servicio no está disponible ahora mismo. Inténtalo más tarde.")
             return
@@ -153,7 +153,7 @@ class Dispatcher(BasePlugin, BotPlugin):
         method = self._get_command_from_plugins(cmd_name)
         if not method:
             return False
-        # 'acciones' acepta el nombre del dispositivo; el resto ignora args.
+        # 'acciones' acepta el nombre del dispositivo
         args = intent_data.get("dispositivo", "") if cmd_name == "acciones" else ""
         response = method(msg, args)
         self._reply(msg, text, response)
@@ -177,16 +177,11 @@ class Dispatcher(BasePlugin, BotPlugin):
         return method(msg, "")
 
     def _handle_scan_command(self, msg, command_id) -> None:
-        """Botón devices-tab: ejecuta el scan y guarda result_data en el comando pendiente."""
         data = self._run_plugin(msg, "scan_devices")
         error = data.get("mensaje") if data.get("tipo") == "error" else None
         self._update_command_in_backend(command_id, error=error, result_data=None if error else data)
 
     def _handle_chat_query(self, msg, text: str, action: str, command_name: str) -> None:
-        """Ejecuta una query del sistema (scan, list_devices…) siguiendo el patrón
-        pending+update: crea comando como pending antes de ejecutar, ejecuta el
-        plugin y actualiza con result_data. El backend deduce target_type='system'
-        a partir del action."""
         sender_id = resolve_sender(str(msg.frm))
         if not sender_id:
             return

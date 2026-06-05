@@ -44,10 +44,8 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(_schedule_loop())
     yield
     task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
+
+    await asyncio.gather(task, return_exceptions=True)
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
