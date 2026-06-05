@@ -4,10 +4,6 @@ on:
     branches:
       - main
       - develop
-      - 'feature/*'
-      - 'fix/*'
-      - 'test/*'
-      - 'docs/*'
 
 jobs:
   validate-commits:
@@ -22,9 +18,19 @@ jobs:
       - name: Validate commit messages
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          echo "You are in this branch: $BRANCH_NAME"
-          git fetch origin develop
-          commits=$(git log origin/develop..HEAD --no-merges --oneline)
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          echo "Branch: $BRANCH_NAME"
+          echo "Range:  $BEFORE..$AFTER"
+
+          ZERO="0000000000000000000000000000000000000000"
+          if [ "$BEFORE" = "$ZERO" ]; then
+            git fetch origin develop
+            commits=$(git log origin/develop..HEAD --no-merges --oneline)
+          else
+            commits=$(git log "$BEFORE..$AFTER" --no-merges --oneline)
+          fi
+
           echo "Commits to validate:"
           echo "$commits"
           if [ -z "$commits" ]; then

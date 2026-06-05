@@ -77,8 +77,10 @@ function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payl
   }
 
   if (payloadType === 'color_temp' && typeof p.valor === 'number') {
-    const preset = TEMP_PRESETS.reduce((a, b) =>
-      Math.abs(b.valor - (p.valor as number)) < Math.abs(a.valor - (p.valor as number)) ? b : a,
+    const preset = TEMP_PRESETS.reduce(
+      (a, b) =>
+        Math.abs(b.valor - (p.valor as number)) < Math.abs(a.valor - (p.valor as number)) ? b : a,
+      TEMP_PRESETS[0],
     );
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">

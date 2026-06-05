@@ -78,10 +78,10 @@ export function LinkDeviceModal({
             <View className="bg-bg border border-border rounded-xl px-4 py-3 mb-5">
               <Text className="text-text-secondary text-xs mb-1">IP detectada</Text>
               <Text className="text-text font-semibold">{device.ip}</Text>
-              {device.mac && (
+              {!!device.mac && (
                 <Text className="text-text-secondary text-xs mt-1">{device.mac}</Text>
               )}
-              {device.tipo && (
+              {!!device.tipo && (
                 <Text className="text-indigo-400 text-xs mt-1">{device.tipo}</Text>
               )}
             </View>
