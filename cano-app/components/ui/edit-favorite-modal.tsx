@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type FavoriteDto } from '@/api/favorites';
 import { type DeviceDto } from '@/api/devices';
@@ -89,9 +89,11 @@ export function EditFavoriteModal({ visible, favorite, devices, saving, onClose,
             <Text className="text-text text-sm font-semibold mb-2">Etiqueta (opcional)</Text>
             <TextInput
               className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm mb-5"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={label} onChangeText={setLabel}
               placeholder="Ej. Encender tele por la noche"
               placeholderTextColor="#64748b" editable={!saving}
+              maxLength={50}
             />
 
             {/* Acción */}

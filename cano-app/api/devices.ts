@@ -87,6 +87,15 @@ export async function getDevice(deviceId: string): Promise<DeviceDto> {
   return res.json();
 }
 
+export async function refreshDevice(deviceId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/devices/${deviceId}/refresh`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) return throwBackendError(res, 'No se pudo refrescar el dispositivo');
+}
+
 export async function sendCommand(
   deviceId: string,
   action: string,

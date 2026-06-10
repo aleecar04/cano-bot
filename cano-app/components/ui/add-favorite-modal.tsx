@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type DeviceDto } from '@/api/devices';
 import { deviceIcon } from '@/utils/device-icons';
@@ -272,11 +272,12 @@ export function AddFavoriteModal({
                 </Text>
                 <TextInput
                   className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+                  style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
                   value={customLabel}
                   onChangeText={setCustomLabel}
                   placeholder={pendingAction.label}
                   placeholderTextColor="#475569"
-                  maxLength={80}
+                  maxLength={50}
                   editable={!saving}
                   autoFocus
                 />

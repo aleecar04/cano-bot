@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type ScheduleDto } from '@/api/schedules';
 import { type HouseMemberRole } from '@/api/houses';
+import { labelForAction } from '@/utils/action-labels';
 
 interface ScheduleItemProps {
   schedule: ScheduleDto;
@@ -11,19 +12,6 @@ interface ScheduleItemProps {
   onToggle: (id: string, active: boolean) => void;
   onDelete: (id: string, name: string) => void;
 }
-
-const ACTION_LABELS: Record<string, string> = {
-  encender:          'Encender',
-  apagar:            'Apagar',
-  brillo:            'Brillo',
-  temperatura_color: 'Temperatura color',
-  subir_volumen:     'Subir volumen',
-  bajar_volumen:     'Bajar volumen',
-  mute:              'Silenciar',
-  set_volumen:       'Ajustar volumen',
-  abrir_app:         'Abrir app',
-  color_rgb:         'Color',
-};
 
 const ACTION_ICONS: Record<string, string> = {
   encender:          'power',
@@ -63,7 +51,7 @@ export function ScheduleItem({
   onToggle,
   onDelete,
 }: Readonly<ScheduleItemProps>) {
-  const actionLabel = ACTION_LABELS[schedule.action] ?? schedule.action;
+  const actionLabel = labelForAction(schedule.action);
   const actionIcon  = ACTION_ICONS[schedule.action]  ?? 'flash';
   const deviceName  = schedule.devices?.name ?? 'Dispositivo';
   const timeLabel   = scheduleTimeLabel(schedule);

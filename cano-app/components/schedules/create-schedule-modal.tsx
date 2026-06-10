@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type DeviceDto } from '@/api/devices';
@@ -151,9 +151,11 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
             <Text className="text-text text-sm font-semibold mb-2">Nombre (opcional)</Text>
             <TextInput
               className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm mb-5"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={name} onChangeText={setName}
               placeholder="Ej. Encender tele por la noche"
               placeholderTextColor="#64748b" editable={!saving}
+              maxLength={50}
             />
 
             {/* Dispositivo */}
@@ -354,15 +356,15 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
 
           {/* Botones */}
           <View className="flex-row gap-3 px-5 pt-2">
-            <TouchableOpacity className="flex-1 bg-bg border border-border rounded-xl py-3 items-center"
+            <TouchableOpacity className="flex-1 bg-red-500 rounded-xl py-3 items-center"
               onPress={onClose} disabled={saving} activeOpacity={0.7}>
-              <Text className="text-text font-semibold text-sm">Cancelar</Text>
+              <Text className="text-white font-semibold text-sm">Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className={`flex-1 rounded-xl py-3 items-center flex-row justify-center gap-2 ${!isValid || saving ? 'bg-indigo-500/40' : 'bg-indigo-500'}`}
               onPress={handleConfirm} disabled={!isValid || saving} activeOpacity={0.8}>
               {saving ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="checkmark" size={16} color="white" />}
-              <Text className="text-text font-semibold text-sm">{saving ? 'Guardando...' : 'Crear tarea'}</Text>
+              <Text className="text-white font-semibold text-sm">{saving ? 'Guardando...' : 'Crear tarea'}</Text>
             </TouchableOpacity>
           </View>
 

@@ -43,7 +43,7 @@ export function Toast({ message, variant = 'success', visible, onHide, duration 
           size={20}
           color="white"
         />
-        <Text className="text-text font-semibold text-sm flex-1">{message}</Text>
+        <Text className="text-white font-semibold text-sm flex-1">{message}</Text>
       </View>
     </Animated.View>
   );

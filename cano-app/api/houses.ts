@@ -63,6 +63,13 @@ export async function getMyHouse(): Promise<HouseDto> {
   return res.json();
 }
 
+export async function getBotStatus(): Promise<{ online: boolean }> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}/api/v1/houses/me/bot-status`, { headers });
+  if (!res.ok) return { online: false };
+  return res.json();
+}
+
 export async function getHouseMembers(): Promise<HouseMemberDto[]> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/v1/houses/me/members`, { headers });
