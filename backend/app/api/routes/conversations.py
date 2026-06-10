@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.deps import CurrentUser
 from app.core.errors import forbidden
-from app.models.conversations import ConversationPublic
+from app.models.conversations import ConversationCreate, ConversationPublic
 from app.services.messages import (
     create_conversation,
     get_user_conversations,
@@ -11,8 +11,9 @@ from app.services.messages import (
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 @router.post("/", response_model=ConversationPublic)
-def new_conversation(current_user: CurrentUser):
-    return create_conversation(current_user["id"])
+def new_conversation(current_user: CurrentUser, body: ConversationCreate):
+    title = body.title or "Nueva conversación"
+    return create_conversation(current_user["id"], title=title)
 
 @router.get("/", response_model=list[ConversationPublic])
 def list_conversations(current_user: CurrentUser):

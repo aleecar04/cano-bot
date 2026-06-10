@@ -25,8 +25,6 @@ _BACKEND_RESOLVED_INTENTS: dict[str, str] = {
     "ollama_error": "Estoy teniendo problemas para clasificar tu mensaje, inténtalo de nuevo en breves.",
 }
 
-# Callback que entrega un texto al usuario. Puede ser sync (PWA: guarda en BD)
-# o async (Gajim: persiste + relay XMPP). El helper hace `await` si es awaitable.
 ResolveCallback = Callable[[str, str], object]
 
 
@@ -61,8 +59,6 @@ async def process_message(body: str, user_id: str, conversation_id: str) -> dict
 
 
 async def process_gajim_message(from_jid: str, body: str, house_id: str) -> dict:
-    """Mensaje natural reenviado por el bot desde un cliente XMPP directo (Gajim).
-    Misma lógica que process_message pero la respuesta vuelve al usuario por XMPP."""
     user_id = _authenticate_gajim_sender(from_jid, house_id)
     bot_target = _require_bot_target(user_id)
     conv_id = _get_or_create_xmpp_conversation_today(user_id)
@@ -82,9 +78,6 @@ async def process_gajim_message(from_jid: str, body: str, house_id: str) -> dict
 
 
 def handle_webhook(payload: BotWebhookPayload, house_id: str) -> None:
-    """Webhook del bot tras manejar un mensaje. Si el message ya existe (PWA),
-    actualiza su response; si no (Gajim directo), lo crea en la conversación
-    del día. En ambos casos valida que el usuario pertenezca a la casa del bot."""
     message = _find_message(payload)
     if message:
         owner = conversation_repository.find_user_id_by_id(message["conversation_id"])
@@ -124,8 +117,6 @@ def _authenticate_gajim_sender(from_jid: str, house_id: str) -> str:
 
 
 async def _classify(body: str) -> dict | None:
-    """Devuelve un intent_data sintético si el body es un !comando conocido;
-    si es texto natural, llama a Ollama. None solo si el cuerpo está vacío."""
     intent_data = lookup_prefix_command(body)
     if intent_data is not None:
         return intent_data
@@ -138,8 +129,6 @@ async def _try_resolve_in_backend(
     intent_data: dict | None, user_id: str, message: dict,
     on_resolve: ResolveCallback,
 ) -> bool:
-    """Cierra el mensaje desde el backend sin pasar por el bot.
-    Devuelve True si lo manejó (caller no debe seguir reenviando)."""
     message_id = message["id"]
 
     if intent_data is None:
@@ -168,7 +157,6 @@ async def _try_resolve_in_backend(
 
 
 async def _maybe_await(result: object) -> None:
-    """Permite que ResolveCallback sea sync o async sin que el caller lo sepa."""
     if inspect.isawaitable(result):
         await result
 
@@ -183,8 +171,6 @@ def _device_not_found_message(intent_data: dict) -> str:
 async def _forward_to_bot(
     body: str, intent_data: dict | None, message_id: str, user_id: str, bot_target: str,
 ) -> None:
-    """Empaqueta el intent_data como natural_classified y lo manda al bot por XMPP.
-    Si XMPP falla, borra el message para no dejar huérfano."""
     correlation_id = message_id
     payload = json.dumps({
         "type": "natural_classified",
@@ -212,7 +198,6 @@ async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id:
     from app.services.command_executor import execute_command, CommandSource
     from app.services.device_catalog import is_action_supported, validate_payload
 
-    # El prompt de Ollama devuelve estos campos en español por convención.
     action = intent_data.get("accion")
     name = (intent_data.get("dispositivo") or "").lower()
     if not action or not name:
@@ -245,8 +230,6 @@ async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id:
 
 
 async def _resolve_for_gajim(message_id: str, correlation_id: str, user_id: str, text: str) -> None:
-    """Persiste el texto como response y manda un relay XMPP para que el bot lo
-    entregue al cliente XMPP del usuario. Si XMPP falla, la PWA aún ve el texto en BD."""
     _save_response(message_id, text)
     bot_target = get_bot_target_for_user(user_id)
     if not bot_target:
@@ -290,7 +273,6 @@ def _verify_conversation(conversation_id: str, user_id: str) -> None:
 
 
 def _get_or_create_xmpp_conversation_today(user_id: str) -> str:
-    """Una conversación XMPP por usuario y día, titulada 'XMPP - YYYY-MM-DD'."""
     title = f"XMPP - {date.today().isoformat()}"
     existing = conversation_repository.find_by_user_and_title(user_id, title)
     if existing:

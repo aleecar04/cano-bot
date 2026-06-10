@@ -14,9 +14,6 @@ def classify_action_type(action: str | None) -> str:
 
 
 def lookup_prefix_command(body: str) -> dict | None:
-    """Si el body es un '!comando' conocido (info o system), devuelve un
-    intent_data sintético equivalente al que produciría Ollama. En caso
-    contrario devuelve None y el body se reenvía tal cual al bot."""
     if not body.startswith("!"):
         return None
     rest = body[1:].strip()

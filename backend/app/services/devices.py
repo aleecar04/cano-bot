@@ -17,7 +17,6 @@ from app.models.drivers import DriverType
 
 
 def _detectar_driver_tv(hostname: str) -> DriverType | None:
-    """Returns lg_tv / samsung_tv based on hostname, or None if unknown brand."""
     hostname = hostname.lower()
     if "lg" in hostname:
         return DriverType.LG_TV
@@ -27,7 +26,6 @@ def _detectar_driver_tv(hostname: str) -> DriverType | None:
 
 
 def inferir_driver(tipo: str, hostname: str = "") -> DriverType | None:
-    # Altavoz excluded: smart speakers (Alexa, Sonos, HomePod) are not Tuya devices
     mapa = {
         "SmartTV":    lambda: _detectar_driver_tv(hostname),
         "Enchufe":    lambda: DriverType.TUYA,
@@ -37,7 +35,7 @@ def inferir_driver(tipo: str, hostname: str = "") -> DriverType | None:
         "Luz":        lambda: DriverType.TUYA,
         "IoT":        lambda: DriverType.TUYA,
         "Termostato": lambda: DriverType.TUYA,
-        "Sensor":     lambda: DriverType.TUYA,    # Tuya temp/humidity sensors
+        "Sensor":     lambda: DriverType.TUYA,   
         "sensor":     lambda: DriverType.TUYA,
     }
     fn = mapa.get(tipo)
@@ -82,9 +80,6 @@ def vincular_device(device_in: DeviceVincular, user_id: str) -> dict:
 
 
 def get_devices_for_house(house_id: str) -> list[dict]:
-    """Bot endpoint: devuelve los devices de una casa concreta, con el config de los
-    devices HA enriquecido con las credenciales de la integración (para que el driver
-    las reciba sin duplicarlas en devices.config)."""
     devices = device_repository.find_by_house(house_id)
 
     ha_devices = [d for d in devices if d.get("driver") == DriverType.HOMEASSISTANT]
@@ -116,7 +111,6 @@ def get_device(device_id: str, user_id: str) -> dict | None:
 
 
 def desvincular_device(device_id: str, user_id: str) -> bool:
-    """Owner can delete any device in the house. Member can only delete their own."""
     if get_user_role(user_id) == "owner":
         house_id = get_house_id_for_user(user_id)
         if not house_id:
@@ -128,7 +122,6 @@ def desvincular_device(device_id: str, user_id: str) -> bool:
 
 
 def update_device(device_id: str, user_id: str, data: dict) -> dict | None:
-    """Owner can update any device in the house. Member can only update their own."""
     if get_user_role(user_id) == "owner":
         house_id = get_house_id_for_user(user_id)
         if not house_id:
@@ -140,7 +133,6 @@ def update_device(device_id: str, user_id: str, data: dict) -> dict | None:
 
 
 def update_device_status_in_house(device_id: str, house_id: str, status_in: DeviceStatusUpdate) -> bool:
-    """Update is_online/estado solo si el device pertenece a esa casa (autorización por bot_token)."""
     data: dict = {"is_online": status_in.is_online, "updated_at": "now()"}
     if status_in.estado:
         data["estado"] = status_in.estado
@@ -152,7 +144,6 @@ def update_device_status_in_house(device_id: str, house_id: str, status_in: Devi
     return bool(result.data)
 
 def find_devices_in_scope(scope: str, scope_id: str, fields: str = "id") -> list[dict]:
-    """Return all devices under a room or floor scope. Raises GroupScopeEmpty if empty."""
     if scope == "room":
         devices = device_repository.find_by_room(scope_id, fields)
         if not devices:
@@ -166,7 +157,7 @@ def find_devices_in_scope(scope: str, scope_id: str, fields: str = "id") -> list
         if not devices:
             raise not_found("No hay dispositivos en esta planta")
         return devices
-    raise InvalidGroupAction(f"Scope inválido: {scope}")
+    raise bad_request(f"Scope inválido: {scope}")
 
 
 async def send_group_command(scope: str, scope_id: str, action: str, user_id: str) -> dict:

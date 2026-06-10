@@ -19,6 +19,7 @@ class CommandRepository:
             query = supabase.table("commands").select(self.HISTORY_SELECT).in_("user_id", user_ids)
         else:
             query = supabase.table("commands").select(self.HISTORY_SELECT).eq("user_id", user_ids)
+        query = query.eq("target_type", "device")
         if source_type:
             query = query.eq("source_type", source_type)
         if date_from:

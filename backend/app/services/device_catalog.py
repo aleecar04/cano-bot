@@ -1,10 +1,3 @@
-"""Catálogo de capacidades por tipo de dispositivo. Backend lo usa para validar
-NLP y comandos directos antes de dispatchar al bot.
-
-Importante: existe un catálogo equivalente en errbot/plugins/help/help.py que el
-bot usa para responder `!acciones`. Es duplicación deliberada de datos estáticos
-(~30 líneas). La validación efectiva siempre la hace el backend; el listado del
-bot es solo display."""
 from enum import StrEnum
 
 

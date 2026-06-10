@@ -51,9 +51,6 @@ def get_command_by_id(command_id: str, user_id: str) -> dict:
 # ── Write paths (bot endpoints) ──────────────────────────────────────────────
 
 def create_command_from_bot(body: dict) -> dict:
-    """Endpoint que llama el bot para registrar un command que ya ejecutó (info/system)
-    o uno pending (system con patrón pending+update). Valida que el user_id pertenezca
-    a la casa del bot autenticado."""
     house_id = body.pop("_authenticated_house_id", None)
     user_house = house_member_repository.find_house_id_by_user(body["user_id"])
     if user_house != house_id:
@@ -92,8 +89,6 @@ def create_command_from_bot(body: dict) -> dict:
 
 
 def update_command_result(command_id: str, house_id: str, error: str | None, result_data: dict | None = None) -> None:
-    """Bot patcha el resultado tras ejecutar. Valida pertenencia a la casa y,
-    si el command venía de un schedule, dispara push notification."""
     row = command_repository.find_meta_by_id(command_id)
     if not row:
         raise not_found("Comando no encontrado")
@@ -114,8 +109,6 @@ def update_command_result(command_id: str, house_id: str, error: str | None, res
 
 
 def _send_schedule_push(row: dict, error: str | None) -> None:
-    """Notifica al usuario el resultado de un command disparado por un schedule.
-    Best-effort: si falla, no rompe el flujo principal."""
     try:
         device_name = (row.get("devices") or {}).get("name", "dispositivo")
         action_map = {

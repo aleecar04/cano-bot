@@ -19,9 +19,6 @@ def list_users(skip: int = 0, limit: int = 100) -> dict:
 
 
 def resolve_jid_in_house(jid: str, house_id: str) -> str | None:
-    """Resuelve un JID (bare) a user_id SOLO si ese usuario pertenece a la casa dada.
-    Devuelve None si el JID no existe o el usuario no es miembro de esa casa.
-    Es el control de acceso del bot: solo procesa comandos de miembros de su casa."""
     user_id = xmpp_account_repository.find_user_id_by_jid(jid)
     if not user_id:
         return None
@@ -31,8 +28,6 @@ def resolve_jid_in_house(jid: str, house_id: str) -> str | None:
 
 
 def resolve_username_to_email(username: str) -> str:
-    """Return the email associated with a username (login flow).
-    Raises UserNotFound if the username is unknown."""
     email = user_repository.find_email_by_username(username)
     if not email:
         raise not_found("Usuario no encontrado")
@@ -40,8 +35,6 @@ def resolve_username_to_email(username: str) -> str:
 
 
 def get_user_by_id(user_id: str, current_user: dict) -> dict:
-    """Get user info. Non-superusers can only see themselves.
-    Raises UserNotFound / UserPermissionDenied."""
     user = user_repository.find_by_id(user_id)
     if not user:
         raise not_found("User not found")
@@ -58,9 +51,6 @@ async def create_user_with_xmpp(
     first_name: str | None = None,
     last_name: str | None = None,
 ) -> dict:
-    """Create a user in Supabase Auth + base_user + XMPP account.
-    Si algún paso posterior al Auth falla, deshace lo creado en nuestra BD
-    (Supabase Auth + base_user). La cuenta XMPP en Prosody se gestiona aparte."""
     auth_response = supabase.auth.admin.create_user({
         "email": email,
         "password": password,
@@ -87,7 +77,6 @@ async def create_user_with_xmpp(
             "p_key": settings.XMPP_ENCRYPTION_KEY,
         }).execute()
     except Exception:
-        # Rollback BD: borramos lo nuestro para no dejar usuario zombi.
         try:
             supabase.table("base_user").delete().eq("id", user_id).execute()
         except Exception:
@@ -98,11 +87,11 @@ async def create_user_with_xmpp(
             pass
         raise
 
-    return user_repository.find_by_id(user_id)
+    user = user_repository.find_by_id(user_id) or {}
+    return {**user, "xmpp_jid": jid, "xmpp_password": xmpp_password}
 
 
 def create_user_simple(email: str, password: str, username: str | None = None) -> dict:
-    """Create a user without a real XMPP account (testing/admin)."""
     auth_response = supabase.auth.admin.create_user({
         "email": email,
         "password": password,
@@ -132,15 +121,12 @@ def create_user_simple(email: str, password: str, username: str | None = None) -
 
 
 def create_user_for_admin(user_in: UserCreate) -> dict:
-    """Admin creation flow. Raises EmailAlreadyExists (400) if email is taken."""
     if get_user_by_email(email=user_in.email):
         raise bad_request("The user with this email already exists in the system.")
     return create_user_simple(email=user_in.email, password=user_in.password)
 
 
 async def register(user_in: UserRegister) -> dict:
-    """Public signup: check username + create user.
-    Raises UsernameAlreadyTaken."""
     if user_repository.exists_by_username(user_in.username):
         raise bad_request("Username already taken")
     return await create_user_with_xmpp(
@@ -154,7 +140,6 @@ async def register(user_in: UserRegister) -> dict:
 
 # ── Profile / me ─────────────────────────────────────────────────────────────
 def get_profile(current_user: dict) -> dict:
-    """Compose the full user profile for /me/profile."""
     user_id = current_user["id"]
 
     row = user_repository.find_basic_by_id(user_id) or {}
@@ -179,7 +164,6 @@ def get_profile(current_user: dict) -> dict:
 
 
 def update_me(user_id: str, user_in: UserUpdateMe) -> dict:
-    """Update own profile. Raises EmailConflict (409) if email is taken by another user."""
     if user_in.email:
         existing = get_user_by_email(email=user_in.email)
         if existing and existing["id"] != user_id:
@@ -190,8 +174,6 @@ def update_me(user_id: str, user_in: UserUpdateMe) -> dict:
 
 
 def change_password_me(email: str, current_password: str, new_password: str) -> None:
-    """Verify current password against Supabase Auth, then update.
-    Raises SamePasswordError / InvalidCurrentPassword / PasswordUpdateFailed."""
     if current_password == new_password:
         raise bad_request("New password cannot be the same as the current one")
     try:
@@ -208,7 +190,6 @@ def change_password_me(email: str, current_password: str, new_password: str) -> 
 
 
 def delete_me(current_user: dict) -> None:
-    """Delete own account. Raises SuperuserCannotDelete."""
     if current_user.get("is_superuser"):
         raise forbidden("Super users are not allowed to delete themselves")
     supabase.table("base_user").delete().eq("id", current_user["id"]).execute()
@@ -216,7 +197,6 @@ def delete_me(current_user: dict) -> None:
 
 # ── Admin flows ─────────────────────────────────────────────────────────────
 def admin_update_user(user_id: str, user_in: UserUpdate) -> dict:
-    """Admin updates any user. Raises UserNotFound / EmailConflict."""
     if not user_repository.find_by_id(user_id):
         raise not_found("The user with this id does not exist in the system")
     if user_in.email:
@@ -230,8 +210,6 @@ def admin_update_user(user_id: str, user_in: UserUpdate) -> dict:
 
 
 def admin_delete_user(user_id: str, current_user: dict) -> None:
-    """Admin deletes a user (cannot delete self).
-    Raises UserNotFound / SuperuserCannotDelete."""
     user = user_repository.find_by_id(user_id)
     if not user:
         raise not_found("User not found")

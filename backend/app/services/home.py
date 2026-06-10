@@ -24,18 +24,15 @@ _DEFAULT_HOUSE_NAME = "Mi Casa"
 
 # ── Bot token helpers ────────────────────────────────────────────────────────
 def _generate_bot_token() -> str:
-    """Genera un token opaco de 32 bytes URL-safe (~43 chars)."""
     return secrets.token_urlsafe(32)
 
 
 def _hash_bot_token(token: str) -> str:
-    """Hash SHA-256 hex. Determinístico → permite lookup por hash en BD."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 # ── House / member helpers ───────────────────────────────────────────────────
 def _create_house(name: str, bot_token_hash: str) -> dict:
-    """Inserta la fila de houses con su bot_token_hash y devuelve la fila creada."""
     return supabase.table("houses").insert({
         "bot_token_hash": bot_token_hash,
         "name":           name,
@@ -43,8 +40,6 @@ def _create_house(name: str, bot_token_hash: str) -> dict:
 
 
 def _add_house_member(house_id: str, user_id: str, role: str, *, idempotent: bool = False) -> None:
-    """Añade un miembro a una casa. Con idempotent=True usa upsert (al unirse por
-    código de invitación se repite la operación sin fallar)."""
     data = {"house_id": house_id, "user_id": user_id, "role": role}
     table = supabase.table("house_members")
     if idempotent:
@@ -54,7 +49,6 @@ def _add_house_member(house_id: str, user_id: str, role: str, *, idempotent: boo
 
 
 def generate_invitation_code(house_id: str, created_by: str) -> str:
-    """Generate a 6-char invitation code valid for 24 hours."""
     code = "".join(secrets.choice(_CODE_CHARS) for _ in range(_CODE_LEN))
     expires_at = datetime.now(timezone.utc) + timedelta(hours=_CODE_TTL_H)
     supabase.table("house_invitations").insert({
@@ -67,7 +61,6 @@ def generate_invitation_code(house_id: str, created_by: str) -> str:
 
 
 def consume_invitation_code(code: str, user_id: str) -> dict:
-    """Validate code, add user to house_members, mark code as used. Returns the house."""
     now = datetime.now(timezone.utc)
     inv = house_invitation_repository.find_unused_by_code(code)
     if not inv:
@@ -84,7 +77,6 @@ def consume_invitation_code(code: str, user_id: str) -> dict:
 
 
 def get_user_house(user_id: str) -> dict | None:
-    """Find the house the user belongs to via house_members."""
     house_id = house_member_repository.find_house_id_by_user(user_id)
     if not house_id:
         return None
@@ -96,14 +88,10 @@ def get_house_id_for_user(user_id: str) -> str | None:
 
 
 def _bot_resource_from_token_hash(token_hash: str) -> str:
-    """Resource XMPP derivado del hash del bot_token. El bot calcula el mismo valor
-    con sha256(su_token)[:12], así ambos lados coinciden sin compartir más datos."""
     return f"bot-{token_hash[:12]}"
 
 
 def get_bot_target_for_user(user_id: str) -> str | None:
-    """Return the full XMPP target for routing a message to the user's house bot:
-    `<shared_bot_jid>/bot-<first12_of_token_hash>`. Devuelve None si no tiene casa."""
     from app.core.config import settings
     house_id = get_house_id_for_user(user_id)
     if not house_id:
@@ -116,7 +104,6 @@ def get_bot_target_for_user(user_id: str) -> str | None:
 
 
 def get_user_role(user_id: str) -> str | None:
-    """Return 'owner', 'member', or None if the user has no house."""
     house_id = get_house_id_for_user(user_id)
     if not house_id:
         return None
@@ -125,7 +112,6 @@ def get_user_role(user_id: str) -> str | None:
 
 
 def require_house(user_id: str) -> str:
-    """Return house_id or raise HouseNotConfigured (403) if user has no house."""
     house_id = get_house_id_for_user(user_id)
     if not house_id:
         raise forbidden("Debes configurar tu casa antes de usar el sistema")
@@ -256,8 +242,6 @@ def list_house_members(user_id: str) -> list[dict]:
 
 
 def kick_member(owner_id: str, target_user_id: str) -> None:
-    """Owner removes a member from the house.
-    Raises NotOwner / CannotKickSelf / MemberNotFound."""
     if get_user_role(owner_id) != "owner":
         raise forbidden(_NOT_OWNER_MSG)
     if target_user_id == owner_id:
@@ -275,25 +259,25 @@ def kick_member(owner_id: str, target_user_id: str) -> None:
 
 
 def leave_house(user_id: str) -> None:
-    """Any non-owner member can voluntarily leave the house.
-    Raises OwnerCannotLeave / HouseNotFound."""
-    role = get_user_role(user_id)
-    if role == "owner":
-        raise bad_request(
-            "El propietario no puede abandonar la casa. Elimínala o transfiere la propiedad."
-        )
     house_id = get_house_id_for_user(user_id)
     if not house_id:
         raise not_found("No perteneces a ninguna casa")
+
+    was_owner = get_user_role(user_id) == "owner"
     supabase.table("house_members").delete().eq("house_id", house_id).eq("user_id", user_id).execute()
+
+    remaining = supabase.table("house_members").select("user_id").eq("house_id", house_id).execute().data or []
+    if not remaining:
+        supabase.table("houses").delete().eq("id", house_id).execute()
+        return
+
+    if was_owner:
+        new_owner_id = secrets.choice(remaining)["user_id"]
+        supabase.table("house_members").update({"role": "owner"}).eq("house_id", house_id).eq("user_id", new_owner_id).execute()
 
 
 # ── House setup ──────────────────────────────────────────────────────────────
 def setup_house(user_id: str, name: str = _DEFAULT_HOUSE_NAME) -> dict:
-    """Create a house, generate a bot_token for it, and add the user as owner.
-    Returns {"house_id": str, "bot_token": str} — el bot_token plaintext SOLO se devuelve aquí.
-    El servidor solo guarda el hash; si el usuario lo pierde, debe regenerarlo.
-    Raises UserAlreadyInHouse."""
     if get_house_id_for_user(user_id):
         raise conflict("Ya perteneces a una casa")
 
@@ -303,8 +287,6 @@ def setup_house(user_id: str, name: str = _DEFAULT_HOUSE_NAME) -> dict:
     try:
         _add_house_member(house["id"], user_id, "owner")
     except Exception:
-        # Rollback: si no se pudo añadir el owner, la house queda huérfana
-        # y bloquearía futuros intentos del mismo usuario. La borramos best-effort.
         try:
             supabase.table("houses").delete().eq("id", house["id"]).execute()
         except Exception:
@@ -315,9 +297,6 @@ def setup_house(user_id: str, name: str = _DEFAULT_HOUSE_NAME) -> dict:
 
 
 def regenerate_bot_token(user_id: str) -> str:
-    """Generate a new bot_token for the user's house. Invalida el anterior.
-    Solo el propietario puede hacerlo. Devuelve el token plaintext (una vez).
-    Raises HouseNotFound / NotOwner."""
     require_owner(user_id)
     house_id = require_house(user_id)
 

@@ -12,7 +12,6 @@ _POWER_ACTIONS = {"encender", "apagar"}
 
 
 def _next_run(cron_expr: str, tz_name: str = "UTC") -> datetime:
-    """Return the next fire time for a cron expression in the given timezone."""
     try:
         tz = ZoneInfo(tz_name)
     except ZoneInfoNotFoundError:
@@ -23,7 +22,6 @@ def _next_run(cron_expr: str, tz_name: str = "UTC") -> datetime:
 
 
 def _check_conflicting_power_schedule(device_id: str, next_run_at: datetime, action: str) -> None:
-    """Reject if there's already a power action scheduled for the same device in the same minute."""
     if action not in _POWER_ACTIONS:
         return
     minute_start = next_run_at.replace(second=0, microsecond=0)
@@ -64,8 +62,6 @@ def create_schedule(schedule_in: ScheduleCreate, user_id: str) -> dict:
 
 
 def get_schedules(user_id: str) -> list[dict]:
-    """Return all schedules for every member of the user's house,
-    including last command status via a JOIN on last_command_id."""
     return schedule_repository.find_by_user_ids(get_house_member_ids(user_id))
 
 
@@ -74,7 +70,6 @@ def get_schedule(schedule_id: str, user_id: str) -> dict | None:
 
 
 def delete_schedule(schedule_id: str, user_id: str) -> bool:
-    """Delete own schedule."""
     result = (
         supabase.table("schedules")
         .delete()
@@ -86,7 +81,6 @@ def delete_schedule(schedule_id: str, user_id: str) -> bool:
 
 
 def delete_schedule_any(schedule_id: str, user_id: str) -> bool:
-    """Owner-only: delete any schedule in the house."""
     member_ids = get_house_member_ids(user_id)
     result = (
         supabase.table("schedules")
@@ -143,8 +137,6 @@ def toggle_schedule_any(
 
 
 def delete_completed_schedules(user_id: str) -> int:
-    """Delete one-time completed schedules.
-    Owners delete for the whole house; members delete only their own."""
     query = (
         supabase.table("schedules")
         .delete()
@@ -161,7 +153,6 @@ def delete_completed_schedules(user_id: str) -> int:
 
 
 def get_pending_schedules() -> list[dict]:
-    """Return all active schedules whose next_run_at is in the past. Called by the bot."""
     return schedule_repository.find_pending(datetime.now(timezone.utc).isoformat())
 
 
@@ -171,9 +162,6 @@ def create_group_schedule(
     schedule_in: GroupScheduleCreate,
     user_id: str,
 ) -> dict:
-    """Create a schedule for every device under a room or floor scope.
-    Skips devices with conflicting power schedules silently.
-    Raises InvalidGroupAction / GroupScopeEmpty (re-exported from devices service)."""
     devices = find_devices_in_scope(scope, scope_id, fields="id,name")
     created = 0
     for d in devices:
@@ -189,7 +177,6 @@ def create_group_schedule(
 
 
 def mark_schedule_run(schedule_id: str, run_in: ScheduleMarkRun) -> None:
-    """Update a schedule after the bot executes it. Called via webhook."""
     s = schedule_repository.find_cron_meta_by_id(schedule_id)
     if not s:
         return
