@@ -65,6 +65,20 @@ async def _complete_add_user_command(client: httpx.AsyncClient, session_id: str,
     r.raise_for_status()
 
 
+async def is_bot_online(bot_jid: str, timeout: float = 3.0) -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(
+                settings.XMPP_REST_URL,
+                auth=_admin_auth(),
+                headers=_base_headers(),
+                json={"kind": "iq", "type": "get", "to": bot_jid, "ping": {}},
+            )
+        return r.status_code == 200 and r.json().get("type") == "result"
+    except Exception:
+        return False
+
+
 async def send_xmpp_message(
     body: str, from_jid: str, xmpp_password: str, to_jid: str, message_id: str | None = None
 ) -> str | None:
