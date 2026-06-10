@@ -1,16 +1,17 @@
-"""
-Configuración de tests para el backend FastAPI.
-Estrategia: mock completo del cliente Supabase + override de get_current_user.
-
-IMPORTANTE: el supabase_mock se inyecta en app.core.db ANTES de cualquier import
-de los módulos de la app. Si lo hiciéramos dentro de un fixture, los módulos
-ya importados al colectar tests tendrían una referencia al supabase real,
-causando contaminación entre tests de services y tests de routes.
-"""
 from __future__ import annotations
 
+import os
 import uuid
 from unittest.mock import MagicMock
+
+os.environ.setdefault("PROJECT_NAME", "test")
+os.environ.setdefault("SUPABASE_URL", "http://test")
+os.environ.setdefault("SUPABASE_KEY", "test-key")
+os.environ.setdefault("XMPP_BOT_JID", "bot@test")
+os.environ.setdefault("XMPP_ADMIN_USER", "admin@test")
+os.environ.setdefault("XMPP_ADMIN_PASSWORD", "test123")
+os.environ.setdefault("XMPP_REST_URL", "http://test/rest")
+os.environ.setdefault("XMPP_ENCRYPTION_KEY", "0" * 64)
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +20,6 @@ from fastapi.testclient import TestClient
 # ── Supabase builder mock ─────────────────────────────────────────────────────
 
 class _QueryBuilder:
-    """Mock del patrón builder de Supabase: table().select().eq().execute()"""
 
     def __init__(self, return_data: list[dict] | None = None):
         self._data = return_data if return_data is not None else []

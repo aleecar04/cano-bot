@@ -1,7 +1,7 @@
 import secrets
 import warnings
 from typing import Annotated, Any, Literal
-from pydantic import AnyUrl, BeforeValidator, EmailStr, HttpUrl, model_validator
+from pydantic import AnyUrl, BeforeValidator, HttpUrl, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -38,15 +38,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
 
-    EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
-
-    # Supabase
     SUPABASE_URL: str
     SUPABASE_KEY: str
 
-    # XMPP
     XMPP_BOT_JID: str
     XMPP_ADMIN_USER: str
     XMPP_ADMIN_PASSWORD: str
@@ -54,9 +48,7 @@ class Settings(BaseSettings):
     XMPP_REST_URL: str
     XMPP_ENCRYPTION_KEY: str
 
-    # Ollama (clasificador NLP) — apunta al VPS remoto por defecto, para
-    # poder ejecutar el backend en local sin necesidad de instalar Ollama.
-    OLLAMA_HOST: str = "http://194.164.164.171:11434"
+    OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen2.5:3b"
 
     # Webhook Security
@@ -81,7 +73,6 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
         self._check_default_secret("SECRET_KEY", self.SECRET_KEY)
-        self._check_default_secret("FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD)
         return self
 
 

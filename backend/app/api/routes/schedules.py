@@ -20,7 +20,6 @@ def create_schedule(schedule_in: ScheduleCreate, current_user: CurrentUser):
 
 @router.delete("/completed", status_code=200)
 def delete_completed_schedules(current_user: CurrentUser):
-    """Delete all one-time completed schedules for the user's house."""
     count = svc.delete_completed_schedules(current_user["id"])
     return {"deleted": count}
 

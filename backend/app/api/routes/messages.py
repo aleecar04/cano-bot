@@ -17,8 +17,6 @@ async def bot_webhook(payload: BotWebhookPayload, house: dict = Depends(bot_auth
 
 @router.post("/from-gajim")
 async def from_gajim(payload: GajimMessagePayload, house: dict = Depends(bot_auth)):
-    """El bot reenvía aquí los mensajes naturales que recibe directamente de un
-    cliente XMPP (Gajim). El backend clasifica y orquesta el dispatch."""
     await process_gajim_message(payload.from_jid, payload.body, house["id"])
     return {"ok": True}
 

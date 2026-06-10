@@ -14,8 +14,6 @@ from app.repositories.users import xmpp_account_repository
 # ── Strategy pattern ─────────────────────────────────────────────────────────
 
 class CommandSource:
-    """Base strategy — direct app control, conversation, favorite.
-    These share identical post-execute behaviour (nothing extra to do)."""
 
     def __init__(self, source_type: str = "direct", source_id: str | None = None):
         self.source_type = source_type
@@ -26,9 +24,7 @@ class CommandSource:
 
 
 class ScheduleSource(CommandSource):
-    """Strategy for scheduled task execution.
-    post_execute updates last_command_id and recalculates next_run_at."""
-
+    
     def __init__(self, schedule_id: str):
         super().__init__(source_type="schedule", source_id=schedule_id)
 
@@ -71,8 +67,6 @@ def _update_command(command_id: str, error: str | None) -> None:
 
 
 def _get_xmpp_context(user_id: str) -> tuple[str, str, str]:
-    """Devuelve (user_jid, user_password, bot_target). Lanza ValueError si falta algo.
-    bot_target es el JID compartido del bot con resource derivado de la casa."""
     jid = xmpp_account_repository.find_jid_by_user(user_id)
     if not jid:
         raise not_found("Cuenta XMPP no encontrada")
@@ -87,8 +81,6 @@ def _get_xmpp_context(user_id: str) -> tuple[str, str, str]:
 
 
 def _resolve_target(user_id: str, device_id: str | None) -> tuple[str, dict | None]:
-    """Valida acceso y devuelve (target_type, device row). Para 'device' devuelve la
-    fila completa (la usaremos para validar la acción contra su tipo)."""
     if not device_id:
         return "system", None
     house_id = get_house_id_for_user(user_id)
@@ -99,7 +91,6 @@ def _resolve_target(user_id: str, device_id: str | None) -> tuple[str, dict | No
 
 
 def _build_command_body(device_id: str | None, action: str, payload: dict, command_id: str) -> str:
-    """Mensaje XMPP para el bot: comando de dispositivo o de sistema."""
     if device_id:
         return json.dumps({
             "device_id":  device_id,
@@ -118,10 +109,6 @@ async def execute_command(
     device_id: str | None = None,
     target_type: str | None = None,
 ) -> dict:
-    """Ejecuta un comando: valida acción + payload, crea el comando pendiente,
-    lo manda al bot por XMPP y dispara post_execute. Si no se pasa target_type,
-    se infiere por device_id (device si lo trae, system si no). 409 si la acción
-    no es válida para el tipo de dispositivo o el payload no cumple las reglas."""
     jid, xmpp_password, bot_target = _get_xmpp_context(user_id)
     device = None
     if target_type is None:

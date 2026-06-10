@@ -58,8 +58,6 @@ def get_my_commands(
     date_to: Annotated[Optional[str], Query()] = None,
     member_id: Annotated[Optional[str], Query()] = None,
 ):
-    """Paginated command history.
-    Owners can pass member_id=<uuid> or member_id=all to see other members."""
     return command_service.get_command_history(
         user_id=current_user["id"],
         page=page,

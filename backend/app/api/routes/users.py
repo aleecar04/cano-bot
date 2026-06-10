@@ -122,8 +122,6 @@ async def register_user(user_in: UserRegister) -> Any:
 
 @router.get("/resolve", responses={401: {"description": "Invalid bot token"}})
 def resolve_jid(jid: str, house: dict = Depends(bot_auth)) -> dict:
-    """Bot-only: resuelve un JID a user_id SOLO si ese usuario es miembro de la casa
-    del bot. Devuelve {user_id: str|None}. Combina resolución + control de acceso."""
     return {"user_id": user_service.resolve_jid_in_house(jid, house["id"])}
 
 

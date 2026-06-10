@@ -26,7 +26,6 @@ def login_access_token(
 
 @router.get("/auth/resolve-username/{username}")
 def resolve_username(username: str):
-    """Returns the email associated with a username (used for login)."""
     return {"email": user_service.resolve_username_to_email(username)}
 
 

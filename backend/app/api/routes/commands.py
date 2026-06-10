@@ -22,8 +22,6 @@ async def create_command(body: CommandRequest, current_user: CurrentUser):
 
 @router.post("/from-bot", responses={401: {"description": "Invalid bot token"}})
 def create_command_from_bot_endpoint(body: dict, house: dict = Depends(bot_auth)):
-    """Bot registra un comando originado en una conversación de lenguaje natural.
-    El backend valida que el user_id del body pertenezca a la casa del bot."""
     body["_authenticated_house_id"] = house["id"]
     return create_command_from_bot(body)
 
