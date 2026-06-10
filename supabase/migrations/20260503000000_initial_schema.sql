@@ -10,10 +10,10 @@ CREATE TYPE device_driver  AS ENUM ('tuya', 'lg_tv', 'samsung_tv', 'homeassistan
 -- ── Usuarios ─────────────────────────────────────────────────────────────
 CREATE TABLE base_user (
   id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username     TEXT UNIQUE NOT NULL,
-  first_name   TEXT,
-  last_name    TEXT,
-  email        TEXT,
+  username     VARCHAR(50) UNIQUE NOT NULL,
+  first_name   VARCHAR(100),
+  last_name    VARCHAR(100),
+  email        VARCHAR(255),
   is_active    BOOLEAN DEFAULT true,
   is_superuser BOOLEAN DEFAULT false,
   created_at   TIMESTAMPTZ DEFAULT NOW(),
@@ -52,8 +52,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ── Casas ─────────────────────────────────────────────────────────────────
 CREATE TABLE houses (
   id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name            TEXT DEFAULT 'Mi Casa',
-  bot_token_hash  TEXT UNIQUE NOT NULL,  -- SHA-256 del bot_token. El plaintext solo se enseña al usuario una vez.
+  name            VARCHAR(50) DEFAULT 'Mi Casa',
+  bot_token_hash  TEXT UNIQUE NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -83,7 +83,7 @@ CREATE INDEX house_invitations_code_idx ON house_invitations(code);
 CREATE TABLE floors (
   id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   house_id   UUID REFERENCES houses(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
+  name       VARCHAR(50) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -91,7 +91,7 @@ CREATE TABLE floors (
 CREATE TABLE rooms (
   id         UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   floor_id   UUID REFERENCES floors(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL,
+  name       VARCHAR(50) NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT rooms_floor_id_name_key UNIQUE (floor_id, name)
@@ -102,8 +102,8 @@ CREATE TABLE devices (
   id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   owner_id      UUID REFERENCES base_user(id) ON DELETE CASCADE,
   house_id      UUID REFERENCES houses(id) ON DELETE CASCADE,
-  name          TEXT NOT NULL,
-  type          TEXT NOT NULL,
+  name          VARCHAR(50) NOT NULL,
+  type          VARCHAR(50) NOT NULL,
   driver        device_driver NOT NULL DEFAULT 'generic',
   ip            TEXT,
   mac           TEXT,
@@ -120,7 +120,6 @@ CREATE TABLE devices (
 );
 
 -- ── Home Assistant ────────────────────────────────────────────────────────
--- Una integración por casa: la conecta el owner, la usan todos los miembros.
 CREATE TABLE ha_integrations (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   house_id   UUID UNIQUE NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
@@ -134,24 +133,23 @@ CREATE TABLE ha_integrations (
 CREATE TABLE commands (
   id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id         UUID REFERENCES base_user(id) ON DELETE CASCADE,
-  device_id       UUID REFERENCES devices(id) ON DELETE CASCADE,   -- NULL para target_type='system' o 'info'
+  device_id       UUID REFERENCES devices(id) ON DELETE CASCADE,
   target_type     TEXT NOT NULL DEFAULT 'device'
                     CHECK (target_type IN ('device', 'system', 'info')),
   action          TEXT NOT NULL,
   payload         JSONB,
   status          command_status DEFAULT 'pending',
   executed_at     TIMESTAMPTZ,
-  error           TEXT,         -- error técnico (driver, XMPP); el mensaje humano va en messages.response
-  result_data     JSONB,        -- resultado estructurado de queries (scan, list_devices); NULL en device e info
+  error           TEXT,
+  result_data     JSONB,
   source_type     TEXT NOT NULL DEFAULT 'direct'
                     CHECK (source_type IN ('direct', 'conversation', 'favorite', 'schedule')),
-  source_id       UUID,         -- origen concreto (favorito/schedule); trazabilidad, sin FK por ser polimórfico
+  source_id       UUID,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT device_target_requires_device CHECK (
     (target_type = 'device'            AND device_id IS NOT NULL) OR
     (target_type IN ('system', 'info') AND device_id IS NULL)
   ),
-  -- schedules y favoritos solo pueden producir comandos sobre un dispositivo
   CONSTRAINT schedule_favorite_require_device CHECK (
     source_type NOT IN ('schedule', 'favorite') OR target_type = 'device'
   )
@@ -165,7 +163,7 @@ CREATE TABLE schedules (
   id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id         UUID NOT NULL REFERENCES base_user(id) ON DELETE CASCADE,
   device_id       UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-  name            TEXT NOT NULL,
+  name            VARCHAR(50) NOT NULL,
   action          TEXT NOT NULL,
   payload         JSONB DEFAULT '{}',
   cron_expr       TEXT,
@@ -192,7 +190,7 @@ CREATE TABLE favorite_actions (
   device_id  UUID NOT NULL REFERENCES devices(id)   ON DELETE CASCADE,
   action     TEXT NOT NULL,
   payload    JSONB DEFAULT '{}',
-  label      TEXT,
+  label      VARCHAR(50),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT unique_favorite_per_user UNIQUE (user_id, device_id, action)
 );
@@ -217,7 +215,7 @@ CREATE TABLE messages (
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   command_id      UUID REFERENCES commands(id),
   body            TEXT NOT NULL,
-  response        TEXT,   -- texto humano (resumen, error legible); nunca JSON ni error técnico
+  response        TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -230,6 +228,18 @@ CREATE POLICY "Usuario ve sus conversaciones"        ON conversations FOR SELECT
 CREATE POLICY "Usuario crea sus conversaciones"      ON conversations FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY "Usuario actualiza sus conversaciones" ON conversations FOR UPDATE USING (user_id = auth.uid());
 CREATE POLICY "Usuario borra sus conversaciones"     ON conversations FOR DELETE USING (user_id = auth.uid());
+
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Usuario ve sus mensajes"        ON messages FOR SELECT
+  USING (conversation_id IN (SELECT id FROM conversations WHERE user_id = auth.uid()));
+CREATE POLICY "Usuario crea sus mensajes"      ON messages FOR INSERT
+  WITH CHECK (conversation_id IN (SELECT id FROM conversations WHERE user_id = auth.uid()));
+CREATE POLICY "Usuario actualiza sus mensajes" ON messages FOR UPDATE
+  USING (conversation_id IN (SELECT id FROM conversations WHERE user_id = auth.uid()));
+CREATE POLICY "Usuario borra sus mensajes"     ON messages FOR DELETE
+  USING (conversation_id IN (SELECT id FROM conversations WHERE user_id = auth.uid()));
+
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 
 -- ── Notificaciones push ──────────────────────────────────────────────────
 CREATE TABLE push_subscriptions (
