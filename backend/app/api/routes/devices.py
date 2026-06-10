@@ -109,6 +109,14 @@ def update_device(device_id: str, device_in: DeviceUpdate, current_user: Current
     return updated
 
 
+@router.post("/{device_id}/refresh", status_code=202)
+async def refresh_device(device_id: str, current_user: CurrentUser):
+    if not device_service.get_device(device_id, current_user["id"]):
+        raise not_found(_NOT_FOUND)
+    await device_service.request_device_poll(device_id, current_user["id"])
+    return {"ok": True}
+
+
 @router.delete(
     "/{device_id}",
     responses={

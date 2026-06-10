@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, Modal,
   ScrollView, ActivityIndicator,
@@ -37,6 +37,7 @@ export function DevicesTab({
   const [scanning, setScanning]             = useState(false);
   const [scannedDevices, setScannedDevices] = useState<ScannedDevice[]>([]);
   const [showScanModal, setShowScanModal]   = useState(false);
+  const scanCancelledRef                    = useRef(false);
   const [pendingDevice, setPendingDevice]   = useState<ScannedDevice | null>(null);
   const [rooms, setRooms]                   = useState<RoomDto[]>([]);
   const [showLinkModal, setShowLinkModal]   = useState(false);
@@ -44,26 +45,35 @@ export function DevicesTab({
   const [unlinkTarget, setUnlinkTarget]     = useState<{ id: string; name: string } | null>(null);
 
   const handleScanDevices = async () => {
+    scanCancelledRef.current = false;
     setScanning(true);
     setScannedDevices([]);
     setShowScanModal(true);
     try {
       const { command_id } = await scanNetwork();
       const command = await waitForCommand(command_id);
+      if (scanCancelledRef.current) return;
       if (command.status === 'failed') throw new Error(command.error ?? 'Error al escanear');
       const data = (command.result_data ?? {}) as { dispositivos?: ScannedDevice[] };
       if (Array.isArray(data.dispositivos)) {
         setScannedDevices(data.dispositivos);
       }
     } catch (err) {
+      if (scanCancelledRef.current) return;
       const msg = String(err).includes('timeout')
         ? 'El escaneo tardó demasiado. Asegúrate de que el asistente está activo e inténtalo de nuevo.'
         : friendlyError(err);
       onToast(msg, 'error');
       setShowScanModal(false);
     } finally {
-      setScanning(false);
+      if (!scanCancelledRef.current) setScanning(false);
     }
+  };
+
+  const cancelScan = () => {
+    scanCancelledRef.current = true;
+    setScanning(false);
+    setShowScanModal(false);
   };
 
   const handleOpenLinkModal = async (device: ScannedDevice) => {
@@ -179,7 +189,7 @@ export function DevicesTab({
         visible={showScanModal}
         transparent
         animationType="fade"
-        onRequestClose={() => { if (!scanning) setShowScanModal(false); }}
+        onRequestClose={() => (scanning ? cancelScan() : setShowScanModal(false))}
       >
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
           <View className="bg-bg-secondary rounded-2xl border border-border w-full max-w-md" style={{ height: '60%' }}>
@@ -192,7 +202,7 @@ export function DevicesTab({
                   <Text className="text-text-secondary text-xs mt-0.5">{scannedDevices.length} dispositivos</Text>
                 )}
               </View>
-              <TouchableOpacity onPress={() => { if (!scanning) setShowScanModal(false); }} disabled={scanning}>
+              <TouchableOpacity onPress={() => (scanning ? cancelScan() : setShowScanModal(false))}>
                 <Ionicons name="close" size={22} color="#94a3b8" />
               </TouchableOpacity>
             </View>
@@ -227,10 +237,9 @@ export function DevicesTab({
             <View className="border-t border-border px-4 py-3 flex-row gap-3">
               <TouchableOpacity
                 className="flex-1 bg-bg border border-border rounded-lg py-2.5 items-center"
-                onPress={() => setShowScanModal(false)}
-                disabled={scanning}
+                onPress={() => (scanning ? cancelScan() : setShowScanModal(false))}
               >
-                <Text className="text-text font-semibold text-xs">Cerrar</Text>
+                <Text className="text-text font-semibold text-xs">{scanning ? 'Cancelar' : 'Cerrar'}</Text>
               </TouchableOpacity>
               {scannedDevices.length > 0 && !scanning && (
                 <TouchableOpacity

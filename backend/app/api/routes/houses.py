@@ -10,6 +10,7 @@ from app.models.schedules import GroupScheduleCreate
 from app.services import home as home_service
 from app.services import devices as device_service
 from app.services import schedules as schedule_service
+from app.services.xmpp import is_bot_online
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
@@ -20,6 +21,14 @@ def get_my_house(current_user: CurrentUser):
     if not house:
         raise not_found("House not found")
     return house
+
+
+@router.get("/me/bot-status")
+async def get_bot_status(current_user: CurrentUser):
+    bot_jid = home_service.get_bot_target_for_user(current_user["id"])
+    if not bot_jid:
+        return {"online": False}
+    return {"online": await is_bot_online(bot_jid)}
 
 
 @router.get("/me/rooms", response_model=list[RoomPublic])
@@ -86,7 +95,6 @@ def room_schedule(room_id: str, schedule_in: GroupScheduleCreate, current_user: 
 
 @router.post("/floors/{floor_id}/schedule")
 def floor_schedule(floor_id: str, schedule_in: GroupScheduleCreate, current_user: CurrentUser):
-    """Create a schedule for every device in a floor."""
     return schedule_service.create_group_schedule("floor", floor_id, schedule_in, current_user["id"])
 
 
@@ -130,14 +138,9 @@ def leave_house(current_user: CurrentUser):
 
 @router.post("/setup", status_code=201)
 def setup_house(body: HouseSetupRequest, current_user: CurrentUser):
-    """Crea una casa para el usuario y genera un bot_token. El plaintext del token
-    SOLO se devuelve aquí; el servidor solo guarda el hash. Si el usuario lo pierde,
-    debe regenerarlo. Devuelve {house_id, bot_token}."""
     return home_service.setup_house(current_user["id"], body.name)
 
 
 @router.post("/me/bot-token/regenerate")
 def regenerate_bot_token(current_user: CurrentUser):
-    """Genera un bot_token nuevo (invalida el anterior). Solo el propietario.
-    Devuelve {bot_token}."""
     return {"bot_token": home_service.regenerate_bot_token(current_user["id"])}

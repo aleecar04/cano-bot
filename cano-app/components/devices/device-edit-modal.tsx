@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Modal, View, Text, TextInput,
-  TouchableOpacity, ScrollView, ActivityIndicator,
+  TouchableOpacity, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { updateDevice, type DeviceDto } from '@/api/devices';
@@ -71,11 +71,13 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
               <Text className="text-text-secondary text-xs font-semibold mb-2">Nombre</Text>
               <TextInput
                 className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+                style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
                 value={editName}
                 onChangeText={setEditName}
                 placeholder="Nombre del dispositivo"
                 placeholderTextColor="#475569"
                 editable={!saving}
+                maxLength={50}
                 autoFocus
               />
             </View>

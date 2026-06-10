@@ -8,6 +8,7 @@ from app.api.bot_auth import bot_auth
 from app.models.common import Message
 from app.models.users import (
     BaseUserPublic,
+    RegisterResponse,
     UpdatePassword,
     UserCreate,
     UserProfilePublic,
@@ -110,7 +111,7 @@ def delete_user_me(current_user: CurrentUser) -> Any:
 
 @router.post(
     "/signup",
-    response_model=BaseUserPublic,
+    response_model=RegisterResponse,
     responses={
         400: {"description": "Username already taken"},
     },
