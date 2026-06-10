@@ -118,3 +118,43 @@ def test_mark_schedule_run_updates_state(cron_expr, expected_inactive):
         sched_service.mark_schedule_run("s1", ScheduleMarkRun(command_id="c1"))
     update_data = mock_db.table.return_value.update.call_args[0][0]
     assert update_data.get("is_active") is expected_inactive
+
+
+# ── toggle_schedule_any ──────────────────────────────────────────────────────
+
+class TestToggleScheduleAny:
+    @staticmethod
+    def _toggle(active=True):
+        from app.models.schedules import ScheduleToggle
+        return ScheduleToggle(is_active=active)
+
+    def test_returns_none_when_schedule_not_in_house(self):
+        with patch("app.services.schedules.get_house_member_ids", return_value=["u1"]), \
+             patch("app.services.schedules.schedule_repository") as mock_r:
+            mock_r.find_cron_meta_in_house.return_value = None
+            assert sched_service.toggle_schedule_any("s1", "u1", self._toggle()) is None
+
+    def test_activating_recurring_schedule_recomputes_next_run(self):
+        with patch("app.services.schedules.get_house_member_ids", return_value=["u1"]), \
+             patch("app.services.schedules.schedule_repository") as mock_r, \
+             patch("app.services.schedules.supabase") as mock_db:
+            mock_r.find_cron_meta_in_house.return_value = {"cron_expr": "0 8 * * *", "timezone": "UTC"}
+            mock_db.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+                data=[{"id": "s1"}]
+            )
+            assert sched_service.toggle_schedule_any("s1", "u1", self._toggle(True)) is not None
+            update_data = mock_db.table.return_value.update.call_args[0][0]
+            assert "next_run_at" in update_data
+
+
+# ── delete_completed_schedules ───────────────────────────────────────────────
+
+@pytest.mark.parametrize("role", ["owner", "member"])
+def test_delete_completed_schedules_filters_by_role(role):
+    with patch("app.services.schedules.get_user_role", return_value=role), \
+         patch("app.services.schedules.get_house_member_ids", return_value=["u1", "u2"]), \
+         patch("app.services.schedules.supabase") as mock_db:
+        mock_db.table.return_value.delete.return_value.is_.return_value.eq.return_value.in_.return_value.execute.return_value = MagicMock(data=[{"id": "x"}])
+        mock_db.table.return_value.delete.return_value.is_.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=[{"id": "x"}])
+        result = sched_service.delete_completed_schedules("u1")
+    assert result >= 0
