@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
-  View, Text, TouchableOpacity,
+  View, Text, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +67,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ jid: string; password: string } | null>(null);
 
   const handleRegister = async () => {
     const validationError = validate({ firstName, lastName, username, email, password, confirmPassword });
@@ -95,18 +97,26 @@ export default function RegisterScreen() {
         throw new Error(err.detail ?? 'Error al registrar');
       }
 
-      const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-      if (loginError) throw new Error(loginError.message);
-
-      // Marcar que hay que mostrar el onboarding en este dispositivo
-      await AsyncStorage.removeItem(ONBOARDING_DONE_KEY);
-
-      // El auth state change debería redirigir automáticamente
+      const data = await res.json();
       setLoading(false);
+      if (data.xmpp_jid && data.xmpp_password) {
+        setCredentials({ jid: data.xmpp_jid, password: data.xmpp_password });
+      } else {
+        await finishLogin();
+      }
     } catch (e: any) {
       setError(e.message);
       setLoading(false);
     }
+  };
+
+  const finishLogin = async () => {
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+    if (loginError) {
+      setError(loginError.message);
+      return;
+    }
+    await AsyncStorage.removeItem(ONBOARDING_DONE_KEY);
   };
 
   return (
@@ -132,6 +142,7 @@ export default function RegisterScreen() {
                   onChangeText={setFirstName}
                   placeholder="Ana"
                   autoCapitalize="words"
+                  maxLength={100}
                 />
               </View>
               <View className="flex-1">
@@ -141,6 +152,7 @@ export default function RegisterScreen() {
                   onChangeText={setLastName}
                   placeholder="García"
                   autoCapitalize="words"
+                  maxLength={100}
                 />
               </View>
             </View>
@@ -150,6 +162,7 @@ export default function RegisterScreen() {
               value={username}
               onChangeText={(v) => setUsername(v.toLowerCase().replaceAll(/[^a-z0-9_]/g, ''))}
               placeholder="mi_usuario"
+              maxLength={50}
             />
             <FormField
               label="Email"
@@ -157,6 +170,7 @@ export default function RegisterScreen() {
               onChangeText={setEmail}
               placeholder="tu@email.com"
               keyboardType="email-address"
+              maxLength={255}
             />
             <FormField
               label="Contraseña"
@@ -190,6 +204,37 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={!!credentials} transparent animationType="fade" onRequestClose={() => {}}>
+        <View className="flex-1 bg-black/60 items-center justify-center px-6">
+          <View className="bg-bg-secondary border border-border rounded-2xl w-full max-w-sm p-5 gap-4">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="key" size={22} color="#f59e0b" />
+              <Text className="text-text font-bold text-base">Tus credenciales XMPP</Text>
+            </View>
+            <Text className="text-text-secondary text-sm">
+              Guárdalas en un sitio seguro. No se podrán recuperar después. Te sirven para conectarte al bot desde clientes como Gajim o Conversations.
+            </Text>
+            <View className="bg-bg border border-border rounded-xl px-3 py-3 gap-2">
+              <View>
+                <Text className="text-text-secondary text-xs font-semibold uppercase">JID</Text>
+                <Text selectable className="text-text text-sm font-mono mt-1">{credentials?.jid}</Text>
+              </View>
+              <View>
+                <Text className="text-text-secondary text-xs font-semibold uppercase">Contraseña</Text>
+                <Text selectable className="text-text text-sm font-mono mt-1">{credentials?.password}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              className="bg-primary rounded-xl py-3 items-center"
+              onPress={async () => { setCredentials(null); await finishLogin(); }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-semibold text-sm">Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

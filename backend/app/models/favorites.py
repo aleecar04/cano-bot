@@ -5,13 +5,13 @@ from app.models.base import DeviceActionBase
 
 
 class FavoriteActionCreate(DeviceActionBase):
-    label: str | None = Field(default=None, max_length=80)
+    label: str | None = Field(default=None, max_length=50)
 
 
 class FavoriteActionUpdate(BaseModel):
     action: str = Field(min_length=1, max_length=50)
     payload: dict = {}
-    label: str | None = Field(default=None, max_length=80)
+    label: str | None = Field(default=None, max_length=50)
 
 
 class FavoriteActionPublic(BaseModel):

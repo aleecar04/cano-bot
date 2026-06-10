@@ -3,21 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { getMyCommandHistory, type CommandDto, type CommandHistoryFilters } from '@/api/devices';
 import { type HouseMemberDto, type HouseMemberRole } from '@/api/houses';
-
-// ── Labels & icons ────────────────────────────────────────────────────────────
-
-const ACTION_LABELS: Record<string, string> = {
-  encender:          'Encender',
-  apagar:            'Apagar',
-  brillo:            'Brillo',
-  temperatura_color: 'Temperatura color',
-  subir_volumen:     'Subir volumen',
-  bajar_volumen:     'Bajar volumen',
-  mute:              'Silenciar',
-  set_volumen:       'Ajustar volumen',
-  abrir_app:         'Abrir app',
-  color_rgb:         'Color',
-};
+import { labelForAction } from '@/utils/action-labels';
 
 const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
   direct:       { label: 'Directo',  icon: 'phone-portrait-outline', color: '#3b82f6' },
@@ -69,7 +55,7 @@ interface CommandRowProps {
 }
 
 function CommandRow({ cmd, showUser, username }: Readonly<CommandRowProps>) {
-  const actionLabel = ACTION_LABELS[cmd.action] ?? cmd.action;
+  const actionLabel = labelForAction(cmd.action);
   const deviceName  = cmd.devices?.name ?? null;
   const dateStr     = cmd.executed_at ?? cmd.created_at;
   const date        = dateStr
@@ -271,7 +257,7 @@ export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Rea
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             placeholder="Desde"
-            style={{ background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: '12px', flex: 1, outline: 'none' }}
+            style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: '12px', flex: 1, outline: 'none' }}
           />
         </View>
         <View className="flex-1 flex-row items-center gap-2 bg-bg-secondary border border-border rounded-xl px-3 py-2">
@@ -282,7 +268,7 @@ export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Rea
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             placeholder="Hasta"
-            style={{ background: 'transparent', border: 'none', color: '#e2e8f0', fontSize: '12px', flex: 1, outline: 'none' }}
+            style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: '12px', flex: 1, outline: 'none' }}
           />
         </View>
         {(dateFrom || dateTo) && (

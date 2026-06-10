@@ -319,8 +319,8 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
   return (
     <View className="mb-4 bg-bg-secondary rounded-xl p-3 border border-border">
       {/* Floor header */}
-      <View className="flex-row justify-between items-center mb-3 flex-wrap gap-y-2">
-        <Text className="text-text text-base font-semibold flex-shrink mr-2">{floorName}</Text>
+      <View className="flex-row justify-between items-center mb-3 gap-x-2">
+        <Text className="text-text text-base font-semibold flex-shrink min-w-0" numberOfLines={1} ellipsizeMode="tail">{floorName}</Text>
         <View className="flex-row gap-2 items-center flex-shrink-0">
           {onFloorAction && (
             <ActionButtons

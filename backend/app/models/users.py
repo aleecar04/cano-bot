@@ -38,6 +38,18 @@ class UserRegister(BaseModel):
             raise ValueError("La contraseña debe incluir al menos un número")
         return v
 
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def normalize_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        cleaned = " ".join(v.strip().split())
+        if not cleaned:
+            return None
+        if not re.fullmatch(r"[A-Za-zÀ-ÿñÑ\s\-']+", cleaned):
+            raise ValueError("Solo se permiten letras, espacios, guiones y apóstrofes")
+        return cleaned.title()
+
 
 class UserUpdate(UserBase):
     email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
@@ -80,6 +92,11 @@ class BaseUserPublic(BaseModel):
     email: str | None = None
     full_name: str | None = None
     created_at: datetime | None = None
+
+
+class RegisterResponse(BaseUserPublic):
+    xmpp_jid: str | None = None
+    xmpp_password: str | None = None
 
 
 class PrivateUserCreate(BaseModel):

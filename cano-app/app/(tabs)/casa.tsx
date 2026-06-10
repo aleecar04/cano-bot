@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
 import {
   View, ScrollView, Text, TouchableOpacity, ActivityIndicator,
-  Modal, TextInput,
+  Modal, TextInput, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   getMyHouse, addFloor, addRoom, deleteFloor, deleteRoom,
   getHouseMembers, getMyRole, floorAction,
@@ -29,6 +29,7 @@ const CASA_TABS: { id: CasaTab; label: string; icon: string }[] = [
 ];
 
 export default function CasaScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab]       = useState<CasaTab>('hogar');
   const [house, setHouse]               = useState<HouseDto | null>(null);
   const [devices, setDevices]           = useState<DeviceDto[]>([]);
@@ -198,7 +199,8 @@ export default function CasaScreen() {
       await leaveHouse();
       setMembers([]);
       setUserRole(null);
-      setToast({ message: 'Has salido de la casa', variant: 'success' });
+      setHouse(null);
+      router.replace('/house-setup' as any);
     } catch (err) {
       setToast({ message: friendlyError(err), variant: 'error' });
     } finally {
@@ -340,7 +342,7 @@ export default function CasaScreen() {
               members.map((member) => {
                 const isMe     = member.user_id === currentUserId;
                 const canKick  = isOwner && !isMe && member.role !== 'owner';
-                const canLeave = isMe && !isOwner;
+                const canLeave = isMe;
                 const isActing = memberActionId === member.user_id;
                 return (
                   <View
@@ -393,21 +395,23 @@ export default function CasaScreen() {
             <Text className="text-text text-base font-bold mb-4">Añadir planta</Text>
             <TextInput
               className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm mb-4"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={newFloorName}
               onChangeText={setNewFloorName}
               placeholder="Ej. Planta Baja, Primera planta..."
               placeholderTextColor="#64748b"
+              maxLength={50}
               autoFocus
               onSubmitEditing={handleAddFloor}
             />
             <View className="flex-row gap-3">
               <TouchableOpacity
-                className="flex-1 bg-bg border border-border rounded-xl py-3 items-center"
+                className="flex-1 bg-red-500 rounded-xl py-3 items-center"
                 onPress={() => setShowAddFloorModal(false)}
                 disabled={addingFloor}
                 activeOpacity={0.7}
               >
-                <Text className="text-text-secondary font-semibold text-sm">Cancelar</Text>
+                <Text className="text-white font-semibold text-sm">Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className={`flex-1 rounded-xl py-3 items-center ${!newFloorName.trim() || addingFloor ? 'bg-primary/40' : 'bg-primary'}`}
@@ -418,7 +422,7 @@ export default function CasaScreen() {
                 {addingFloor ? (
                   <ActivityIndicator color="white" size="small" />
                 ) : (
-                  <Text className="text-text font-semibold text-sm">Añadir</Text>
+                  <Text className="text-white font-semibold text-sm">Añadir</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -506,7 +510,13 @@ export default function CasaScreen() {
       <ConfirmModal
         visible={showLeaveConfirm}
         title="Salir de la casa"
-        message="¿Seguro que quieres salir de esta casa? Necesitarás un nuevo código para volver a unirte."
+        message={
+          isOwner && members.length > 1
+            ? 'Eres el propietario. Al salir, el rol se asignará automáticamente a otro miembro.'
+            : isOwner && members.length === 1
+            ? 'Eres el único miembro. Al salir, la casa y todos sus dispositivos se borrarán definitivamente.'
+            : '¿Seguro que quieres salir de esta casa? Necesitarás un nuevo código para volver a unirte.'
+        }
         confirmLabel="Salir"
         onConfirm={handleLeaveHouse}
         onCancel={() => setShowLeaveConfirm(false)}

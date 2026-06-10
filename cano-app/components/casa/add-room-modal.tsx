@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AddRoomModalProps {
@@ -49,10 +49,12 @@ export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }
             <Text className="text-text-secondary text-xs font-semibold mb-2">Nombre</Text>
             <TextInput
               className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={roomName}
               onChangeText={setRoomName}
               placeholder="Ej. Salón, Cocina, Dormitorio..."
               placeholderTextColor="#475569"
+              maxLength={50}
               autoFocus
               editable={!adding}
               onSubmitEditing={handleAdd}
@@ -61,12 +63,12 @@ export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }
 
           <View className="flex-row gap-3 px-5 pb-5">
             <TouchableOpacity
-              className="flex-1 bg-bg border border-border rounded-xl py-3 items-center"
+              className="flex-1 bg-red-500 rounded-xl py-3 items-center"
               onPress={handleClose}
               disabled={adding}
               activeOpacity={0.7}
             >
-              <Text className="text-text-secondary font-semibold text-sm">Cancelar</Text>
+              <Text className="text-white font-semibold text-sm">Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className={`flex-1 rounded-xl py-3 items-center flex-row justify-center gap-2 ${
@@ -80,7 +82,7 @@ export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }
                 ? <ActivityIndicator color="white" size="small" />
                 : <Ionicons name="add" size={16} color="white" />
               }
-              <Text className="text-text font-semibold text-sm">Añadir</Text>
+              <Text className="text-white font-semibold text-sm">Añadir</Text>
             </TouchableOpacity>
           </View>
 

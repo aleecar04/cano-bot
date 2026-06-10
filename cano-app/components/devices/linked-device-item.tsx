@@ -4,7 +4,7 @@ import {
   Modal, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { sendCommand, waitForCommand, getDevice, type DeviceDto } from '@/api/devices';
+import { sendCommand, waitForCommand, getDevice, refreshDevice, type DeviceDto } from '@/api/devices';
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { DeviceEditModal } from '@/components/devices/device-edit-modal';
@@ -144,7 +144,23 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
   const [expanded, setExpanded]           = useState(false);
   const [picker, setPicker]               = useState<'volumen' | 'app' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [refreshing, setRefreshing]       = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshDevice(device.id);
+      await new Promise((r) => setTimeout(r, 2500));
+      const updated = await getDevice(device.id);
+      onDeviceUpdate?.(updated);
+    } catch (err) {
+      setToast({ message: friendlyError(err), variant: 'error' });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const acciones     = ACCIONES[device.type] ?? DEFAULT_ACCIONES;
   const isBulb       = _BULB_TYPES.has(device.type);
@@ -201,15 +217,33 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               <Text className="text-text font-semibold text-sm">{device.name}</Text>
               <View className={`px-2 py-0.5 rounded-full ${device.is_online ? 'bg-green-500/20' : 'bg-bg'}`}>
                 <Text className={`text-xs font-semibold ${device.is_online ? 'text-green-400' : 'text-text-secondary'}`}>
-                  {device.is_online ? 'Online' : 'Offline'}
+                  {device.is_online ? 'Disponible' : 'No disponible'}
                 </Text>
               </View>
+              {(device.estado?.power === 'on' || device.estado?.power === 'off') && (
+                <View className={`px-2 py-0.5 rounded-full ${device.estado.power === 'on' ? 'bg-blue-500/20' : 'bg-bg'}`}>
+                  <Text className={`text-xs font-semibold ${device.estado.power === 'on' ? 'text-blue-400' : 'text-text-secondary'}`}>
+                    {device.estado.power === 'on' ? 'Encendido' : 'Apagado'}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text className="text-text-secondary text-xs mt-0.5">{device.type} · {device.ip}</Text>
           </View>
         </View>
 
         <View className="flex-row gap-2">
+          <TouchableOpacity
+            className="bg-slate-500/20 rounded-lg px-3 py-2"
+            onPress={handleRefresh}
+            disabled={refreshing}
+            activeOpacity={0.7}
+          >
+            {refreshing
+              ? <ActivityIndicator size="small" color="#94a3b8" />
+              : <Ionicons name="refresh" size={16} color="#94a3b8" />}
+          </TouchableOpacity>
+
           <TouchableOpacity
             className="bg-slate-500/20 rounded-lg px-3 py-2"
             onPress={() => setShowEditModal(true)}

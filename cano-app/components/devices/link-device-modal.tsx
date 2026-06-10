@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type RoomDto } from '@/api/houses';
@@ -90,11 +90,13 @@ export function LinkDeviceModal({
             <Text className="text-text text-sm font-semibold mb-2">Nombre</Text>
             <TextInput
               className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm mb-5"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={name}
               onChangeText={setName}
               placeholder="Nombre del dispositivo"
               placeholderTextColor="#64748b"
               editable={!linking}
+              maxLength={50}
             />
 
             {/* Tuya credentials */}

@@ -147,11 +147,13 @@ export default function HouseSetupScreen() {
                   <Text className="text-text font-bold text-sm">Nombre de la casa (opcional)</Text>
                   <TextInput
                     className="bg-bg border border-border rounded-xl px-4 py-3 text-text text-sm"
+                    style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
                     value={houseName}
                     onChangeText={(t) => { setHouseName(t); setError(null); }}
                     placeholder="Mi Casa"
                     placeholderTextColor="#475569"
                     editable={!creating}
+                    maxLength={50}
                   />
                   <Text className="text-text-secondary text-xs leading-5">
                     Al crear la casa obtendrás un token único. Cópialo en tu bot (variable BOT_TOKEN).

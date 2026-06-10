@@ -1,14 +1,14 @@
 import uuid
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DeviceVincular(BaseModel):
     ip: str
     mac: str
     hostname: str
-    tipo: str
-    name: str
+    tipo: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=50)
     room_id: uuid.UUID | None = None
     driver: str | None = None
     config: dict | None = None
@@ -34,9 +34,9 @@ class DevicePublic(BaseModel):
 
 
 class DeviceUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=50)
     room_id: uuid.UUID | None = None
-    type: str | None = None
+    type: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class DeviceStatusUpdate(BaseModel):
@@ -45,6 +45,5 @@ class DeviceStatusUpdate(BaseModel):
 
 
 class HAConnectSchema(BaseModel):
-    """Body for /devices/ha/connect — Home Assistant credentials."""
     ha_url: str
     token: str

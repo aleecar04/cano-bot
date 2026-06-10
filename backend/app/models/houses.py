@@ -22,11 +22,11 @@ class HousePublic(BaseModel):
 
 
 class FloorCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=50)
 
 
 class RoomCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=50)
 
 
 # ── Group actions ────────────────────────────────────────────────────────────
@@ -46,4 +46,4 @@ class JoinRequest(BaseModel):
 
 # ── House setup ──────────────────────────────────────────────────────────────
 class HouseSetupRequest(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, max_length=50)

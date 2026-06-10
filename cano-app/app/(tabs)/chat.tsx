@@ -14,6 +14,7 @@ import {
   createConversation,
   getConversations,
 } from '../../api/conversations';
+import { getBotStatus } from '../../api/houses';
 import { supabase } from '../../api/supabase';
 import { STYLES } from '../../constants/styles';
 import { MessageBubble, type Message } from '@/components/chat/message-bubble';
@@ -31,9 +32,21 @@ export default function ChatScreen() {
   const [thinking, setThinking] = useState(false);
   const [historialVisible, setHistorialVisible] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [botOnline, setBotOnline] = useState<boolean | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const persistedConvId = useRef<string | undefined>(undefined);
   const userStorageKey = useRef<string>('');
+
+  const refreshBotStatus = async () => {
+    try {
+      const { online } = await getBotStatus();
+      setBotOnline(online);
+      return online;
+    } catch {
+      setBotOnline(false);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const initChat = async () => {
@@ -54,6 +67,7 @@ export default function ChatScreen() {
             await AsyncStorage.removeItem(userStorageKey.current);
           }
         }
+        refreshBotStatus();
       } catch (err) {
         console.error('initChat error', err);
       } finally {
@@ -97,6 +111,17 @@ export default function ChatScreen() {
   const sendMessage = async () => {
     if (!inputText.trim() || thinking) return;
     const text = inputText.trim();
+
+    // Check bot availability in real time before sending
+    const online = await refreshBotStatus();
+    if (!online) {
+      Alert.alert(
+        'Bot no disponible',
+        'La instancia del bot no se encuentra disponible en estos momentos. Por favor, arráncala e inténtalo de nuevo.'
+      );
+      return;
+    }
+
     setInputText('');
     setThinking(true);
 
@@ -195,13 +220,26 @@ export default function ChatScreen() {
   return (
     <View className="flex-1 bg-bg">
       <SafeAreaView edges={['top']} className="bg-bg">
-        <TouchableOpacity
-          onPress={openHistorial}
-          className="self-end mr-4 mt-2 p-2"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="ellipsis-vertical" size={24} color="#3B82F6" />
-        </TouchableOpacity>
+        <View className="flex-row justify-end items-center mr-4 mt-2 gap-3">
+          <TouchableOpacity
+            onPress={refreshBotStatus}
+            className="flex-row items-center gap-2 p-2"
+            activeOpacity={0.7}
+            accessibilityLabel="Estado del bot"
+          >
+            <View
+              className={`w-2.5 h-2.5 rounded-full ${
+                botOnline === null ? 'bg-text-secondary' : botOnline ? 'bg-green-500' : 'bg-red-500'
+              }`}
+            />
+            <Text className="text-text-secondary text-xs">
+              {botOnline === null ? 'comprobando...' : botOnline ? 'online' : 'offline'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={openHistorial} className="p-2" activeOpacity={0.7}>
+            <Ionicons name="ellipsis-vertical" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
 
       <Modal
@@ -258,7 +296,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
         keyboardVerticalOffset={0}
       >
         {loading ? (
@@ -293,6 +331,7 @@ export default function ChatScreen() {
           <View className="flex-row items-center px-4 py-3 border-t border-border gap-3">
             <TextInput
               className="flex-1 bg-bg rounded-3xl px-5 py-3 text-sm text-text border border-border"
+              style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
               value={inputText}
               onChangeText={setInputText}
               placeholder="Escribe un comando..."

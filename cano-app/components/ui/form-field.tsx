@@ -1,4 +1,4 @@
-import { KeyboardTypeOptions, Text, TextInput, View } from 'react-native';
+import { KeyboardTypeOptions, Platform, Text, TextInput, View } from 'react-native';
 
 type Props = {
   label: string;
@@ -9,6 +9,7 @@ type Props = {
   keyboardType?: KeyboardTypeOptions;
   editable?: boolean;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  maxLength?: number;
 };
 
 export function FormField({
@@ -20,6 +21,7 @@ export function FormField({
   keyboardType,
   editable = true,
   autoCapitalize = 'none',
+  maxLength,
 }: Readonly<Props>) {
   return (
     <View className="gap-1.5">
@@ -30,6 +32,7 @@ export function FormField({
         className={`border border-border rounded-xl px-4 py-3.5 text-text text-sm ${
           editable ? 'bg-bg' : 'bg-bg-secondary'
         }`}
+        style={Platform.OS === 'web' ? { fontSize: 16 } : undefined}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -38,6 +41,7 @@ export function FormField({
         keyboardType={keyboardType}
         editable={editable}
         autoCapitalize={autoCapitalize}
+        maxLength={maxLength}
       />
     </View>
   );
