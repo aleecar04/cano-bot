@@ -32,8 +32,6 @@ jobs:
       - name: Run backend tests with coverage
         env:
           PROJECT_NAME: "cano-bot-test"
-          FIRST_SUPERUSER: "test@test.com"
-          FIRST_SUPERUSER_PASSWORD: "TestPassword123!"
           SUPABASE_URL: "https://fake.supabase.co"
           SUPABASE_KEY: "fake-supabase-anon-key"
           XMPP_BOT_JID: "bot@xmpp.test"
@@ -46,6 +44,7 @@ jobs:
           cd backend && python -m pytest tests/ \
             --override-ini=addopts= \
             --cov=app \
+            --cov-branch \
             --cov-report=xml:../backend-coverage.xml \
             -q
           cd ..
@@ -56,11 +55,14 @@ jobs:
         run: |
           cd errbot && python -m pytest tests/ \
             --override-ini=addopts= \
-            --cov=plugins \
+            --cov=plugins --cov=drivers --cov=api \
+            --cov-branch \
             --cov-report=xml:../bot-coverage.xml \
             -q
           cd ..
           sed -i 's|/home/runner/work/.*/errbot/plugins|errbot/plugins|g' bot-coverage.xml
+          sed -i 's|/home/runner/work/.*/errbot/drivers|errbot/drivers|g' bot-coverage.xml
+          sed -i 's|/home/runner/work/.*/errbot/api|errbot/api|g' bot-coverage.xml
         continue-on-error: true
 
       - name: SonarCloud Scan
