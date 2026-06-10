@@ -65,3 +65,38 @@ def test_execute_command_system_returns_command_id():
             source=CommandSource(), device_id=None,
         ))
     assert result == {"ok": True, "command_id": "c_new"}
+
+
+def test_execute_command_without_xmpp_account_raises_404():
+    with patch("app.services.command_executor.xmpp_account_repository") as mock_x:
+        mock_x.find_jid_by_user.return_value = None
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(execute_command(
+                action="scan", payload={}, user_id="u1",
+                source=CommandSource(), device_id=None,
+            ))
+    assert exc.value.status_code == 404
+
+
+def test_execute_command_without_bot_target_raises_400():
+    with patch("app.services.command_executor.xmpp_account_repository") as mock_x, \
+         patch("app.services.command_executor.get_bot_target_for_user", return_value=None), \
+         patch("app.services.command_executor.supabase") as mock_db:
+        mock_x.find_jid_by_user.return_value = "u@x"
+        mock_db.rpc.return_value.execute.return_value.data = "pwd"
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(execute_command(
+                action="scan", payload={}, user_id="u1",
+                source=CommandSource(), device_id=None,
+            ))
+    assert exc.value.status_code == 400
+
+
+def test_execute_command_marks_command_as_failed_on_xmpp_error():
+    def boom(**_kw):
+        raise RuntimeError("xmpp down")
+    with _patched_deps(send=boom), pytest.raises(RuntimeError):
+        asyncio.run(execute_command(
+            action="scan", payload={}, user_id="u1",
+            source=CommandSource(), device_id=None,
+        ))

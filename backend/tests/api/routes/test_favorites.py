@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -50,3 +51,37 @@ class TestDeleteFavorite:
         supabase_mock.set_data("favorite_actions", [])
         res = client.delete("/api/v1/favorite-actions/nonexistent-id")
         assert res.status_code == 404 and "no encontrado" in res.json()["detail"].lower()
+
+
+class TestUpdateFavorite:
+
+    def test_update_returns_404_when_missing(self, client: TestClient, supabase_mock: SupabaseMock):
+        supabase_mock.set_data("favorite_actions", [])
+        res = client.patch("/api/v1/favorite-actions/missing-id", json={
+            "action": "encender", "payload": {}, "label": "x",
+        })
+        assert res.status_code == 404
+
+    def test_update_returns_updated_row(self, client: TestClient, supabase_mock: SupabaseMock):
+        fav = make_favorite(label="old")
+        supabase_mock.set_data("favorite_actions", [fav])
+        res = client.patch(f"/api/v1/favorite-actions/{fav['id']}", json={
+            "action": "apagar", "payload": {}, "label": "nuevo",
+        })
+        assert res.status_code == 200
+
+
+class TestExecuteFavorite:
+
+    def test_executes_known_favorite(self, client: TestClient, supabase_mock: SupabaseMock):
+        fav = make_favorite()
+        supabase_mock.set_data("favorite_actions", [fav])
+        with patch("app.services.favorites.execute_command", new_callable=AsyncMock) as mock_exec:
+            mock_exec.return_value = {"ok": True, "command_id": "c1"}
+            res = client.post(f"/api/v1/favorite-actions/{fav['id']}/execute")
+        assert res.status_code == 200
+
+    def test_returns_404_for_unknown_favorite(self, client: TestClient, supabase_mock: SupabaseMock):
+        supabase_mock.set_data("favorite_actions", [])
+        res = client.post("/api/v1/favorite-actions/missing-id/execute")
+        assert res.status_code == 404

@@ -119,3 +119,34 @@ class TestClientKeyPersistence:
             result = asyncio.run(LGTVDriver()._client(_device(client_key="key-vieja")))
         assert result is client
         mock_patch.assert_called_once()
+
+
+def test_encender_returns_error_when_device_has_no_mac():
+    from drivers.lg_tv import LGTVDriver
+    result = LGTVDriver().encender(_device(mac=None))
+    assert result["ok"] is False and "MAC" in result["error"]
+
+
+def test_ejecutar_falls_back_to_super_for_unknown_action():
+    from drivers.lg_tv import LGTVDriver
+    drv = LGTVDriver()
+    with patch("drivers.base.BaseDriver.ejecutar", return_value={"ok": True, "default": True}) as mock_super:
+        drv.ejecutar(_device(), "accion_desconocida", {})
+    mock_super.assert_called_once()
+
+
+@pytest.mark.parametrize("action, expected_call", [("subir_volumen", "volume_up"), ("bajar_volumen", "volume_down")])
+def test_volumen_up_and_down(action, expected_call):
+    from drivers.lg_tv import LGTVDriver
+    c = _client_mock(volume_up=None, volume_down=None)
+    with _patch_client(c):
+        LGTVDriver().ejecutar(_device(), action, {})
+    getattr(c, expected_call).assert_awaited_once()
+
+
+def test_mute_calls_set_mute():
+    from drivers.lg_tv import LGTVDriver
+    c = _client_mock(set_mute=None)
+    with _patch_client(c):
+        LGTVDriver().ejecutar(_device(), "mute", {})
+    c.set_mute.assert_awaited_once()

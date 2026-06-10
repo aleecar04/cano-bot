@@ -46,3 +46,27 @@ def test_admin_houses_returns_list(admin_client: TestClient, supabase_mock: Supa
 @pytest.mark.parametrize("path", ["/api/v1/admin/stats", "/api/v1/admin/houses"])
 def test_admin_routes_require_superuser(client: TestClient, path):
     assert client.get(path).status_code == 403
+
+
+def test_admin_houses_includes_owner_when_present(admin_client: TestClient, supabase_mock: SupabaseMock):
+    house_id = str(uuid.uuid4())
+    owner_id = str(uuid.uuid4())
+    supabase_mock.set_data("houses", [{"id": house_id, "name": "Casa A"}])
+    supabase_mock.set_data("house_members", [
+        {"house_id": house_id, "user_id": owner_id, "role": "owner"},
+    ])
+    supabase_mock.set_data("base_user", [{"id": owner_id, "username": "u", "email": "u@e"}])
+    supabase_mock.set_data("devices", [])
+    data = admin_client.get("/api/v1/admin/houses").json()["data"][0]
+    assert data["owner"] is not None
+
+
+def test_admin_delete_house_returns_204(admin_client: TestClient, supabase_mock: SupabaseMock):
+    house_id = str(uuid.uuid4())
+    supabase_mock.set_data("houses", [{"id": house_id}])
+    assert admin_client.delete(f"/api/v1/admin/houses/{house_id}").status_code == 204
+
+
+def test_admin_delete_house_returns_404_when_missing(admin_client: TestClient, supabase_mock: SupabaseMock):
+    supabase_mock.set_data("houses", [])
+    assert admin_client.delete("/api/v1/admin/houses/missing").status_code == 404
