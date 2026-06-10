@@ -158,3 +158,56 @@ def test_regenerate_bot_token_returns_new_token():
          patch("app.services.home.supabase"):
         token = home_service.regenerate_bot_token("u1")
     assert isinstance(token, str) and len(token) > 20
+
+
+# ── leave_house ─────────────────────────────────────────────────────────────
+
+class TestLeaveHouse:
+
+    def test_raises_when_user_has_no_house(self):
+        with patch("app.services.home.get_house_id_for_user", return_value=None):
+            with pytest.raises(HTTPException) as exc:
+                home_service.leave_house("u1")
+        assert exc.value.status_code == 404
+
+    def test_deletes_house_when_last_member_leaves(self):
+        with patch("app.services.home.get_house_id_for_user", return_value="h1"), \
+             patch("app.services.home.get_user_role", return_value="owner"), \
+             patch("app.services.home.supabase") as mock_db:
+            remaining_chain = MagicMock()
+            remaining_chain.execute.return_value.data = []
+
+            def table_side(_name):
+                m = MagicMock()
+                m.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
+                m.delete.return_value.eq.return_value.execute.return_value = MagicMock()
+                m.select.return_value.eq.return_value.execute.return_value.data = []
+                return m
+            mock_db.table.side_effect = table_side
+
+            home_service.leave_house("u1")
+            tables_called = [c.args[0] for c in mock_db.table.call_args_list]
+            assert "houses" in tables_called
+
+    def test_owner_leaving_transfers_ownership_to_random_member(self):
+        with patch("app.services.home.get_house_id_for_user", return_value="h1"), \
+             patch("app.services.home.get_user_role", return_value="owner"), \
+             patch("app.services.home.supabase") as mock_db:
+            update_calls = {}
+
+            def table_side(_name):
+                m = MagicMock()
+                m.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
+                m.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"user_id": "u2"}, {"user_id": "u3"},
+                ]
+                update_chain = MagicMock()
+                update_chain.eq.return_value.eq.return_value.execute.return_value = MagicMock()
+                m.update.return_value = update_chain
+                update_calls["update"] = m.update
+                return m
+            mock_db.table.side_effect = table_side
+
+            home_service.leave_house("u1")
+            update_calls["update"].assert_called_with({"role": "owner"})
+

@@ -3,8 +3,45 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
+from app.models.users import UserRegister
 from app.services import users as user_service
+
+
+# ── UserRegister validators ──────────────────────────────────────────────────
+
+_VALID = {"email": "a@b.com", "username": "abc", "password": "Aaa12345"}
+
+
+class TestUserRegisterValidators:
+
+    @pytest.mark.parametrize("first_name, last_name, expected_first, expected_last", [
+        ("maria",       "lopez",         "Maria",       "Lopez"),
+        ("MARIA",       "LÓPEZ",         "Maria",       "López"),
+        ("  juan  ",    "  garcía  ",    "Juan",        "García"),
+        ("juan jose",   "del río",       "Juan Jose",   "Del Río"),
+        (None,          None,             None,          None),
+        ("",            "  ",             None,          None),
+    ])
+    def test_normalize_name_strips_and_title_cases(self, first_name, last_name, expected_first, expected_last):
+        u = UserRegister(**_VALID, first_name=first_name, last_name=last_name)
+        assert u.first_name == expected_first
+        assert u.last_name == expected_last
+
+    @pytest.mark.parametrize("bad_username", ["AB", "with-dash", "with space", "X" * 51])
+    def test_invalid_username_raises(self, bad_username):
+        with pytest.raises(ValidationError):
+            UserRegister(**{**_VALID, "username": bad_username})
+
+    @pytest.mark.parametrize("bad_password", ["nouppercase1", "NoDigitsHere"])
+    def test_weak_password_raises(self, bad_password):
+        with pytest.raises(ValidationError):
+            UserRegister(**{**_VALID, "password": bad_password})
+
+    def test_name_with_digits_raises(self):
+        with pytest.raises(ValidationError):
+            UserRegister(**_VALID, first_name="Juan2")
 
 
 # ── resolve_jid_in_house ─────────────────────────────────────────────────────

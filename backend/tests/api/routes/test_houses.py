@@ -11,6 +11,26 @@ from tests.conftest import (
 _NO_CONFLICT = patch("app.services.schedules._check_conflicting_power_schedule")
 
 
+class TestBotStatus:
+
+    def test_returns_offline_when_user_has_no_house(self, client: TestClient, supabase_mock: SupabaseMock):
+        supabase_mock.set_data("house_members", [])
+        supabase_mock.set_data("houses", [])
+        res = client.get("/api/v1/houses/me/bot-status")
+        assert res.status_code == 200 and res.json() == {"online": False}
+
+    @pytest.mark.parametrize("bot_online, expected", [(True, True), (False, False)])
+    def test_proxies_is_bot_online(self, client: TestClient, supabase_mock: SupabaseMock, bot_online, expected):
+        house = make_house()
+        supabase_mock.set_data("houses", [house])
+        supabase_mock.set_data("house_members", [make_house_member(house["id"], TEST_USER_ID, "owner")])
+        from unittest.mock import AsyncMock
+        with patch("app.api.routes.houses.home_service.get_bot_target_for_user", return_value="bot@xmpp"), \
+             patch("app.api.routes.houses.is_bot_online", new=AsyncMock(return_value=bot_online)):
+            res = client.get("/api/v1/houses/me/bot-status")
+        assert res.status_code == 200 and res.json() == {"online": expected}
+
+
 def _setup_house(supabase_mock: SupabaseMock, role="owner", **house_kwargs):
     house = make_house(**house_kwargs)
     member = make_house_member(house["id"], TEST_USER_ID, role)

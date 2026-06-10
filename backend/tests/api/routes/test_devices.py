@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import requests as req
@@ -36,6 +36,24 @@ class TestGetDevice:
 
         supabase_mock.set_data("devices", [])
         assert client.get("/api/v1/devices/nonexistent-id").status_code == 404
+
+
+class TestRefreshDevice:
+
+    def test_returns_404_when_device_not_found(self, client: TestClient, supabase_mock: SupabaseMock):
+        _setup_house(supabase_mock)
+        supabase_mock.set_data("devices", [])
+        assert client.post("/api/v1/devices/missing-id/refresh").status_code == 404
+
+    def test_triggers_poll_and_returns_202(self, client: TestClient, supabase_mock: SupabaseMock):
+        _setup_house(supabase_mock)
+        device = make_device()
+        supabase_mock.set_data("devices", [device])
+        with patch("app.api.routes.devices.device_service.request_device_poll", new_callable=AsyncMock) as mock_poll:
+            res = client.post(f"/api/v1/devices/{device['id']}/refresh")
+        assert res.status_code == 202
+        assert res.json() == {"ok": True}
+        mock_poll.assert_awaited_once()
 
 
 class TestVincularDevice:
