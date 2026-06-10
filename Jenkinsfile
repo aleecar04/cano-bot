@@ -25,6 +25,10 @@ pipeline {
         timeout(time: 20, unit: 'MINUTES')
     }
 
+    triggers {
+        cron('H 4 * * *')
+    }
+
     environment {
         FRONTEND_DEPLOY_DIR = '/var/www/cano-app'
     }
