@@ -11,8 +11,8 @@ import { AuthHeader } from '@/components/auth/auth-header';
 import { FormField } from '@/components/ui/form-field';
 import { ErrorMessage } from '@/components/ui/error-message';
 import { Button } from '@/components/ui/button';
-import { ONBOARDING_DONE_KEY } from './onboarding';
 
+const ONBOARDING_DONE_KEY = 'onboarding_done';
 const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
 // ── Validation helpers ────────────────────────────────────────────────────────

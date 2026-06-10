@@ -22,8 +22,7 @@ import { ThinkingDots } from '@/components/chat/thinking-dots';
 import { ConversationItem, type Conversation } from '@/components/chat/conversation-item';
 
 const storageKey = (userId: string) => `@cano4/active_conv_${userId}`;
-const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 15;
+const RESPONSE_TIMEOUT_MS = 30000;
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -135,37 +134,58 @@ export default function ChatScreen() {
       }
       const messageId: string = data.id;
 
-      // Poll until the bot responds or we time out
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const msgs = await getConversationMessages(activeId);
-          const msg = msgs.find((m: any) => m.id === messageId);
-          if (msg?.response || attempts >= MAX_POLL_ATTEMPTS) {
-            clearInterval(poll);
-            // Si el usuario ha cambiado de conversación, la respuesta ya está
-            // guardada en el backend y aparecerá al volver. No la pintamos en
-            // la conversación actual (sería la equivocada).
+      const channel = supabase
+        .channel(`message-${messageId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages',
+            filter: `id=eq.${messageId}`,
+          },
+          async (payload) => {
+            const updated = payload.new as any;
+            if (!updated.response) return;
+            channel.unsubscribe();
+
             if (persistedConvId.current !== activeId) {
               setThinking(false);
               return;
             }
-            const newItems: Message[] = [];
-            if (msg?.response) {
-              newItems.push({ id: `${messageId}_bot`, from: 'bot', text: msg.response, timestamp: new Date() });
+
+            const newItems: Message[] = [
+              { id: `${messageId}_bot`, from: 'bot', text: updated.response, timestamp: new Date() },
+            ];
+
+            // Si el mensaje tiene un comando asociado, recuperamos su result_data
+            // con una sola petición HTTP (no merece la pena suscribirse también
+            // a la tabla commands para un evento puntual).
+            if (updated.command_id) {
+              try {
+                const msgs = await getConversationMessages(activeId);
+                const fullMsg = msgs.find((m: any) => m.id === messageId);
+                const result = fullMsg?.command?.result_data;
+                if (result) {
+                  newItems.push({ id: `${messageId}_data`, from: 'bot', result, timestamp: new Date() });
+                }
+              } catch {
+                // Si falla, al menos mostramos el texto
+              }
             }
-            const data = msg?.command?.result_data;
-            if (data) {
-              newItems.push({ id: `${messageId}_data`, from: 'bot', result: data, timestamp: new Date() });
-            }
-            if (newItems.length) setMessages((prev) => [...prev, ...newItems]);
+
+            setMessages((prev) => [...prev, ...newItems]);
             setThinking(false);
           }
-        } catch {
-          // Network error during poll — keep trying
-        }
-      }, POLL_INTERVAL_MS);
+        )
+        .subscribe();
+
+      // Fallback: si en 30s no llega la respuesta, cerramos canal y desactivamos
+      // el indicador de "pensando". El mensaje queda en BD para mostrarse al volver.
+      setTimeout(() => {
+        channel.unsubscribe();
+        if (persistedConvId.current === activeId) setThinking(false);
+      }, RESPONSE_TIMEOUT_MS);
     } catch (err) {
       Alert.alert('No se pudo enviar', friendlyError(err));
       setThinking(false);
