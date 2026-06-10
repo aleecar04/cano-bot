@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 
+import pytest
+
 from app.services import xmpp as xmpp_service
 
 
@@ -60,3 +62,27 @@ class TestSendXmppMessage:
                 )
             assert msg_id == "custom-id"
         asyncio.run(run())
+
+
+@pytest.mark.parametrize("status_code, response_type, expected", [
+    (200, "result", True),
+    (200, "error", False),
+])
+def test_is_bot_online(status_code, response_type, expected):
+    async def run():
+        with patch("app.services.xmpp.httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_resp = MagicMock(status_code=status_code)
+            mock_resp.json.return_value = {"type": response_type}
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            mock_client_cls.return_value.__aenter__.return_value = mock_client
+            assert await xmpp_service.is_bot_online("bot@x/res") is expected
+    asyncio.run(run())
+
+
+def test_is_bot_online_returns_false_on_exception():
+    async def run():
+        with patch("app.services.xmpp.httpx.AsyncClient",
+                   side_effect=RuntimeError("network down")):
+            assert await xmpp_service.is_bot_online("bot@x/res") is False
+    asyncio.run(run())
