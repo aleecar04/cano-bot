@@ -130,3 +130,32 @@ def test_poll_all_requires_network_and_devices(network_up, devices, should_poll_
          patch.object(b, "_poll_in_parallel") as mock_par:
         b.poll_all_devices()
     assert mock_par.called is should_poll_parallel
+
+
+def test_reload_and_preload_updates_cache_for_each_device():
+    b = _make_boot()
+    devices = [{"id": "d1", "estado": {"power": "on"}, "is_online": True},
+               {"id": "d2", "estado": None, "is_online": False}]
+    with patch.object(b, "_fetch_devices_from_backend", return_value=devices), \
+         patch("plugins.boot.boot.device_cache") as mock_cache:
+        b._reload_and_preload()
+    assert mock_cache.update.call_count == 2
+
+
+def test_poll_one_returns_none_when_status_is_none():
+    b = _make_boot()
+    driver = MagicMock()
+    driver.get_status.return_value = None
+    with patch.dict("plugins.boot.boot.DRIVERS", {"tuya": driver}, clear=False), \
+         patch.object(b, "_sync_if_changed") as mock_sync:
+        assert b._poll_one({"id": "d1", "driver": "tuya"}) is None
+    mock_sync.assert_not_called()
+
+
+def test_poll_in_parallel_handles_future_failures(monkeypatch):
+    b = _make_boot()
+    b.devices = [{"id": "d1"}, {"id": "d2"}]
+    fake_future = MagicMock()
+    fake_future.result.side_effect = TimeoutError("timeout")
+    monkeypatch.setattr(b.executor, "submit", lambda *_a, **_k: fake_future)
+    b._poll_in_parallel()
