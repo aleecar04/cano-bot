@@ -35,7 +35,7 @@ function RootLayoutInner() {
   useEffect(() => {
     setMounted(true);
     // Register Service Worker for Web Push
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch((err) => {
         console.warn('SW registration failed:', err);
       });

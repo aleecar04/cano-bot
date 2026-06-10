@@ -143,21 +143,16 @@ export default function CasaScreen() {
     }
   };
 
+  const removeRoomFromFloors = (floors: HouseDto['floors'], floorId: string, roomId: string) =>
+    floors.map((f) => (f.id === floorId ? { ...f, rooms: f.rooms.filter((r) => r.id !== roomId) } : f));
+
   const handleConfirmDeleteRoom = async () => {
     if (!deleteRoomTarget) return;
     const { floorId, id, name } = deleteRoomTarget;
     setDeleteRoomTarget(null);
     try {
       await deleteRoom(floorId, id);
-      setHouse((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          floors: prev.floors.map((f) =>
-            f.id === floorId ? { ...f, rooms: f.rooms.filter((r) => r.id !== id) } : f
-          ),
-        };
-      });
+      setHouse((prev) => (prev ? { ...prev, floors: removeRoomFromFloors(prev.floors, floorId, id) } : prev));
       setToast({ message: `Habitación "${name}" eliminada`, variant: 'success' });
     } catch (err) {
       setToast({ message: friendlyError(err), variant: 'error' });

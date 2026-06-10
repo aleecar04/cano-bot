@@ -7,7 +7,7 @@ interface AddRoomModalProps {
   floorId: string;
   floorName: string;
   onClose: () => void;
-  onAddRoom: (floorId: string, roomName: string) => void;
+  onAddRoom: (floorId: string, roomName: string) => void | Promise<void>;
 }
 
 export function AddRoomModal({ visible, floorId, floorName, onClose, onAddRoom }: Readonly<AddRoomModalProps>) {

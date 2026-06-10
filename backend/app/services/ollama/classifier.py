@@ -28,6 +28,6 @@ async def classify_intent(texto: str) -> dict:
         return json.loads(response["message"]["content"].strip())
     except json.JSONDecodeError:
         return {"intent": "unknown"}
-    except Exception as e:
-        logger.error(f"Ollama: {e}")
+    except Exception:
+        logger.exception("Ollama classifier failed")
         return {"intent": "ollama_error"}

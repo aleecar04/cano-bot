@@ -33,10 +33,10 @@ async def _schedule_loop() -> None:
                         user_id=schedule["user_id"],
                         source=ScheduleSource(schedule["id"]),
                     )
-                except Exception as e:
-                    logger.error("Scheduler: schedule %s failed: %s", schedule["id"], e)
-        except Exception as e:
-            logger.error("Scheduler loop error: %s", e)
+                except Exception:
+                    logger.exception("Scheduler: schedule %s failed", schedule["id"])
+        except Exception:
+            logger.exception("Scheduler loop error")
 
 
 @asynccontextmanager

@@ -16,6 +16,6 @@ class BasePlugin:
         except requests.Timeout:
             logger.warning("Webhook timeout — message not recorded")
         except requests.HTTPError as e:
-            logger.error(f"Webhook HTTP error {e.response.status_code}: {e.response.text[:200]}")
-        except Exception as e:
-            logger.error(f"Error calling webhook: {e}")
+            logger.exception("Webhook HTTP error %s: %s", e.response.status_code, e.response.text[:200])
+        except Exception:
+            logger.exception("Error calling webhook")

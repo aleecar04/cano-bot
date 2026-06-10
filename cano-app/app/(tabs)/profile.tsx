@@ -26,13 +26,85 @@ type UserProfile = {
   xmpp_jid: string | null;
 };
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <View className="py-3 border-b border-border/50 last:border-0">
       <Text className="text-text-secondary text-xs mb-0.5">{label}</Text>
       <Text className="text-text font-semibold text-sm">{value}</Text>
     </View>
   );
+}
+
+type InviteModalContentProps = Readonly<{
+  generatingCode: boolean;
+  inviteError: string | null;
+  inviteData: InviteCodeDto | null;
+  handleOpenInvite: () => void;
+  handleCopyCode: () => void;
+}>;
+
+function renderInviteModalContent({
+  generatingCode,
+  inviteError,
+  inviteData,
+  handleOpenInvite,
+  handleCopyCode,
+}: InviteModalContentProps) {
+  if (generatingCode) {
+    return (
+      <View className="items-center py-8">
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text className="text-text-secondary text-sm mt-3">Generando código…</Text>
+      </View>
+    );
+  }
+  if (inviteError) {
+    return (
+      <View className="items-center py-4">
+        <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
+        <Text className="text-red-400 text-sm mt-2 text-center">{inviteError}</Text>
+        <TouchableOpacity
+          className="mt-4 bg-primary rounded-xl px-6 py-3"
+          onPress={handleOpenInvite}
+          activeOpacity={0.8}
+        >
+          <Text className="text-text font-semibold text-sm">Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  if (inviteData) {
+    return (
+      <View className="items-center gap-4">
+        <Text className="text-text-secondary text-sm text-center leading-5">
+          Comparte este código con quien quieras añadir a tu hogar.
+        </Text>
+        <View className="bg-bg border border-border rounded-2xl px-8 py-5 w-full items-center">
+          <Text className="text-text text-4xl font-black tracking-widest">
+            {inviteData.code}
+          </Text>
+        </View>
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="time-outline" size={14} color="#94a3b8" />
+          <Text className="text-text-secondary text-xs">
+            Caduca en {inviteData.expires_in_hours} horas
+          </Text>
+        </View>
+        <TouchableOpacity
+          className="flex-row items-center gap-2 bg-primary rounded-xl px-6 py-3 w-full justify-center"
+          onPress={handleCopyCode}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="copy-outline" size={16} color="white" />
+          <Text className="text-text font-semibold text-sm">Copiar código</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleOpenInvite} activeOpacity={0.7}>
+          <Text className="text-text-secondary text-xs underline">Generar nuevo código</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  return null;
 }
 
 function SectionCard({
@@ -458,61 +530,13 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {generatingCode ? (
-              <View className="items-center py-8">
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text className="text-text-secondary text-sm mt-3">Generando código…</Text>
-              </View>
-            ) : inviteError ? (
-              <View className="items-center py-4">
-                <Ionicons name="alert-circle-outline" size={40} color="#ef4444" />
-                <Text className="text-red-400 text-sm mt-2 text-center">{inviteError}</Text>
-                <TouchableOpacity
-                  className="mt-4 bg-primary rounded-xl px-6 py-3"
-                  onPress={handleOpenInvite}
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-text font-semibold text-sm">Reintentar</Text>
-                </TouchableOpacity>
-              </View>
-            ) : inviteData ? (
-              <View className="items-center gap-4">
-                {/* Hint */}
-                <Text className="text-text-secondary text-sm text-center leading-5">
-                  Comparte este código con quien quieras añadir a tu hogar.
-                </Text>
-
-                {/* Code display */}
-                <View className="bg-bg border border-border rounded-2xl px-8 py-5 w-full items-center">
-                  <Text className="text-text text-4xl font-black tracking-widest">
-                    {inviteData.code}
-                  </Text>
-                </View>
-
-                {/* Expiry */}
-                <View className="flex-row items-center gap-1.5">
-                  <Ionicons name="time-outline" size={14} color="#94a3b8" />
-                  <Text className="text-text-secondary text-xs">
-                    Caduca en {inviteData.expires_in_hours} horas
-                  </Text>
-                </View>
-
-                {/* Copy button */}
-                <TouchableOpacity
-                  className="flex-row items-center gap-2 bg-primary rounded-xl px-6 py-3 w-full justify-center"
-                  onPress={handleCopyCode}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="copy-outline" size={16} color="white" />
-                  <Text className="text-text font-semibold text-sm">Copiar código</Text>
-                </TouchableOpacity>
-
-                {/* Regenerate */}
-                <TouchableOpacity onPress={handleOpenInvite} activeOpacity={0.7}>
-                  <Text className="text-text-secondary text-xs underline">Generar nuevo código</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
+            {renderInviteModalContent({
+              generatingCode,
+              inviteError,
+              inviteData,
+              handleOpenInvite,
+              handleCopyCode,
+            })}
           </View>
         </View>
       </Modal>

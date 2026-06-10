@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { getUserProfile, UserProfileDto } from '@/api/users';
 
 interface UserProfileContextValue {
@@ -27,8 +27,13 @@ export function UserProfileProvider({ children }: Readonly<{ children: ReactNode
 
   const clearProfile = useCallback(() => setProfile(null), []);
 
+  const value = useMemo(
+    () => ({ profile, loadProfile, clearProfile }),
+    [profile, loadProfile, clearProfile],
+  );
+
   return (
-    <UserProfileContext.Provider value={{ profile, loadProfile, clearProfile }}>
+    <UserProfileContext.Provider value={value}>
       {children}
     </UserProfileContext.Provider>
   );

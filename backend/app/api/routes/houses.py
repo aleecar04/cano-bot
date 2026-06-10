@@ -14,12 +14,14 @@ from app.services.xmpp import is_bot_online
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
+_HOUSE_NOT_FOUND = "House not found"
+
 
 @router.get("/me", response_model=HousePublic)
 def get_my_house(current_user: CurrentUser):
     house = home_service.get_house_with_detail(current_user["id"])
     if not house:
-        raise not_found("House not found")
+        raise not_found(_HOUSE_NOT_FOUND)
     return house
 
 
@@ -36,7 +38,7 @@ def get_my_rooms(current_user: CurrentUser):
     """Flat list of all rooms — used for device-assignment selects."""
     house = home_service.get_user_house(current_user["id"])
     if not house:
-        raise not_found("House not found")
+        raise not_found(_HOUSE_NOT_FOUND)
     return home_service.get_rooms_by_house(house["id"])
 
 
@@ -44,7 +46,7 @@ def get_my_rooms(current_user: CurrentUser):
 def add_floor(floor_in: FloorCreate, current_user: CurrentUser):
     house = home_service.get_user_house(current_user["id"])
     if not house:
-        raise not_found("House not found")
+        raise not_found(_HOUSE_NOT_FOUND)
     home_service.require_owner(current_user["id"])
     try:
         floor = home_service.create_floor(house["id"], floor_in.name)

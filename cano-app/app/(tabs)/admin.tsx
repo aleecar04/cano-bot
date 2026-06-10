@@ -69,6 +69,16 @@ function HousesSection() {
 
   useEffect(() => { load(); }, [load]);
 
+  const confirmDelete = async (houseId: string) => {
+    setDeleting(houseId);
+    try {
+      await deleteAdminHouse(houseId);
+      setHouses((prev) => prev.filter((h) => h.id !== houseId));
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const handleDelete = (house: AdminHouseDto) => {
     Alert.alert(
       'Eliminar casa',
@@ -77,15 +87,7 @@ function HousesSection() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar', style: 'destructive',
-          onPress: async () => {
-            setDeleting(house.id);
-            try {
-              await deleteAdminHouse(house.id);
-              setHouses((prev) => prev.filter((h) => h.id !== house.id));
-            } finally {
-              setDeleting(null);
-            }
-          },
+          onPress: () => confirmDelete(house.id),
         },
       ],
     );
@@ -147,6 +149,16 @@ function UsersSection() {
 
   useEffect(() => { load(); }, [load]);
 
+  const confirmDelete = async (userId: string) => {
+    setDeleting(userId);
+    try {
+      await deleteAdminUser(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const handleDelete = (user: AdminUserDto) => {
     Alert.alert(
       'Eliminar usuario',
@@ -155,15 +167,7 @@ function UsersSection() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar', style: 'destructive',
-          onPress: async () => {
-            setDeleting(user.id);
-            try {
-              await deleteAdminUser(user.id);
-              setUsers((prev) => prev.filter((u) => u.id !== user.id));
-            } finally {
-              setDeleting(null);
-            }
-          },
+          onPress: () => confirmDelete(user.id),
         },
       ],
     );

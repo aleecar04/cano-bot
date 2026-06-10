@@ -36,16 +36,16 @@ class Boot(BotPlugin):
             self._reload_and_preload()
             self.start_poller(_POLL_INTERVAL_S, self.poll_all_devices)
             logger.info(f"Polling started (every {_POLL_INTERVAL_S} s)")
-        except Exception as e:
-            logger.error(f"Error in Boot.activate: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error in Boot.activate")
 
     def deactivate(self):
         logger.info("Boot plugin deactivating...")
         try:
             self.stop_poller(self.poll_all_devices)
             self.executor.shutdown(wait=False)
-        except Exception as e:
-            logger.error(f"Error stopping services: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error stopping services")
         super().deactivate()
 
 
@@ -66,8 +66,8 @@ class Boot(BotPlugin):
             data = api_devices.get_all()
             logger.info(f"Loaded {len(data)} devices from backend")
             return data
-        except Exception as e:
-            logger.error(f"Failed to load devices: {e}")
+        except Exception:
+            logger.exception("Failed to load devices")
             return self.devices
 
     def poll_all_devices(self):
@@ -100,8 +100,8 @@ class Boot(BotPlugin):
             return None
         try:
             status = driver.get_status(device, timeout=_DRIVER_TIMEOUT_S)
-        except Exception as e:
-            logger.error(f"Error polling {device.get('name')}: {e}")
+        except Exception:
+            logger.exception("Error polling %s", device.get("name"))
             self._sync_offline(device["id"])
             return None
         if status is None:

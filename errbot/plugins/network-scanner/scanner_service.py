@@ -234,8 +234,8 @@ def scan_network(
     try:
         packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=network)
         arp_results = srp(packet, timeout=3, verbose=False)[0]
-    except Exception as e:
-        logger.error(f"ARP sweep fallido: {e}")
+    except Exception:
+        logger.exception("ARP sweep fallido")
         return []
 
     if mdns_thread:

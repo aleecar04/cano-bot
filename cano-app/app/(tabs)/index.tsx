@@ -15,7 +15,6 @@ import { Toast } from '@/components/ui/toast';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { AddFavoriteModal } from '@/components/ui/add-favorite-modal';
 import { EditFavoriteModal } from '@/components/ui/edit-favorite-modal';
-import { deviceIcon } from '@/utils/device-icons';
 import {
   getActionsForType, type PayloadType,
   LUZ_COLORES, TEMP_PRESETS, kelvinToHex, TV_APPS,
@@ -84,8 +83,8 @@ function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payl
     );
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: kelvinToHex(p.valor as number) }} />
-        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: kelvinToHex(p.valor as number), opacity: 0.6 }} />
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: kelvinToHex(p.valor) }} />
+        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: kelvinToHex(p.valor), opacity: 0.6 }} />
         <Text className="text-text-secondary text-xs">{preset.label}</Text>
       </View>
     );
@@ -97,7 +96,7 @@ function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payl
       <View className="flex-row items-center gap-1.5 mt-2.5">
         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col?.hex ?? '#ffffff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }} />
         <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: col?.hex ?? '#ffffff', opacity: 0.55 }} />
-        <Text className="text-text-secondary text-xs capitalize">{p.color as string}</Text>
+        <Text className="text-text-secondary text-xs capitalize">{p.color}</Text>
       </View>
     );
   }
@@ -116,7 +115,7 @@ function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payl
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">
         <Ionicons name={(app?.icon ?? 'apps-outline') as any} size={11} color="#64748b" />
-        <Text className="text-text-secondary text-xs">{app?.label ?? (p.app as string)}</Text>
+        <Text className="text-text-secondary text-xs">{app?.label ?? p.app}</Text>
       </View>
     );
   }
@@ -254,7 +253,7 @@ export default function HomeScreen() {
         <View className="px-5 pt-5 pb-4">
           <Text className="text-text-secondary text-sm font-medium">{greeting()}</Text>
           <Text className="text-text text-2xl font-black mt-0.5">
-            {firstName ? firstName : 'Inicio'}
+            {firstName || 'Inicio'}
           </Text>
         </View>
 

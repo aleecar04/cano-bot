@@ -9,6 +9,7 @@ from app.services.devices import find_devices_in_scope
 from app.repositories.schedules import schedule_repository
 
 _POWER_ACTIONS = {"encender", "apagar"}
+_DB_NOW = "now()"
 
 
 def _next_run(cron_expr: str, tz_name: str = "UTC") -> datetime:
@@ -97,7 +98,7 @@ def toggle_schedule(
 ) -> dict | None:
     update: dict = {
         "is_active": toggle_in.is_active,
-        "updated_at": "now()",
+        "updated_at": _DB_NOW,
     }
     if toggle_in.is_active:
         existing = get_schedule(schedule_id, user_id)
@@ -123,7 +124,7 @@ def toggle_schedule_any(
     s = schedule_repository.find_cron_meta_in_house(schedule_id, member_ids)
     if not s:
         return None
-    update: dict = {"is_active": toggle_in.is_active, "updated_at": "now()"}
+    update: dict = {"is_active": toggle_in.is_active, "updated_at": _DB_NOW}
     if toggle_in.is_active and s.get("cron_expr"):
         tz = s.get("timezone") or "UTC"
         update["next_run_at"] = _next_run(s["cron_expr"], tz).isoformat()
@@ -183,7 +184,7 @@ def mark_schedule_run(schedule_id: str, run_in: ScheduleMarkRun) -> None:
 
     update: dict = {
         "last_command_id": run_in.command_id,
-        "updated_at":      "now()",
+        "updated_at":      _DB_NOW,
     }
 
     if s["cron_expr"]:

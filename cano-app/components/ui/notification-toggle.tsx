@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, Switch, ActivityIndicator } from 'react-native';
+import { useState, useEffect, type ReactNode } from 'react';
+import { View, Text, Switch, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
 import {
   getVapidPublicKey, savePushSubscription, removePushSubscription,
   urlBase64ToUint8Array,
@@ -10,18 +9,22 @@ import {
 type NotifState = 'unsupported' | 'denied' | 'enabled' | 'disabled';
 
 async function getSubscription(): Promise<PushSubscription | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+  if (typeof globalThis === 'undefined' || !('serviceWorker' in navigator)) return null;
   const reg = await navigator.serviceWorker.ready.catch(() => null);
   if (!reg) return null;
   return reg.pushManager.getSubscription();
 }
 
+function toBase64Url(value: string): string {
+  return value.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
 function extractKeys(sub: PushSubscription): { p256dh: string; auth: string } {
-  const p256dh = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')!)));
-  const auth   = btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')!)));
+  const p256dh = btoa(String.fromCodePoint(...new Uint8Array(sub.getKey('p256dh')!)));
+  const auth   = btoa(String.fromCodePoint(...new Uint8Array(sub.getKey('auth')!)));
   return {
-    p256dh: p256dh.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''),
-    auth:   auth.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''),
+    p256dh: toBase64Url(p256dh),
+    auth:   toBase64Url(auth),
   };
 }
 
@@ -30,7 +33,7 @@ export function NotificationToggle() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || !('Notification' in window)) {
+    if (Platform.OS !== 'web' || typeof globalThis === 'undefined' || !('Notification' in globalThis)) {
       setState('unsupported');
       setLoading(false);
       return;
@@ -83,6 +86,30 @@ export function NotificationToggle() {
 
   if (state === 'unsupported') return null;
 
+  const statusLabels: Record<NotifState, string> = {
+    enabled:     'Activadas',
+    denied:      'Bloqueadas en el navegador',
+    disabled:    'Desactivadas',
+    unsupported: '',
+  };
+
+  let rightControl: ReactNode;
+  if (loading) {
+    rightControl = <ActivityIndicator size="small" color="#6366f1" />;
+  } else if (state === 'denied') {
+    rightControl = <Ionicons name="lock-closed-outline" size={16} color="#ef4444" />;
+  } else {
+    rightControl = (
+      <Switch
+        value={state === 'enabled'}
+        onValueChange={handleToggle}
+        trackColor={{ false: '#334155', true: '#6366f1' }}
+        thumbColor="white"
+        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+      />
+    );
+  }
+
   return (
     <View className="flex-row items-center justify-between py-3">
       <View className="flex-row items-center gap-3 flex-1">
@@ -96,26 +123,12 @@ export function NotificationToggle() {
         <View className="flex-1">
           <Text className="text-text font-semibold text-sm">Notificaciones</Text>
           <Text className="text-text-secondary text-xs mt-0.5">
-            {state === 'enabled'  ? 'Activadas' :
-             state === 'denied'   ? 'Bloqueadas en el navegador' :
-             'Desactivadas'}
+            {statusLabels[state]}
           </Text>
         </View>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="small" color="#6366f1" />
-      ) : state === 'denied' ? (
-        <Ionicons name="lock-closed-outline" size={16} color="#ef4444" />
-      ) : (
-        <Switch
-          value={state === 'enabled'}
-          onValueChange={handleToggle}
-          trackColor={{ false: '#334155', true: '#6366f1' }}
-          thumbColor="white"
-          style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-        />
-      )}
+      {rightControl}
     </View>
   );
 }

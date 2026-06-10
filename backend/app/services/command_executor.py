@@ -20,7 +20,8 @@ class CommandSource:
         self.source_id = source_id
 
     def post_execute(self, schedule_id: str | None, command_id: str) -> None:
-        pass
+        # Default: no post-execution hook. Subclasses (e.g. ScheduleSource) override this.
+        return
 
 
 class ScheduleSource(CommandSource):
