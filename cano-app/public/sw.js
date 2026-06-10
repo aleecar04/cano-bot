@@ -5,14 +5,14 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data.json();
   } catch {
-    data = { title: 'CANO4', body: event.data.text() };
+    data = { title: 'Cano-Bot', body: event.data.text() };
   }
 
-  const title   = data.title ?? 'CANO4';
+  const title   = data.title ?? 'Cano-Bot';
   const options = {
     body: data.body ?? '',
-    icon: '/icon.png',
-    badge: '/icon.png',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     data: data,
   };
 
