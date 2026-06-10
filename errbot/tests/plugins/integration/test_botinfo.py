@@ -5,9 +5,7 @@ Uses errbot's TestBot fixture.
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-ROOT = Path(__file__).parent.parent.parent.parent  # errbot/
-
-# Both plugins are in separate directories; load them together
+ROOT = Path(__file__).parent.parent.parent.parent
 extra_plugin_dir = [
     str(ROOT / "plugins" / "hello"),
     str(ROOT / "plugins" / "bot-info"),
@@ -22,8 +20,6 @@ def _make_response(text, status=200):
     m.raise_for_status = MagicMock()
     return m
 
-
-# ── BotInfo plugin ────────────────────────────────────────────────────────────
 
 class TestBotInfoPlugin:
     extra_plugin_dir = [

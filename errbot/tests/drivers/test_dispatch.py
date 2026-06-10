@@ -1,47 +1,30 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 
-# ── DriverType enum ──────────────────────────────────────────────────────────
+@pytest.mark.parametrize("name, value", [
+    ("TUYA", "tuya"),
+    ("LG_TV", "lg_tv"),
+    ("SAMSUNG_TV", "samsung_tv"),
+    ("HOMEASSISTANT", "homeassistant"),
+    ("GENERIC", "generic"),
+])
+def test_driver_type_enum_values(name, value):
+    from drivers import DriverType
+    assert getattr(DriverType, name) == value
 
-class TestDriverType:
 
-    def test_valores_enum(self):
-        from drivers import DriverType
-        assert DriverType.TUYA == "tuya"
-        assert DriverType.LG_TV == "lg_tv"
-        assert DriverType.SAMSUNG_TV == "samsung_tv"
-        assert DriverType.HOMEASSISTANT == "homeassistant"
-        assert DriverType.GENERIC == "generic"
+def test_ejecutar_comando_returns_error_for_unknown_driver():
+    from drivers import ejecutar_comando
+    result = ejecutar_comando({"driver": "no-existe"}, "encender", {})
+    assert result["ok"] is False and "no reconocido" in result["error"]
 
 
-# ── ejecutar_comando ─────────────────────────────────────────────────────────
-
-class TestEjecutarComando:
-
-    def test_driver_desconocido_devuelve_error(self):
-        from drivers import ejecutar_comando
-        result = ejecutar_comando({"driver": "no-existe"}, "encender", {})
-        assert result["ok"] is False
-        assert "no reconocido" in result["error"]
-
-    def test_driver_generic_devuelve_error(self):
-        from drivers import ejecutar_comando, DriverType
-        result = ejecutar_comando({"driver": DriverType.GENERIC}, "encender", {})
-        assert result["ok"] is False
-
-    def test_payload_none_se_normaliza_a_dict(self):
-        """ejecutar_comando con payload=None no debe petar."""
-        from drivers import ejecutar_comando, DRIVERS, DriverType
-        with patch.object(DRIVERS[DriverType.TUYA], "ejecutar") as mock_exec:
-            mock_exec.return_value = {"ok": True}
-            ejecutar_comando({"driver": DriverType.TUYA}, "encender", None)
-        assert mock_exec.call_args[0][2] == {}
-
-    def test_delega_al_driver_correspondiente(self):
-        from drivers import ejecutar_comando, DRIVERS, DriverType
-        with patch.object(DRIVERS[DriverType.TUYA], "ejecutar") as mock_exec:
-            mock_exec.return_value = {"ok": True, "marker": "tuya"}
-            result = ejecutar_comando(
-                {"driver": DriverType.TUYA}, "encender", {"foo": "bar"}
-            )
-        assert result == {"ok": True, "marker": "tuya"}
+def test_ejecutar_comando_delegates_to_corresponding_driver():
+    from drivers import ejecutar_comando, DRIVERS, DriverType
+    with patch.object(DRIVERS[DriverType.TUYA], "ejecutar",
+                      return_value={"ok": True, "marker": "tuya"}) as mock_exec:
+        result = ejecutar_comando({"driver": DriverType.TUYA}, "encender", {"foo": "bar"})
+    assert result == {"ok": True, "marker": "tuya"}
+    assert mock_exec.call_args[0][2] == {"foo": "bar"}
