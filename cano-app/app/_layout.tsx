@@ -65,15 +65,16 @@ function RootLayoutInner() {
     if (!mounted || loading) return;
 
     const seg0 = (segments[0] as string) ?? '';
-    const inAuth  = seg0 === 'login' || seg0 === 'register';
+    const inAuth  = seg0 === 'login' || seg0 === 'register' || seg0 === 'forgot-password';
+    const inReset = seg0 === 'reset-password';
     const inSetup = seg0 === 'house-setup';
 
     if (!session) {
-      if (!inAuth) router.replace('/login' as any);
+      if (!inAuth && !inReset) router.replace('/login' as any);
       return;
     }
 
-    if (inSetup) return;
+    if (inSetup || inReset) return;
 
     (async () => {
       try {
@@ -95,6 +96,8 @@ function RootLayoutInner() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="house-setup" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

@@ -81,6 +81,10 @@ export default function LoginScreen() {
             <Button label="Iniciar sesión" onPress={handleLogin} loading={loading} />
           </View>
 
+          <TouchableOpacity onPress={() => router.push('/forgot-password' as any)} className="self-center">
+            <Text className="text-primary text-sm font-semibold">¿Olvidaste la contraseña?</Text>
+          </TouchableOpacity>
+
           <View className="flex-row justify-center gap-1">
             <Text className="text-text-secondary text-sm">¿No tienes cuenta?</Text>
             <TouchableOpacity onPress={() => router.push('/register' as any)}>
