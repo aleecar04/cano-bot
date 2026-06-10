@@ -109,8 +109,6 @@ class Boot(BotPlugin):
         self._sync_if_changed(device["id"], status)
         return status
 
-    # ── Sync to backend ──────────────────────────────────────────────────
-
     def _sync_if_changed(self, device_id: str, status: dict):
         current_online = status.get("is_online", False)
         current_state  = status.get("estado") or {}
@@ -137,7 +135,6 @@ class Boot(BotPlugin):
         except Exception as e:
             logger.warning(f"PATCH /devices/{device_id}/status failed: {e}")
 
-    # ── Network probe ────────────────────────────────────────────────────
 
     def _probe_home_network(self) -> bool:
         """TCP connect al gateway por defecto. Devuelve True si el bot está en una red operativa."""
@@ -158,8 +155,6 @@ class Boot(BotPlugin):
             except OSError:
                 continue
         return False
-
-    # ── Hidden cmd: forzar poll de un device ─────────────────────────────
 
     @botcmd(hidden=True)
     def poll_device(self, msg, args):

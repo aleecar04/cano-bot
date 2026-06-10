@@ -22,8 +22,6 @@ _MAC_VENDORS_LOCK = threading.Lock()
 
 
 def _ensure_mac_vendors_loaded() -> None:
-    """Refresca la base de vendors la primera vez que se necesite.
-    Si la red no tiene salida al arrancar, queda usable con la base cacheada local."""
     global _MAC_VENDORS_UPDATED
     if _MAC_VENDORS_UPDATED:
         return
@@ -37,7 +35,6 @@ def _ensure_mac_vendors_loaded() -> None:
         _MAC_VENDORS_UPDATED = True
 
 
-# ── Reglas de clasificación ────────────────────────────────────────────────
 HOSTNAME_PATTERNS: dict[str, list[str]] = {
     "Luz":       ["hue", "light", "philips", "nanoleaf", "yeelight"],
     "Enchufe":   ["kasa", "meross"],
@@ -80,7 +77,6 @@ _WEIGHT_HOSTNAME = 1
 _WEIGHT_VENDOR   = 3
 _WEIGHT_MDNS     = 4
 
-# Tipos detectados que se descartan del listado (no aparecen al usuario).
 SKIP_TYPES: frozenset[str] = frozenset({"Router"})
 
 
@@ -92,7 +88,6 @@ class DeviceInfo:
     tipo: str
 
 
-# ── MAC / vendor ────────────────────────────────────────────────────────────
 def is_mac_randomized(mac: str) -> bool:
     try:
         return bool(int(mac.split(":")[0], 16) & 0x02)
@@ -110,9 +105,7 @@ def get_vendor(mac: str) -> Optional[str]:
         return None
 
 
-# ── mDNS ────────────────────────────────────────────────────────────────────
 class _MdnsCollector:
-    """Recoge servicios mDNS anunciados en la red y los indexa por IP."""
 
     def __init__(self) -> None:
         self._services: dict[str, list[str]] = {}
@@ -151,11 +144,8 @@ def discover_mdns(timeout: int = 5) -> dict[str, list[str]]:
     return collector.results
 
 
-# ── Scoring ─────────────────────────────────────────────────────────────────
 def _match_pattern(value: str, patterns: dict[str, list[str]], weight: int,
                    scores: dict[str, int]) -> None:
-    """Para hostname y vendor: si alguna keyword aparece como substring de value,
-    suma weight al primer tipo que matchea."""
     if not value:
         return
     v = value.lower()
@@ -166,7 +156,6 @@ def _match_pattern(value: str, patterns: dict[str, list[str]], weight: int,
 
 
 def _match_mdns(services: list[str], scores: dict[str, int]) -> None:
-    """Para cada servicio mDNS anunciado, suma el peso al tipo que mapea."""
     for service in services:
         tipo = MDNS_SIGNATURES.get(service)
         if tipo:
@@ -185,7 +174,6 @@ def detect_device_type(hostname: Optional[str], vendor: Optional[str],
     return max(scores, key=lambda t: scores[t])
 
 
-# ── Red local ───────────────────────────────────────────────────────────────
 def get_local_network() -> tuple[Optional[str], Optional[str]]:
     try:
         for iface in netifaces.interfaces():

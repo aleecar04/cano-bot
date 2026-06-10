@@ -32,8 +32,6 @@ def _not_understand() -> str:
 
 
 def _split_correlation(text: str) -> tuple[str | None, str]:
-    """El backend antepone '<uuid>|' al cuerpo para correlacionar la respuesta
-    asíncrona del bot con su mensaje. Devuelve (correlation_id, text_limpio)."""
     sep = text.find("|")
     if sep == -1:
         return None, text
@@ -47,7 +45,7 @@ def _split_correlation(text: str) -> tuple[str | None, str]:
 
 class Dispatcher(BasePlugin, BotPlugin):
 
-    async def callback_message(self, msg):
+    def callback_message(self, msg):
         text = msg.body.strip()
         if not text:
             return
@@ -69,12 +67,7 @@ class Dispatcher(BasePlugin, BotPlugin):
 
         self._dispatch_intent(intent_data, msg, text, sender_id)
 
-    # ── Sub-pasos de callback_message ──────────────────────────────────────
-
     def _check_sender_access(self, msg) -> str | None:
-        """Resuelve el JID a user_id o niega acceso. Devuelve None si no se
-        debe seguir procesando el mensaje (sender desconocido). Fail-open ante
-        errores de red para no bloquear el bot si el backend está caído."""
         try:
             sender_id = resolve_sender(str(msg.frm))
         except Exception:
@@ -85,7 +78,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         return sender_id
 
 
-    #para acciones que devuelvan json estructurado
     def _handle_structured_message(self, text: str, msg) -> bool:
         try:
             data = json.loads(text)
@@ -108,7 +100,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         return False
 
 
-    #si el comando recibido ha sido envíado por el bakcend y clasificado por ollama
     def _extract_natural_classified(self, text: str) -> tuple[dict | None, str]:
         try:
             data = json.loads(text)
@@ -119,7 +110,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         return data.get("intent_data") or {}, data.get("original_body", "")
 
 
-    #Si se ha recibido por gajim
     def _forward_natural_to_backend(self, msg, text: str) -> None:
         if not is_backend_reachable():
             self.send(msg.frm, "El servicio no está disponible ahora mismo. Inténtalo más tarde.")
@@ -153,7 +143,6 @@ class Dispatcher(BasePlugin, BotPlugin):
         method = self._get_command_from_plugins(cmd_name)
         if not method:
             return False
-        # 'acciones' acepta el nombre del dispositivo
         args = intent_data.get("dispositivo", "") if cmd_name == "acciones" else ""
         response = method(msg, args)
         self._reply(msg, text, response)
@@ -167,8 +156,6 @@ class Dispatcher(BasePlugin, BotPlugin):
             result_data=None,
         )
         return True
-
-    # ── Queries de sistema (scan, list_devices): camino botón y camino chat ──
 
     def _run_plugin(self, msg, command_name: str) -> dict:
         method = self._get_command_from_plugins(command_name)
@@ -217,8 +204,6 @@ class Dispatcher(BasePlugin, BotPlugin):
                 error=error,
                 result_data=None if error else data,
             )
-
-    # ── Registro de comandos en el backend ─────────────────────────────────
 
     def _update_command_in_backend(self, command_id: str, error: str | None, result_data: dict | None = None) -> None:
         if not is_backend_reachable():

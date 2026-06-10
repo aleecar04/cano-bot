@@ -24,7 +24,6 @@ HELP_TEXT = (
 )
 
 
-# Categorías visibles al usuario y las acciones que soportan.
 ACTIONS_BY_CATEGORY: dict[str, set[Action]] = {
     "Luz":     {Action.ENCENDER, Action.APAGAR, Action.BRILLO, Action.TEMPERATURA_COLOR, Action.COLOR_RGB},
     "Enchufe": {Action.ENCENDER, Action.APAGAR},
@@ -34,7 +33,6 @@ ACTIONS_BY_CATEGORY: dict[str, set[Action]] = {
 }
 
 
-# Etiqueta amistosa para mostrar al usuario.
 CATEGORY_LABEL: dict[str, str] = {
     "Luz":     "Luz / Bombilla",
     "Enchufe": "Enchufe / Interruptor",

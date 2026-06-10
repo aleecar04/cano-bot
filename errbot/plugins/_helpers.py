@@ -9,8 +9,6 @@ _JID_TTL = 300.0  # seconds
 
 
 def resolve_sender(jid: str) -> str | None:
-    """Resuelve el JID del remitente a user_id SOLO si pertenece a la casa de este bot.
-    Devuelve None si no es miembro (= control de acceso). Cacheado 5 min."""
     jid_bare = jid.split("/")[0]
     cached = _JID_CACHE.get(jid_bare)
     if cached and (time.monotonic() - cached[1]) < _JID_TTL:

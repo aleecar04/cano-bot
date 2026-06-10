@@ -16,7 +16,6 @@ _PATCH_TIMEOUT_S = 5
 
 
 def _patch_device_status(device_id: str, is_online: bool, estado: dict) -> None:
-    """Best-effort PATCH /devices/{id}/status. Si falla, el próximo poll lo recupera."""
     if not is_backend_reachable():
         return
     try:
@@ -29,8 +28,6 @@ class Control(BasePlugin, BotPlugin):
 
     @botcmd
     def control_device(self, msg, args):
-        """Ejecuta un comando sobre un device. `args` es JSON con device_id, action, payload.
-        Devuelve dict con el resultado (lo consume el dispatcher directamente)."""
         try:
             data = json.loads(args)
             device = get_device(data["device_id"])

@@ -40,22 +40,22 @@ INSERT INTO auth.users (
 ) VALUES
     (
         :'uid_admin', '00000000-0000-0000-0000-000000000000',
-        'authenticated', 'authenticated', 'admin@cano4.dev',
-        crypt('Admin1234!', gen_salt('bf')), NOW(),
+        'authenticated', 'authenticated', 'cano-admin@cano4.dev',
+        crypt('Cano-Bot2026!', gen_salt('bf')), NOW(),
         '{"provider":"email","providers":["email"]}', '{}',
         NOW(), NOW(), '', '', '', ''
     ),
     (
         :'uid_owner', '00000000-0000-0000-0000-000000000000',
         'authenticated', 'authenticated', 'owner@cano4.dev',
-        crypt('Owner1234!', gen_salt('bf')), NOW(),
+        crypt('Owner-2026!', gen_salt('bf')), NOW(),
         '{"provider":"email","providers":["email"]}', '{}',
         NOW(), NOW(), '', '', '', ''
     ),
     (
         :'uid_member', '00000000-0000-0000-0000-000000000000',
         'authenticated', 'authenticated', 'member@cano4.dev',
-        crypt('Member1234!', gen_salt('bf')), NOW(),
+        crypt('Member-2026!', gen_salt('bf')), NOW(),
         '{"provider":"email","providers":["email"]}', '{}',
         NOW(), NOW(), '', '', '', ''
     )
@@ -65,15 +65,15 @@ ON CONFLICT (id) DO NOTHING;
 -- ── 2. Perfiles en base_user ─────────────────────────────────────────────────
 INSERT INTO base_user (id, username, first_name, last_name, email, is_superuser, is_active)
 VALUES
-    (:'uid_admin',  'admin',        'Admin',   'Sistema',  'admin@cano4.dev',  true,  true),
-    (:'uid_owner',  'propietario',  'Carlos',  'García',   'owner@cano4.dev',  false, true),
-    (:'uid_member', 'miembro',      'María',   'López',    'member@cano4.dev', false, true)
+    (:'uid_admin',  'cano-admin',   'Cano',    'Admin',    'cano-admin@cano4.dev', true,  true),
+    (:'uid_owner',  'propietario',  'Carlos',  'García',   'owner@cano4.dev',      false, true),
+    (:'uid_member', 'miembro',      'María',   'López',    'member@cano4.dev',     false, true)
 ON CONFLICT (id) DO NOTHING;
 
 
 -- ── 3. Cuentas XMPP (contraseñas ficticias cifradas) ────────────────────────
 -- El bot no podrá autenticarlas en el servidor XMPP real, pero la BD queda coherente.
-SELECT insert_xmpp_account(:'uid_admin',  'admin@xmpp.aleecr.es',        'seed_admin_pass',  :'xmpp_key')
+SELECT insert_xmpp_account(:'uid_admin',  'cano-admin@xmpp.aleecr.es',   'seed_admin_pass',  :'xmpp_key')
 WHERE NOT EXISTS (SELECT 1 FROM xmpp_accounts WHERE user_id = :'uid_admin');
 
 SELECT insert_xmpp_account(:'uid_owner',  'propietario@xmpp.aleecr.es',  'seed_owner_pass',  :'xmpp_key')

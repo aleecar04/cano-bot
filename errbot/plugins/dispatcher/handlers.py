@@ -2,8 +2,6 @@ import json
 
 
 def handle_device_command(data: dict, msg, bot) -> None:
-    """Maneja un comando JSON que viene del backend (botón en la app).
-    El JSON ya trae device_id/action/payload validados por el backend."""
     result = _run_driver_command(
         bot, msg,
         data["device_id"], data["action"], data.get("payload", {}),
@@ -17,7 +15,6 @@ def handle_device_command(data: dict, msg, bot) -> None:
 
 
 def _run_driver_command(bot, msg, device_id: str, action: str, payload: dict) -> dict:
-    """Llama al plugin `control_device` con el JSON estándar y devuelve el resultado (dict)."""
     args = json.dumps({
         "device_id": device_id,
         "action":    action,
