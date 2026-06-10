@@ -1,0 +1,70 @@
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r errbot/requirements.txt
+          pip install -e backend
+          pip install pytest pytest-cov
+
+      - name: Run backend tests with coverage
+        env:
+          PROJECT_NAME: "cano-bot-test"
+          FIRST_SUPERUSER: "test@test.com"
+          FIRST_SUPERUSER_PASSWORD: "TestPassword123!"
+          SUPABASE_URL: "https://fake.supabase.co"
+          SUPABASE_KEY: "fake-supabase-anon-key"
+          XMPP_BOT_JID: "bot@xmpp.test"
+          XMPP_ADMIN_USER: "admin"
+          XMPP_ADMIN_PASSWORD: "adminpass"
+          XMPP_REST_URL: "http://localhost:9090"
+          XMPP_ENCRYPTION_KEY: "fake-encryption-key-exactly-32ch"
+          WEBHOOK_SECRET: "fake-webhook-secret"
+        run: |
+          cd backend && python -m pytest tests/ \
+            --override-ini=addopts= \
+            --cov=app \
+            --cov-report=xml:../backend-coverage.xml \
+            -q
+          cd ..
+          sed -i 's|/home/runner/work/.*/backend/app|backend/app|g' backend-coverage.xml
+        continue-on-error: true
+
+      - name: Run bot tests with coverage
+        run: |
+          cd errbot && python -m pytest tests/ \
+            --override-ini=addopts= \
+            --cov=plugins \
+            --cov-report=xml:../bot-coverage.xml \
+            -q
+          cd ..
+          sed -i 's|/home/runner/work/.*/errbot/plugins|errbot/plugins|g' bot-coverage.xml
+        continue-on-error: true
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarqube-scan-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR }}

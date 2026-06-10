@@ -1,0 +1,240 @@
+import { useState } from 'react';
+import {
+  View, Text, TouchableOpacity, Modal,
+  KeyboardAvoidingView, Platform, ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../api/supabase';
+import { AuthHeader } from '@/components/auth/auth-header';
+import { FormField } from '@/components/ui/form-field';
+import { ErrorMessage } from '@/components/ui/error-message';
+import { Button } from '@/components/ui/button';
+
+const ONBOARDING_DONE_KEY = 'onboarding_done';
+const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_RE = /^[a-z0-9_]{3,50}$/;
+
+function validate(fields: {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}): string | null {
+  const { firstName, lastName, username, email, password, confirmPassword } = fields;
+
+  if (!firstName.trim() || !lastName.trim() || !username || !email || !password || !confirmPassword) {
+    return 'Rellena todos los campos';
+  }
+  if (!EMAIL_RE.test(email)) {
+    return 'El email no tiene un formato válido';
+  }
+  if (!USERNAME_RE.test(username)) {
+    return 'El usuario solo puede tener letras minúsculas, números y guiones bajos (3–50 caracteres)';
+  }
+  if (password.length < 8) {
+    return 'La contraseña debe tener al menos 8 caracteres';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'La contraseña debe incluir al menos una letra mayúscula';
+  }
+  if (!/\d/.test(password)) {
+    return 'La contraseña debe incluir al menos un número';
+  }
+  if (password !== confirmPassword) {
+    return 'Las contraseñas no coinciden';
+  }
+  return null;
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+export default function RegisterScreen() {
+  const router = useRouter();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ jid: string; password: string } | null>(null);
+
+  const handleRegister = async () => {
+    const validationError = validate({ firstName, lastName, username, email, password, confirmPassword });
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/api/v1/users/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          username,
+          password,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail ?? 'Error al registrar');
+      }
+
+      const data = await res.json();
+      setLoading(false);
+      if (data.xmpp_jid && data.xmpp_password) {
+        setCredentials({ jid: data.xmpp_jid, password: data.xmpp_password });
+      } else {
+        await finishLogin();
+      }
+    } catch (e: any) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
+
+  const finishLogin = async () => {
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+    if (loginError) {
+      setError(loginError.message);
+      return;
+    }
+    await AsyncStorage.removeItem(ONBOARDING_DONE_KEY);
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-bg">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="px-8 py-12 gap-8"
+          keyboardShouldPersistTaps="handled"
+        >
+          <AuthHeader title="Crear cuenta" subtitle="Únete a CanoBot" />
+
+          <View className="gap-4">
+            {/* Name row */}
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <FormField
+                  label="Nombre"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Ana"
+                  autoCapitalize="words"
+                  maxLength={100}
+                />
+              </View>
+              <View className="flex-1">
+                <FormField
+                  label="Apellidos"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="García"
+                  autoCapitalize="words"
+                  maxLength={100}
+                />
+              </View>
+            </View>
+
+            <FormField
+              label="Usuario"
+              value={username}
+              onChangeText={(v) => setUsername(v.toLowerCase().replaceAll(/[^a-z0-9_]/g, ''))}
+              placeholder="mi_usuario"
+              maxLength={50}
+            />
+            <FormField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              keyboardType="email-address"
+              maxLength={255}
+            />
+            <FormField
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry
+            />
+            <FormField
+              label="Confirmar contraseña"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="••••••••"
+              secureTextEntry
+            />
+
+            {/* Password hint */}
+            <Text className="text-text-secondary text-xs leading-4 -mt-1">
+              Mínimo 8 caracteres, una mayúscula y un número.
+            </Text>
+
+            <ErrorMessage message={error} />
+            <Button label="Crear cuenta" onPress={handleRegister} loading={loading} />
+          </View>
+
+          <View className="flex-row justify-center gap-1">
+            <Text className="text-text-secondary text-sm">¿Ya tienes cuenta?</Text>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text className="text-primary text-sm font-semibold">Inicia sesión</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <Modal visible={!!credentials} transparent animationType="fade" onRequestClose={() => {}}>
+        <View className="flex-1 bg-black/60 items-center justify-center px-6">
+          <View className="bg-bg-secondary border border-border rounded-2xl w-full max-w-sm p-5 gap-4">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="key" size={22} color="#f59e0b" />
+              <Text className="text-text font-bold text-base">Tus credenciales XMPP</Text>
+            </View>
+            <Text className="text-text-secondary text-sm">
+              Guárdalas en un sitio seguro. No se podrán recuperar después. Te sirven para conectarte al bot desde clientes como Gajim o Conversations.
+            </Text>
+            <View className="bg-bg border border-border rounded-xl px-3 py-3 gap-2">
+              <View>
+                <Text className="text-text-secondary text-xs font-semibold uppercase">JID</Text>
+                <Text selectable className="text-text text-sm font-mono mt-1">{credentials?.jid}</Text>
+              </View>
+              <View>
+                <Text className="text-text-secondary text-xs font-semibold uppercase">Contraseña</Text>
+                <Text selectable className="text-text text-sm font-mono mt-1">{credentials?.password}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              className="bg-primary rounded-xl py-3 items-center"
+              onPress={async () => { setCredentials(null); await finishLogin(); }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-semibold text-sm">Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}

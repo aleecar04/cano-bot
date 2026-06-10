@@ -1,0 +1,9 @@
+[Core]
+Name = Control
+Module = control
+
+[Documentation]
+Description = Control
+
+[Python]
+Version = 3

@@ -136,6 +136,7 @@ celerybeat.pid
 
 # Environments
 .env
+.bot.env
 .envrc
 .venv
 env/
@@ -210,22 +211,26 @@ __marimo__/
 *.db
 data/
 errbot.log
-backend-plugins/err-*/
 
 # React Native / Expo (Frontend)
-cano-app/node_modules/
-cano-app/.expo/
-cano-app/.expo-shared/
-cano-app/dist/
-cano-app/npm-debug.*
-cano-app/yarn-error.log
-cano-app/yarn-debug.log
-cano-app/*.jks
-cano-app/*.p8
-cano-app/*.p12
-cano-app/*.key
-cano-app/*.mobileprovision
-cano-app/.env.local
-cano-app/android/app/build/
-cano-app/ios/Pods/
-cano-app/ios/build/
+node_modules/
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+yarn-error.log
+yarn-debug.log
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.env.local
+android/app/build/
+ios/Pods/
+ios/build/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
+.scannerwork/

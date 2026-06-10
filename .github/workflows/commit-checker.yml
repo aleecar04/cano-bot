@@ -1,0 +1,47 @@
+name: Commit Checker
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-commits:
+    name: Validate Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+          echo "Branch: $BRANCH_NAME"
+          echo "Range:  $BEFORE..$AFTER"
+
+          ZERO="0000000000000000000000000000000000000000"
+          if [ "$BEFORE" = "$ZERO" ]; then
+            git fetch origin develop
+            commits=$(git log origin/develop..HEAD --no-merges --oneline)
+          else
+            commits=$(git log "$BEFORE..$AFTER" --no-merges --oneline)
+          fi
+
+          echo "Commits to validate:"
+          echo "$commits"
+          if [ -z "$commits" ]; then
+            echo "No new commits to validate."
+            exit 0
+          fi
+          while IFS= read -r commit; do
+            mensaje=$(echo "$commit" | awk '{$1=""; print $0}' | xargs)
+            if ! echo "$mensaje" | grep -Eq '^(feat|fix|test|docs|chore|ci)(\([a-zA-Z0-9._-]+\))?:\ ?.+$'; then
+              echo "Invalid commit message: '$mensaje'"
+              exit 1
+            fi
+          done <<< "$commits"
+          echo "All commit messages are valid."
