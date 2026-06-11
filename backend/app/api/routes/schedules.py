@@ -28,11 +28,8 @@ def delete_completed_schedules(current_user: CurrentUser):
 def delete_schedule(schedule_id: str, current_user: CurrentUser):
     user_id = current_user["id"]
     deleted = svc.delete_schedule(schedule_id, user_id)
-    if not deleted:
-        if get_user_role(user_id) == "owner":
-            deleted = svc.delete_schedule_any(schedule_id, user_id)
-        if not deleted:
-            raise not_found("Tarea no encontrada")
+    if not deleted and get_user_role(user_id) == "owner":
+        svc.delete_schedule_any(schedule_id, user_id)
 
 
 @router.patch("/{schedule_id}/toggle", response_model=SchedulePublic)

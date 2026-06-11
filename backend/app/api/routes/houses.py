@@ -14,7 +14,7 @@ from app.services.xmpp import is_bot_online
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
-_HOUSE_NOT_FOUND = "House not found"
+_HOUSE_NOT_FOUND = "Casa no encontrada"
 
 
 @router.get("/me", response_model=HousePublic)

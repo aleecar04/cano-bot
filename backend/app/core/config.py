@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     XMPP_REST_URL: str
     XMPP_ENCRYPTION_KEY: str
 
+    BOT_XMPP_TOKEN_TTL_S: int = 60
+    PROSODY_INTROSPECT_SECRET: str = secrets.token_urlsafe(32)
+
     OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen2.5:3b"
 

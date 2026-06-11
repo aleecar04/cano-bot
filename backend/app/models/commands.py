@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 
 class CommandRequest(BaseModel):
-    """Petición unificada de comando: device (con device_id) o system (sin él, p.ej. scan)."""
     action: str
     device_id: uuid.UUID | None = None
     payload: dict = {}

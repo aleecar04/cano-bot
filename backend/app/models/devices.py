@@ -25,7 +25,7 @@ class DevicePublic(BaseModel):
     mac: str | None = None
     location: str | None = None
     config: dict = {}
-    estado: dict = {}
+    state: dict = {}
     is_online: bool
     room_id: uuid.UUID | None = None
     last_seen_at: datetime | None = None
@@ -41,7 +41,7 @@ class DeviceUpdate(BaseModel):
 
 class DeviceStatusUpdate(BaseModel):
     is_online: bool
-    estado: dict = {}
+    state: dict = {}
 
 
 class HAConnectSchema(BaseModel):
