@@ -16,7 +16,7 @@ interface BotDeviceListProps {
   timestamp: Date;
 }
 
-export function BotDeviceList({ dispositivos, total, timestamp }: BotDeviceListProps) {
+export function BotDeviceList({ dispositivos, total, timestamp }: Readonly<BotDeviceListProps>) {
   const formatTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -31,7 +31,7 @@ export function BotDeviceList({ dispositivos, total, timestamp }: BotDeviceListP
           <View className="flex-row items-center gap-2 mb-3">
             <Ionicons name="hardware-chip" size={16} color="#3B82F6" />
             <Text className="text-slate-800 font-semibold text-sm">
-              {total} dispositivo{total !== 1 ? 's' : ''} vinculado{total !== 1 ? 's' : ''}
+              {total} dispositivo{total === 1 ? '' : 's'} vinculado{total === 1 ? '' : 's'}
             </Text>
           </View>
 

@@ -170,13 +170,13 @@ export function LinkDeviceModal({
                     <TouchableOpacity
                       onPress={() => setSelectedRoom(undefined)}
                       className={`px-3 py-2 rounded-lg border ${
-                        !selectedRoom
-                          ? 'bg-indigo-500 border-indigo-500'
-                          : 'bg-bg border-border'
+                        selectedRoom
+                          ? 'bg-bg border-border'
+                          : 'bg-indigo-500 border-indigo-500'
                       }`}
                       activeOpacity={0.7}
                     >
-                      <Text className={`text-xs font-semibold ${!selectedRoom ? 'text-white' : 'text-text-secondary'}`}>
+                      <Text className={`text-xs font-semibold ${selectedRoom ? 'text-text-secondary' : 'text-white'}`}>
                         Sin habitación
                       </Text>
                     </TouchableOpacity>

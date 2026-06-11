@@ -203,6 +203,29 @@ export default function CasaScreen() {
     }
   };
 
+  const renderMemberAction = ({ isActing, canKick, canLeave, member }: {
+    isActing: boolean; canKick: boolean; canLeave: boolean; member: HouseMemberDto;
+  }) => {
+    if (isActing) return <ActivityIndicator size="small" color="#94a3b8" />;
+    if (canKick) return (
+      <TouchableOpacity onPress={() => setKickTarget(member)} activeOpacity={0.7} className="ml-1">
+        <Ionicons name="person-remove-outline" size={18} color="#ef4444" />
+      </TouchableOpacity>
+    );
+    if (canLeave) return (
+      <TouchableOpacity onPress={() => setShowLeaveConfirm(true)} activeOpacity={0.7} className="ml-1">
+        <Ionicons name="log-out-outline" size={18} color="#94a3b8" />
+      </TouchableOpacity>
+    );
+    return null;
+  };
+
+  const getLeaveMessage = (owner: boolean, count: number): string => {
+    if (owner && count > 1) return 'Eres el propietario. Al salir, el rol se asignará automáticamente a otro miembro.';
+    if (owner && count === 1) return 'Eres el único miembro. Al salir, la casa y todos sus dispositivos se borrarán definitivamente.';
+    return '¿Seguro que quieres salir de esta casa? Necesitarás un nuevo código para volver a unirte.';
+  };
+
   const devicesInRoom = (roomId: string) => devices.filter((d) => d.room_id === roomId);
   const selectedRoom = house?.floors.flatMap((f) => f.rooms).find((r) => r.id === selectedRoomId);
   const online = devices.filter((d) => d.is_online).length;
@@ -324,7 +347,7 @@ export default function CasaScreen() {
         {activeTab === 'miembros' && (
           <View className="pb-6">
             <Text className="text-text-secondary text-xs font-bold uppercase tracking-wider mb-3">
-              {members.length} miembro{members.length !== 1 ? 's' : ''}
+              {members.length} miembro{members.length === 1 ? '' : 's'}
             </Text>
             {members.length === 0 ? (
               <View className="items-center py-16">
@@ -363,17 +386,7 @@ export default function CasaScreen() {
                         {member.role === 'owner' ? 'Propietario' : 'Miembro'}
                       </Text>
                     </View>
-                    {isActing ? (
-                      <ActivityIndicator size="small" color="#94a3b8" />
-                    ) : canKick ? (
-                      <TouchableOpacity onPress={() => setKickTarget(member)} activeOpacity={0.7} className="ml-1">
-                        <Ionicons name="person-remove-outline" size={18} color="#ef4444" />
-                      </TouchableOpacity>
-                    ) : canLeave ? (
-                      <TouchableOpacity onPress={() => setShowLeaveConfirm(true)} activeOpacity={0.7} className="ml-1">
-                        <Ionicons name="log-out-outline" size={18} color="#94a3b8" />
-                      </TouchableOpacity>
-                    ) : null}
+                    {renderMemberAction({ isActing, canKick, canLeave, member })}
                   </View>
                 );
               })
@@ -505,13 +518,7 @@ export default function CasaScreen() {
       <ConfirmModal
         visible={showLeaveConfirm}
         title="Salir de la casa"
-        message={
-          isOwner && members.length > 1
-            ? 'Eres el propietario. Al salir, el rol se asignará automáticamente a otro miembro.'
-            : isOwner && members.length === 1
-            ? 'Eres el único miembro. Al salir, la casa y todos sus dispositivos se borrarán definitivamente.'
-            : '¿Seguro que quieres salir de esta casa? Necesitarás un nuevo código para volver a unirte.'
-        }
+        message={getLeaveMessage(isOwner, members.length)}
         confirmLabel="Salir"
         onConfirm={handleLeaveHouse}
         onCancel={() => setShowLeaveConfirm(false)}

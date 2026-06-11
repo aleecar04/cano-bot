@@ -25,6 +25,22 @@ import { ConversationItem, type Conversation } from '@/components/chat/conversat
 const storageKey = (userId: string) => `@cano4/active_conv_${userId}`;
 const RESPONSE_TIMEOUT_MS = 30000;
 
+function getBotStatusColor(botOnline: boolean | null): string {
+  if (botOnline === null) return 'bg-text-secondary';
+  return botOnline ? 'bg-green-500' : 'bg-red-500';
+}
+
+function getBotStatusLabel(botOnline: boolean | null): string {
+  if (botOnline === null) return 'comprobando...';
+  return botOnline ? 'online' : 'offline';
+}
+
+function getKeyboardBehavior(): 'padding' | 'height' | undefined {
+  if (Platform.OS === 'ios') return 'padding';
+  if (Platform.OS === 'android') return 'height';
+  return undefined;
+}
+
 export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -170,7 +186,7 @@ export default function ChatScreen() {
             filter: `id=eq.${messageId}`,
           },
           async (payload) => {
-            const updated = payload.new as any;
+            const updated = payload.new;
             if (!updated.response) return;
             channel.unsubscribe();
 
@@ -227,14 +243,8 @@ export default function ChatScreen() {
             activeOpacity={0.7}
             accessibilityLabel="Estado del bot"
           >
-            <View
-              className={`w-2.5 h-2.5 rounded-full ${
-                botOnline === null ? 'bg-text-secondary' : botOnline ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <Text className="text-text-secondary text-xs">
-              {botOnline === null ? 'comprobando...' : botOnline ? 'online' : 'offline'}
-            </Text>
+            <View className={`w-2.5 h-2.5 rounded-full ${getBotStatusColor(botOnline)}`} />
+            <Text className="text-text-secondary text-xs">{getBotStatusLabel(botOnline)}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={openHistorial} className="p-2" activeOpacity={0.7}>
             <Ionicons name="ellipsis-vertical" size={24} color="#3B82F6" />
@@ -296,7 +306,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+        behavior={getKeyboardBehavior()}
         keyboardVerticalOffset={0}
       >
         {loading ? (

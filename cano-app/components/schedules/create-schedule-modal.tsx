@@ -72,7 +72,7 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
     setSelectedDevice(id);
     const dev     = devices.find((d) => d.id === id);
     const actions = getActionsForType(dev?.type ?? '', dev?.driver === 'tuya');
-    if (!actions.find((a) => a.action === selectedAction)) {
+    if (!actions.some((a) => a.action === selectedAction)) {
       setSelectedAction(actions[0]?.action ?? 'encender');
     }
   };

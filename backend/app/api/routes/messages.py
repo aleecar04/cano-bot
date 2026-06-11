@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from app.api.deps import CurrentUser
 from app.api.bot_auth import bot_auth
@@ -8,15 +10,17 @@ from app.services.home import require_house
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
+BotHouse = Annotated[dict, Depends(bot_auth)]
+
 
 @router.post("/webhook")
-async def bot_webhook(payload: BotWebhookPayload, house: dict = Depends(bot_auth)):
+async def bot_webhook(payload: BotWebhookPayload, house: BotHouse):
     handle_webhook(payload, house["id"])
     return {"ok": True}
 
 
 @router.post("/from-gajim")
-async def from_gajim(payload: GajimMessagePayload, house: dict = Depends(bot_auth)):
+async def from_gajim(payload: GajimMessagePayload, house: BotHouse):
     await process_gajim_message(payload.from_jid, payload.body, house["id"])
     return {"ok": True}
 

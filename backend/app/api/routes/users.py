@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
@@ -46,5 +46,5 @@ async def register_user(user_in: UserRegister) -> Any:
 
 
 @router.get("/resolve", responses={401: {"description": "Invalid bot token"}})
-def resolve_jid(jid: str, house: dict = Depends(bot_auth)) -> dict:
+def resolve_jid(jid: str, house: Annotated[dict, Depends(bot_auth)]) -> dict:
     return {"user_id": user_service.resolve_jid_in_house(jid, house["id"])}

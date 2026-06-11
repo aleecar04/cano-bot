@@ -101,7 +101,7 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
       const result = target.kind === 'room'
         ? await roomSchedule(target.id, payload)
         : await floorSchedule(target.id, payload);
-      onToast?.(`Tarea programada para ${result.created} dispositivo${result.created !== 1 ? 's' : ''}`, 'success');
+      onToast?.(`Tarea programada para ${result.created} dispositivo${result.created === 1 ? '' : 's'}`, 'success');
       onClose();
     } catch (err) {
       onToast?.(friendlyError(err), 'error');
@@ -142,15 +142,24 @@ export const GroupScheduleModal: React.FC<ScheduleModalProps> = ({ visible, targ
             {/* Acción */}
             <Text className="text-text text-sm font-semibold mb-2">Acción</Text>
             <View className="flex-row gap-2 mb-5">
-              {(['encender', 'apagar'] as const).map((a) => (
-                <TouchableOpacity key={a} onPress={() => setAction(a)} activeOpacity={0.7}
-                  className={`flex-1 flex-row items-center justify-center gap-1.5 px-3 py-2 rounded-lg border ${action === a ? (a === 'encender' ? 'bg-green-500/20 border-green-500/50' : 'bg-red-500/20 border-red-500/50') : 'bg-bg border-border'}`}>
-                  <Ionicons name={a === 'encender' ? 'power' : 'power-outline'} size={14} color={action === a ? (a === 'encender' ? '#4ade80' : '#f87171') : '#94a3b8'} />
-                  <Text className={`text-xs font-semibold ${action === a ? (a === 'encender' ? 'text-green-400' : 'text-red-400') : 'text-text-secondary'}`}>
-                    {a === 'encender' ? 'Encender' : 'Apagar'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {(['encender', 'apagar'] as const).map((a) => {
+                const isOn        = a === 'encender';
+                const isSelected  = action === a;
+                const baseClass   = isSelected
+                  ? (isOn ? 'bg-green-500/20 border-green-500/50' : 'bg-red-500/20 border-red-500/50')
+                  : 'bg-bg border-border';
+                const iconColor   = isSelected ? (isOn ? '#4ade80' : '#f87171') : '#94a3b8';
+                const textColor   = isSelected ? (isOn ? 'text-green-400' : 'text-red-400') : 'text-text-secondary';
+                return (
+                  <TouchableOpacity key={a} onPress={() => setAction(a)} activeOpacity={0.7}
+                    className={`flex-1 flex-row items-center justify-center gap-1.5 px-3 py-2 rounded-lg border ${baseClass}`}>
+                    <Ionicons name={isOn ? 'power' : 'power-outline'} size={14} color={iconColor} />
+                    <Text className={`text-xs font-semibold ${textColor}`}>
+                      {isOn ? 'Encender' : 'Apagar'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Frecuencia */}

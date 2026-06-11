@@ -17,13 +17,12 @@ interface ScannedDevice {
 
 interface BotScanResponseProps {
   red: string;
-  ip_bot: string | null;
   dispositivos: ScannedDevice[];
   total: number;
   timestamp: Date;
 }
 
-export function BotScanResponse({ red, dispositivos, total, timestamp }: BotScanResponseProps) {
+export function BotScanResponse({ red, dispositivos, total, timestamp }: Readonly<BotScanResponseProps>) {
   const [pendingDevice, setPendingDevice] = useState<ScannedDevice | null>(null);
   const [rooms, setRooms] = useState<RoomDto[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -77,7 +76,7 @@ export function BotScanResponse({ red, dispositivos, total, timestamp }: BotScan
           <View className="flex-row items-center gap-2 mb-3">
             <Ionicons name="wifi" size={16} color="#3B82F6" />
             <Text className="text-slate-800 font-semibold text-sm">
-              {total} dispositivo{total !== 1 ? 's' : ''} en {red}
+              {total} dispositivo{total === 1 ? '' : 's'} en {red}
             </Text>
           </View>
 

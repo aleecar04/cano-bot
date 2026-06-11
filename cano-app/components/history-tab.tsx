@@ -38,7 +38,7 @@ function StatusBadge({ status }: Readonly<{ status: CommandDto['status'] }>) {
   );
 }
 
-function SourceBadge({ sourceType }: { sourceType: string }) {
+function SourceBadge({ sourceType }: Readonly<{ sourceType: string }>) {
   const cfg = SOURCE_CONFIG[sourceType] ?? { label: sourceType, icon: 'flash-outline', color: '#94a3b8' };
   return (
     <View className="flex-row items-center gap-1">
@@ -168,6 +168,54 @@ export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Rea
     }
   };
 
+  const renderListContent = () => {
+    if (loading) {
+      return (
+        <View className="py-12 items-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
+      );
+    }
+    if (commands.length === 0) {
+      return (
+        <View className="py-16 items-center">
+          <View className="w-16 h-16 rounded-full bg-bg items-center justify-center mb-4">
+            <Ionicons name="flash-outline" size={32} color="#475569" />
+          </View>
+          <Text className="text-text font-semibold text-base">Sin resultados</Text>
+          <Text className="text-text-secondary text-sm text-center mt-2 px-6">
+            No hay acciones que coincidan con los filtros aplicados
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <>
+        {commands.map((cmd) => (
+          <CommandRow
+            key={cmd.id}
+            cmd={cmd}
+            showUser={showUserBadge}
+            username={memberMap.get(cmd.user_id ?? '') ?? null}
+          />
+        ))}
+        {hasMore && (
+          <TouchableOpacity
+            onPress={loadMore}
+            disabled={loadingMore}
+            className="py-3 items-center border border-border rounded-xl mt-1"
+            activeOpacity={0.7}
+          >
+            {loadingMore
+              ? <ActivityIndicator size="small" color="#94a3b8" />
+              : <Text className="text-text-secondary text-sm font-semibold">Cargar más</Text>
+            }
+          </TouchableOpacity>
+        )}
+      </>
+    );
+  };
+
   useEffect(() => {
     if (memberFilter !== '') load();
   }, [load]);
@@ -283,45 +331,7 @@ export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Rea
       </View>
 
       {/* List */}
-      {loading ? (
-        <View className="py-12 items-center">
-          <ActivityIndicator size="large" color="#3B82F6" />
-        </View>
-      ) : commands.length === 0 ? (
-        <View className="py-16 items-center">
-          <View className="w-16 h-16 rounded-full bg-bg items-center justify-center mb-4">
-            <Ionicons name="flash-outline" size={32} color="#475569" />
-          </View>
-          <Text className="text-text font-semibold text-base">Sin resultados</Text>
-          <Text className="text-text-secondary text-sm text-center mt-2 px-6">
-            No hay acciones que coincidan con los filtros aplicados
-          </Text>
-        </View>
-      ) : (
-        <>
-          {commands.map((cmd) => (
-            <CommandRow
-              key={cmd.id}
-              cmd={cmd}
-              showUser={showUserBadge}
-              username={memberMap.get(cmd.user_id ?? '') ?? null}
-            />
-          ))}
-          {hasMore && (
-            <TouchableOpacity
-              onPress={loadMore}
-              disabled={loadingMore}
-              className="py-3 items-center border border-border rounded-xl mt-1"
-              activeOpacity={0.7}
-            >
-              {loadingMore
-                ? <ActivityIndicator size="small" color="#94a3b8" />
-                : <Text className="text-text-secondary text-sm font-semibold">Cargar más</Text>
-              }
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+      {renderListContent()}
     </>
   );
 }

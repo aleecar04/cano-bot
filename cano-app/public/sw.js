@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
     data: data,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(globalThis.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {

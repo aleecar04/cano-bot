@@ -33,7 +33,7 @@ interface Props {
 export function DevicesTab({
   linkedDevices, loadingDevices,
   onLinkSuccess, onUnlinkSuccess, onEditSuccess, onDeviceUpdate, onToast,
-}: Props) {
+}: Readonly<Props>) {
   const [scanning, setScanning]             = useState(false);
   const [scannedDevices, setScannedDevices] = useState<ScannedDevice[]>([]);
   const [showScanModal, setShowScanModal]   = useState(false);
@@ -121,6 +121,32 @@ export function DevicesTab({
     }
   };
 
+  const renderDevicesList = () => {
+    if (loadingDevices) {
+      return (
+        <View className="py-12 items-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
+      );
+    }
+    if (linkedDevices.length === 0) {
+      return <DeviceEmptyState />;
+    }
+    return (
+      <View className="gap-3">
+        {linkedDevices.map((device) => (
+          <LinkedDeviceItem
+            key={device.id}
+            device={device}
+            onUnlink={(id, name) => setUnlinkTarget({ id, name })}
+            onDeviceUpdate={onDeviceUpdate}
+            onEditSuccess={onEditSuccess}
+          />
+        ))}
+      </View>
+    );
+  };
+
   return (
     <>
       {/* Scan section */}
@@ -163,25 +189,7 @@ export function DevicesTab({
           </Text>
         </View>
 
-        {loadingDevices ? (
-          <View className="py-12 items-center">
-            <ActivityIndicator size="large" color="#3B82F6" />
-          </View>
-        ) : linkedDevices.length > 0 ? (
-          <View className="gap-3">
-            {linkedDevices.map((device) => (
-              <LinkedDeviceItem
-                key={device.id}
-                device={device}
-                onUnlink={(id, name) => setUnlinkTarget({ id, name })}
-                onDeviceUpdate={onDeviceUpdate}
-                onEditSuccess={onEditSuccess}
-              />
-            ))}
-          </View>
-        ) : (
-          <DeviceEmptyState />
-        )}
+        {renderDevicesList()}
       </View>
 
       {/* Scan results modal */}
@@ -221,8 +229,8 @@ export function DevicesTab({
                   onLink={handleOpenLinkModal}
                   isLinking={false}
                   isLinked={linkedDevices.some((d) =>
-                    (d.ip && d.ip === device.ip) ||
-                    (d.mac && device.mac && d.mac.toLowerCase() === device.mac.toLowerCase())
+                    d.ip === device.ip ||
+                    (!!d.mac && !!device.mac && d.mac.toLowerCase() === device.mac.toLowerCase())
                   )}
                 />
               ))}
