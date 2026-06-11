@@ -93,11 +93,13 @@ export function AddFavoriteModal({
     else if (step === 'action') { setStep('device'); setPendingDevice(null); }
   };
 
-  const title =
-    step === 'device'  ? 'Selecciona dispositivo' :
-    step === 'action'  ? 'Selecciona acción' :
-    step === 'payload' ? 'Configura valor' :
-                         'Nombra tu favorito';
+  const STEP_TITLES: Record<Step, string> = {
+    device:  'Selecciona dispositivo',
+    action:  'Selecciona acción',
+    payload: 'Configura valor',
+    name:    'Nombra tu favorito',
+  };
+  const title = STEP_TITLES[step];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
@@ -108,7 +110,7 @@ export function AddFavoriteModal({
           <View className="flex-row items-center justify-between px-5 pt-5 pb-4 border-b border-border">
             <View>
               <Text className="text-text text-base font-bold">{title}</Text>
-              {step !== 'device' && pendingDevice && (
+              {step !== 'device' && !!pendingDevice && (
                 <Text className="text-text-secondary text-xs mt-0.5">{pendingDevice.name}</Text>
               )}
             </View>
