@@ -4,6 +4,7 @@ from app.core.errors import not_found
 from app.models.favorites import FavoriteActionCreate, FavoriteActionUpdate, FavoriteActionPublic
 from app.services import favorites as svc
 
+
 router = APIRouter(prefix="/favorite-actions", tags=["favorites"])
 
 
@@ -37,6 +38,4 @@ def update_favorite(favorite_id: str, fav_in: FavoriteActionUpdate, current_user
 
 @router.delete("/{favorite_id}", status_code=204)
 def delete_favorite(favorite_id: str, current_user: CurrentUser):
-    deleted = svc.delete_favorite(favorite_id, current_user["id"])
-    if not deleted:
-        raise not_found("Favorito no encontrado")
+    svc.delete_favorite(favorite_id, current_user["id"])

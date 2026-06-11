@@ -11,8 +11,6 @@ from app.repositories.devices import device_repository
 from app.repositories.users import xmpp_account_repository
 
 
-# ── Strategy pattern ─────────────────────────────────────────────────────────
-
 class CommandSource:
 
     def __init__(self, source_type: str = "direct", source_id: str | None = None):
@@ -35,7 +33,6 @@ class ScheduleSource(CommandSource):
         mark_schedule_run(self.source_id, ScheduleMarkRun(command_id=command_id))
 
 
-# ── Core executor ─────────────────────────────────────────────────────────────
 
 def _create_pending_command(
     user_id: str,

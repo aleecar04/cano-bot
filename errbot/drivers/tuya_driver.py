@@ -68,50 +68,43 @@ class TuyaDriver(BaseDriver):
             if not raw or "Error" in raw:
                 return {"is_online": False, "error": raw.get("Error") if raw else "no response"}
             dps = raw.get("dps", {})
-            estado = (self._parse_sensor_estado(dps) if self._is_sensor(device)
-                      else self._parse_bulb_switch_estado(device, dps))
-            return {"is_online": True, "estado": estado}
+            state = (self._parse_sensor_state(dps) if self._is_sensor(device)
+                     else self._parse_bulb_switch_state(device, dps))
+            return {"is_online": True, "state": state}
         except Exception as e:
             return {"is_online": False, "error": str(e)}
 
-    def _parse_sensor_estado(self, dps: dict) -> dict:
-        """DPS habituales: 1=temp (×0.1°C), 2=humedad, 4=batería. Algunos modelos usan 101/102/104."""
+    def _parse_sensor_state(self, dps: dict) -> dict:
         temp_raw = dps.get("1") or dps.get("101")
         hum_raw  = dps.get("2") or dps.get("102")
         bat_raw  = dps.get("4") or dps.get("104")
-        estado: dict = {}
+        state: dict = {}
         if temp_raw is not None:
-            estado["temperature"] = round(temp_raw / 10, 1)
+            state["temperature"] = round(temp_raw / 10, 1)
         if hum_raw is not None:
-            estado["humidity"] = int(hum_raw)
+            state["humidity"] = int(hum_raw)
         if bat_raw is not None:
-            estado["battery"] = int(bat_raw)
-        return estado
+            state["battery"] = int(bat_raw)
+        return state
 
-    def _parse_bulb_switch_estado(self, device: dict, dps: dict) -> dict:
-        """Bombillas usan DPS 20 para power; enchufes/switches usan DPS 1.
-        En bombillas se leen además work_mode (21), brillo (22), temp color (23) y color HSV (24)."""
+    def _parse_bulb_switch_state(self, device: dict, dps: dict) -> dict:
         power_dps = "20" if self._is_bulb(device) else "1"
-        estado: dict = {"power": "on" if dps.get(power_dps, False) else "off"}
+        state: dict = {"power": "on" if dps.get(power_dps, False) else "off"}
         if not self._is_bulb(device):
-            return estado
+            return state
         if "21" in dps:
-            estado["work_mode"] = dps["21"]          # "white" | "colour"
+            state["work_mode"] = dps["21"]
         if "22" in dps:
-            estado["brightness"] = round(dps["22"] / 10)   # 10-1000 → 1-100
+            state["brightness"] = round(dps["22"] / 10)
         if "23" in dps:
-            # Tuya 0-1000: 0=warm(2700K), 1000=cold(6500K)
-            estado["color_temp"] = round(2700 + (dps["23"] / 1000) * (6500 - 2700))
+            state["color_temp"] = round(2700 + (dps["23"] / 1000) * (6500 - 2700))
         if "24" in dps:
             hex_color = _tuya_hsv_to_hex(str(dps["24"]))
             if hex_color:
-                estado["color_hex"] = hex_color
-        return estado
+                state["color_hex"] = hex_color
+        return state
 
     def _with_device(self, device: dict, on_ready) -> dict:
-        """Abre la conexión, comprueba que la bombilla responde y ejecuta `on_ready(dev)`.
-        Si el device no contesta o tinytuya devuelve un dict con 'Error',
-        cortocircuita con un mensaje humano sin intentar la acción."""
         try:
             dev = self._get_device(device, timeout=_WRITE_TIMEOUT_S, persistent=True)
             raw = dev.status()
@@ -121,28 +114,28 @@ class TuyaDriver(BaseDriver):
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def encender(self, device: dict) -> dict:
+    def turn_on(self, device: dict) -> dict:
         def _do(dev):
             dev.turn_on()
             return {"ok": True}
         return self._with_device(device, _do)
 
-    def apagar(self, device: dict) -> dict:
+    def turn_off(self, device: dict) -> dict:
         def _do(dev):
             dev.turn_off()
             return {"ok": True}
         return self._with_device(device, _do)
 
-    def brillo(self, device: dict, valor: int) -> dict:
+    def brightness(self, device: dict, value: int) -> dict:
         if not self._is_bulb(device):
             return {"ok": False, "error": "Este dispositivo no soporta brillo"}
-        valor_tuya = max(10, min(1000, int(valor * 10)))
+        tuya_value = max(10, min(1000, int(value * 10)))
         def _do(dev):
-            dev.set_value(22, valor_tuya)
-            return {"ok": True, "brillo": valor}
+            dev.set_value(22, tuya_value)
+            return {"ok": True, "brillo": value}
         return self._with_device(device, _do)
 
-    def color_rgb(self, device: dict, r: int, g: int, b: int) -> dict:
+    def set_color_rgb(self, device: dict, r: int, g: int, b: int) -> dict:
         if not self._is_bulb(device):
             return {"ok": False, "error": "Este dispositivo no soporta color RGB"}
         def _do(dev):
@@ -150,17 +143,15 @@ class TuyaDriver(BaseDriver):
             return {"ok": True, "color": {"r": r, "g": g, "b": b}}
         return self._with_device(device, _do)
 
-    def temperatura_color(self, device: dict, valor: int) -> dict:
+    def color_temperature(self, device: dict, value: int) -> dict:
         if not self._is_bulb(device):
             return {"ok": False, "error": "Este dispositivo no soporta temperatura de color"}
-        # Convert Kelvin (2700-6500) to Tuya scale (0-1000).
-        # Valores <= 100 se tratan como porcentaje (legado).
-        if valor <= 100:
-            tuya_val = int(valor * 10)
+        if value <= 100:
+            tuya_val = int(value * 10)
         else:
-            tuya_val = int((valor - 2700) / (6500 - 2700) * 1000)
+            tuya_val = int((value - 2700) / (6500 - 2700) * 1000)
         tuya_val = max(0, min(1000, tuya_val))
         def _do(dev):
             dev.set_colourtemp(tuya_val)
-            return {"ok": True, "temperatura": valor}
+            return {"ok": True, "temperatura": value}
         return self._with_device(device, _do)

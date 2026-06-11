@@ -10,9 +10,6 @@ def patch_result(command_id: str, error: str | None, result_data: dict | None = 
     )
 
 
-# El backend deduce target_type a partir del action contra su catálogo
-# estático (info/system) y, si hay device_id, lo trata como device.
-
 def register_from_bot(
     *,
     user_id: str | None,

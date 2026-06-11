@@ -5,19 +5,18 @@ SET timezone = 'Europe/Madrid';
 
 -- ── Tipos ────────────────────────────────────────────────────────────────
 CREATE TYPE command_status AS ENUM ('pending', 'sent', 'executed', 'failed');
-CREATE TYPE device_driver  AS ENUM ('tuya', 'lg_tv', 'samsung_tv', 'homeassistant', 'generic');
+CREATE TYPE device_driver  AS ENUM ('tuya', 'lg_tv', 'homeassistant', 'generic');
 
 -- ── Usuarios ─────────────────────────────────────────────────────────────
 CREATE TABLE base_user (
-  id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username     VARCHAR(50) UNIQUE NOT NULL,
-  first_name   VARCHAR(100),
-  last_name    VARCHAR(100),
-  email        VARCHAR(255),
-  is_active    BOOLEAN DEFAULT true,
-  is_superuser BOOLEAN DEFAULT false,
-  created_at   TIMESTAMPTZ DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ DEFAULT NOW()
+  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username    VARCHAR(50) UNIQUE NOT NULL,
+  first_name  VARCHAR(100),
+  last_name   VARCHAR(100),
+  email       VARCHAR(255),
+  is_active   BOOLEAN DEFAULT true,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── XMPP ─────────────────────────────────────────────────────────────────
@@ -46,6 +45,16 @@ BEGIN
     SELECT pgp_sym_decrypt(password, p_key) INTO v_password
     FROM xmpp_accounts WHERE user_id = p_user_id;
     RETURN v_password;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION update_xmpp_password(
+    p_user_id UUID, p_password TEXT, p_key TEXT
+) RETURNS void AS $$
+BEGIN
+    UPDATE xmpp_accounts
+    SET password = pgp_sym_encrypt(p_password, p_key)
+    WHERE user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -109,7 +118,7 @@ CREATE TABLE devices (
   mac           TEXT,
   ha_entity_id  TEXT,
   config        JSONB DEFAULT '{}',
-  estado        JSONB DEFAULT '{}',
+  state         JSONB DEFAULT '{}',
   is_online     BOOLEAN DEFAULT false,
   room_id       UUID REFERENCES rooms(id) ON DELETE SET NULL,
   registered_at TIMESTAMPTZ DEFAULT NOW(),
@@ -251,21 +260,3 @@ CREATE TABLE push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX push_subscriptions_user_id_idx ON push_subscriptions(user_id);
-
--- ── Vistas ────────────────────────────────────────────────────────────────
-CREATE VIEW houses_with_counts AS
-SELECT h.*,
-  (SELECT COUNT(*) FROM floors f WHERE f.house_id = h.id) AS total_floors,
-  (SELECT COUNT(*) FROM devices d
-   JOIN rooms r  ON d.room_id  = r.id
-   JOIN floors f ON r.floor_id = f.id
-   WHERE f.house_id = h.id) AS total_devices
-FROM houses h;
-
-CREATE VIEW floors_with_counts AS
-SELECT f.*,
-  (SELECT COUNT(*) FROM rooms r WHERE r.floor_id = f.id) AS total_rooms,
-  (SELECT COUNT(*) FROM devices d
-   JOIN rooms r ON d.room_id = r.id
-   WHERE r.floor_id = f.id) AS total_devices
-FROM floors f;

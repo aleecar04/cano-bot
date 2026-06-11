@@ -13,7 +13,7 @@ interface RoomDevice {
   type: string;
   ip: string;
   is_online: boolean;
-  estado: Record<string, unknown>;
+  state: Record<string, unknown>;
   room_id?: string | null;
 }
 

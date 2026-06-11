@@ -44,20 +44,14 @@ def get_current_user(token: TokenDep) -> dict:
         token_data = TokenPayload(**payload)
     except (InvalidTokenError, ValidationError) as e:
         print(f"ERROR JWT: {e}")
-        raise forbidden("Could not validate credentials")
+        raise forbidden("No se pudieron validar las credenciales")
 
     user = user_repository.find_by_id(token_data.sub)
     if not user:
-        raise not_found("User not found")
+        raise not_found("Usuario no encontrado")
     if not user.get("is_active", True):
-        raise forbidden("User is not active")
+        raise forbidden("Usuario inactivo")
     return user
 
 
 CurrentUser = Annotated[dict, Depends(get_current_user)]
-
-
-def get_current_active_superuser(current_user: CurrentUser) -> dict:
-    if not current_user.get("is_superuser"):
-        raise forbidden("The user doesn't have enough privileges")
-    return current_user

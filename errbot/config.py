@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import requests
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,12 +24,28 @@ BOT_ADMINS = (
 )
 
 
-_BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-_SHARED_JID = os.getenv("BOT_USERNAME", "")
-_SHARED_PASSWORD = os.getenv("BOT_PASSWORD", "")
+_BOT_TOKEN   = os.getenv("BOT_TOKEN", "")
+_BACKEND_URL = os.getenv("BACKEND_URL", "")
 _resource = "bot-" + hashlib.sha256(_BOT_TOKEN.encode()).hexdigest()[:12] if _BOT_TOKEN else "bot-default"
 
+
+def _fetch_xmpp_credentials() -> tuple[str, str]:
+    """Solicita al backend credenciales XMPP efimeras de un solo uso."""
+    if not _BOT_TOKEN or not _BACKEND_URL:
+        raise RuntimeError("Faltan BOT_TOKEN o BACKEND_URL en el .env del bot")
+    res = requests.post(
+        f"{_BACKEND_URL.rstrip('/')}/api/v1/bot/xmpp-token",
+        headers={"Authorization": f"Bearer {_BOT_TOKEN}"},
+        timeout=10,
+    )
+    res.raise_for_status()
+    data = res.json()
+    return data["username"], data["password"]
+
+
+_SHARED_JID, _SHARED_PASSWORD = _fetch_xmpp_credentials()
+
 BOT_IDENTITY = {
-    'username': f"{_SHARED_JID}/{_resource}" if _SHARED_JID else None,
+    'username': f"{_SHARED_JID}/{_resource}",
     'password': _SHARED_PASSWORD,
 }

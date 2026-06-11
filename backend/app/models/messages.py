@@ -17,4 +17,4 @@ class MessagePublic(BaseModel):
     body: str
     response: str | None = None
     created_at: datetime | None = None
-    command: CommandPublic | None = None  # embebido si el mensaje produjo un comando (p.ej. scan)
+    command: CommandPublic | None = None

@@ -80,7 +80,6 @@ TEST_USER = {
     "email": "test@example.com",
     "username": "testuser",
     "is_active": True,
-    "is_superuser": False,
 }
 TEST_HOUSE_ID  = str(uuid.uuid4())
 TEST_HOUSE     = {"id": TEST_HOUSE_ID, "user_id": TEST_USER_ID, "name": "Mi Casa"}
@@ -161,7 +160,7 @@ def make_device(**kwargs) -> dict:
         "ip": "192.168.1.100",
         "mac": "AA:BB:CC:DD:EE:FF",
         "config": {},
-        "estado": {},
+        "state": {},
         "is_online": True,
         "room_id": None,
         "location": None,

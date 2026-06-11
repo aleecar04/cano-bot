@@ -33,16 +33,6 @@ class UserRepository:
         res = supabase.table("base_user").select("id").eq("username", username).execute()
         return bool(res.data)
 
-    def find_paginated(self, skip: int = 0, limit: int = 100) -> dict:
-        res = (
-            supabase.table("base_user")
-            .select("*", count="exact")
-            .range(skip, skip + limit - 1)
-            .order("created_at", desc=True)
-            .execute()
-        )
-        return {"data": res.data or [], "count": res.count or 0}
-
     def find_by_ids(self, user_ids: list[str], fields: str = "id, username, email") -> list[dict]:
         if not user_ids:
             return []
@@ -54,9 +44,6 @@ class UserRepository:
             .data
             or []
         )
-
-    def count_all(self) -> int:
-        return supabase.table("base_user").select("id", count="exact").execute().count or 0
 
 
 class XmppAccountRepository:

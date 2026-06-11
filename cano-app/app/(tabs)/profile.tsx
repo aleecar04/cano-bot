@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/api/supabase';
 import { getUserProfile } from '@/api/api';
+import { regenerateXmppPassword, type XmppCredentialsDto } from '@/api/users';
 import { getHaConnection, connectHa, disconnectHa, reimportHa, type HaConnectionDto } from '@/api/ha';
 import { generateInviteCode, getMyRole, type HouseMemberRole, type InviteCodeDto } from '@/api/houses';
 import { FormField } from '@/components/ui/form-field';
@@ -171,6 +172,10 @@ export default function ProfileScreen() {
   const [haError, setHaError]           = useState<string | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
+  const [showRegenerateXmppConfirm, setShowRegenerateXmppConfirm] = useState(false);
+  const [regeneratingXmpp, setRegeneratingXmpp]                   = useState(false);
+  const [newXmppCreds, setNewXmppCreds]                           = useState<XmppCredentialsDto | null>(null);
+
   // Invite code / house role
   const [userRole, setUserRole]           = useState<HouseMemberRole | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -306,6 +311,25 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleRegenerateXmpp = async () => {
+    setShowRegenerateXmppConfirm(false);
+    setRegeneratingXmpp(true);
+    try {
+      const creds = await regenerateXmppPassword();
+      setNewXmppCreds(creds);
+    } catch {
+      setToast({ message: 'No se pudo regenerar la contraseña XMPP', variant: 'error' });
+    } finally {
+      setRegeneratingXmpp(false);
+    }
+  };
+
+  const handleCopyXmppPassword = () => {
+    if (!newXmppCreds) return;
+    Clipboard.setString(newXmppCreds.xmpp_password);
+    setToast({ message: 'Contraseña copiada al portapapeles', variant: 'success' });
+  };
+
   const ejecutarSignOut = async () => {
     setShowLogoutConfirm(false);
     try {
@@ -350,11 +374,24 @@ export default function ProfileScreen() {
             </View>
 
             {/* Cuenta XMPP */}
-            <View className="bg-bg-secondary border border-border rounded-2xl px-4 pt-3 pb-1 mb-4">
+            <View className="bg-bg-secondary border border-border rounded-2xl px-4 pt-3 pb-3 mb-4">
               <Text className="text-text-secondary text-xs font-bold uppercase tracking-wider mb-1">
                 Cuenta XMPP
               </Text>
               <InfoRow label="JID" value={user?.xmpp_jid ?? 'No configurada'} />
+              <TouchableOpacity
+                className="mt-3 bg-primary rounded-xl py-2.5 items-center flex-row justify-center gap-2"
+                onPress={() => setShowRegenerateXmppConfirm(true)}
+                disabled={regeneratingXmpp}
+                activeOpacity={0.8}
+              >
+                {regeneratingXmpp
+                  ? <ActivityIndicator size="small" color="white" />
+                  : <Ionicons name="refresh-outline" size={14} color="white" />}
+                <Text className="text-white font-semibold text-xs">
+                  Regenerar contraseña XMPP
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Seguridad */}
@@ -562,6 +599,57 @@ export default function ProfileScreen() {
         onConfirm={handleHaDisconnect}
         onCancel={() => setShowDisconnectConfirm(false)}
       />
+
+      <ConfirmModal
+        visible={showRegenerateXmppConfirm}
+        title="Regenerar contraseña XMPP"
+        message="Se invalidará tu contraseña XMPP actual y se generará una nueva. Tendrás que actualizarla en cualquier cliente externo que la use (por ejemplo, Gajim). ¿Continuar?"
+        confirmLabel="Regenerar"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={handleRegenerateXmpp}
+        onCancel={() => setShowRegenerateXmppConfirm(false)}
+      />
+
+      <Modal
+        visible={newXmppCreds !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNewXmppCreds(null)}
+      >
+        <View className="flex-1 bg-black/60 items-center justify-center px-6">
+          <View className="bg-bg-secondary border border-border rounded-2xl w-full max-w-sm p-6 gap-4">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="key-outline" size={20} color="#3B82F6" />
+              <Text className="text-text font-bold text-base">Nueva contraseña XMPP</Text>
+            </View>
+            <Text className="text-text-secondary text-sm leading-5">
+              Guarda esta contraseña ahora. Por seguridad no podrás volver a verla.
+            </Text>
+            <View className="bg-bg border border-border rounded-xl px-4 py-3 gap-2">
+              <Text className="text-text-secondary text-xs">JID</Text>
+              <Text className="text-text font-semibold text-sm">{newXmppCreds?.xmpp_jid}</Text>
+              <Text className="text-text-secondary text-xs mt-2">Contraseña</Text>
+              <Text className="text-text font-mono text-sm">{newXmppCreds?.xmpp_password}</Text>
+            </View>
+            <TouchableOpacity
+              className="flex-row items-center gap-2 bg-primary rounded-xl py-3 justify-center"
+              onPress={handleCopyXmppPassword}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="copy-outline" size={16} color="white" />
+              <Text className="text-white font-semibold text-sm">Copiar contraseña</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-bg border border-border rounded-xl py-3 items-center"
+              onPress={() => setNewXmppCreds(null)}
+              activeOpacity={0.8}
+            >
+              <Text className="text-text font-semibold text-sm">Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Toast
         message={toast?.message ?? ''}

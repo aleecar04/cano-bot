@@ -117,40 +117,25 @@ async def refresh_device(device_id: str, current_user: CurrentUser):
 
 @router.delete(
     "/{device_id}",
-    responses={
-        401: {"description": "Not authenticated"},
-        404: {"description": _NOT_FOUND},
-    },
+    responses={401: {"description": "Not authenticated"}},
 )
 def desvincular_device(device_id: str, current_user: CurrentUser):
-    ok = device_service.desvincular_device(device_id, current_user["id"])
-    if not ok:
-        raise not_found(_NOT_FOUND)
+    device_service.desvincular_device(device_id, current_user["id"])
     return {"ok": True}
 
 
 @router.patch(
     "/{device_id}/status",
-    responses={
-        401: {"description": "Invalid bot token"},
-        404: {"description": _NOT_FOUND},
-        403: {"description": "Device not in this bot's house"},
-    },
+    responses={401: {"description": "Invalid bot token"}},
 )
 def update_status(device_id: str, status_in: DeviceStatusUpdate, house: dict = Depends(bot_auth)):
-    ok = device_service.update_device_status_in_house(device_id, house["id"], status_in)
-    if not ok:
-        raise not_found(_NOT_FOUND)
+    device_service.update_device_status_in_house(device_id, house["id"], status_in)
     return {"ok": True}
 
 
 @router.patch(
     "/{device_id}/config",
-    responses={
-        401: {"description": "Invalid bot token"},
-        404: {"description": _NOT_FOUND},
-        403: {"description": "Device not in this bot's house"},
-    },
+    responses={401: {"description": "Invalid bot token"}},
 )
 def update_config(device_id: str, config: dict, house: dict = Depends(bot_auth)):
     device_service.update_device_config_in_house(device_id, house["id"], config)

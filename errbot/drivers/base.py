@@ -15,58 +15,58 @@ _COLORES: dict[str, tuple[int, int, int]] = {
     "blanco":   (255, 255, 255),
 }
 
+
 class BaseDriver(ABC):
     @abstractmethod
     def get_status(self, device: dict, timeout: float = 2.0) -> dict:
-        """Obtener estado del dispositivo. Retorna {is_online: bool, estado: dict} o None si timeout"""
         pass
 
     @abstractmethod
-    def encender(self, device: dict) -> dict: pass
+    def turn_on(self, device: dict) -> dict: pass
 
     @abstractmethod
-    def apagar(self, device: dict) -> dict: pass
+    def turn_off(self, device: dict) -> dict: pass
 
-    def brillo(self, device: dict, valor: int) -> dict:
+    def brightness(self, device: dict, value: int) -> dict:
         return {"ok": False, "error": "Este dispositivo no soporta brillo"}
 
-    def temperatura_color(self, device: dict, valor: int) -> dict:
+    def color_temperature(self, device: dict, value: int) -> dict:
         return {"ok": False, "error": "Este dispositivo no soporta temperatura de color"}
 
-    def color_rgb(self, device: dict, r: int, g: int, b: int) -> dict:
+    def set_color_rgb(self, device: dict, r: int, g: int, b: int) -> dict:
         return {"ok": False, "error": "Este dispositivo no soporta color RGB"}
 
-    def set_volumen(self, device: dict, valor: int) -> dict:
+    def set_volume(self, device: dict, value: int) -> dict:
         return {"ok": False, "error": "Este dispositivo no soporta volumen absoluto"}
 
-    def abrir_app(self, device: dict, app: str) -> dict:
+    def open_app(self, device: dict, app: str) -> dict:
         return {"ok": False, "error": "Este dispositivo no soporta apertura de apps"}
 
     def _dispatch_color(self, device: dict, payload: dict) -> dict:
         if "color" in payload:
-            nombre = str(payload["color"]).lower().strip()
-            rgb = _COLORES.get(nombre)
+            name = str(payload["color"]).lower().strip()
+            rgb = _COLORES.get(name)
             if not rgb:
-                return {"ok": False, "error": f"Color '{nombre}' no reconocido. Colores disponibles: {', '.join(_COLORES)}"}
-            return self.color_rgb(device, *rgb)
+                return {"ok": False, "error": f"Color '{name}' no reconocido. Colores disponibles: {', '.join(_COLORES)}"}
+            return self.set_color_rgb(device, *rgb)
         r = int(payload.get("r", 255))
         g = int(payload.get("g", 0))
         b = int(payload.get("b", 0))
-        return self.color_rgb(device, r, g, b)
+        return self.set_color_rgb(device, r, g, b)
 
-    def ejecutar(self, device: dict, accion: str, payload: dict = {}) -> dict:
-        acciones = {
-            Action.ENCENDER:          lambda: self.encender(device),
-            Action.APAGAR:            lambda: self.apagar(device),
-            Action.BRILLO:            lambda: self.brillo(device, payload.get("valor", 100)),
-            Action.TEMPERATURA_COLOR: lambda: self.temperatura_color(device, payload.get("valor", 4000)),
+    def execute(self, device: dict, action: str, payload: dict = {}) -> dict:
+        actions = {
+            Action.ENCENDER:          lambda: self.turn_on(device),
+            Action.APAGAR:            lambda: self.turn_off(device),
+            Action.BRILLO:            lambda: self.brightness(device, payload.get("value", 100)),
+            Action.TEMPERATURA_COLOR: lambda: self.color_temperature(device, payload.get("value", 4000)),
             Action.COLOR_RGB:         lambda: self._dispatch_color(device, payload),
-            Action.SET_VOLUMEN:       lambda: self.set_volumen(device, int(payload.get("valor", 50))),
-            Action.ABRIR_APP:         lambda: self.abrir_app(device, str(payload.get("app", ""))),
+            Action.SET_VOLUMEN:       lambda: self.set_volume(device, int(payload.get("value", 50))),
+            Action.ABRIR_APP:         lambda: self.open_app(device, str(payload.get("app", ""))),
         }
-        fn = acciones.get(accion)
+        fn = actions.get(action)
         if not fn:
-            return {"ok": False, "error": f"Acción '{accion}' no soportada"}
+            return {"ok": False, "error": f"Acción '{action}' no soportada"}
         try:
             return fn()
         except Exception as e:

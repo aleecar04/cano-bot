@@ -73,12 +73,12 @@ class LGTVDriver(BaseDriver):
 
             return {
                 "is_online": is_online,
-                "estado": {"power": "on" if is_online else "off"}
+                "state": {"power": "on" if is_online else "off"}
             }
         except Exception as e:
             return {"is_online": False, "error": str(e)}
 
-    def encender(self, device: dict) -> dict:
+    def turn_on(self, device: dict) -> dict:
         mac = device.get("mac")
         if not mac:
             return {"ok": False, "error": "MAC no configurada para Wake on LAN"}
@@ -88,7 +88,7 @@ class LGTVDriver(BaseDriver):
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def apagar(self, device: dict) -> dict:
+    def turn_off(self, device: dict) -> dict:
         try:
             async def _fn():
                 c = await self._client(device)
@@ -99,18 +99,18 @@ class LGTVDriver(BaseDriver):
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def set_volumen(self, device: dict, valor: int) -> dict:
+    def set_volume(self, device: dict, value: int) -> dict:
         try:
             async def _fn():
                 c = await self._client(device)
-                await c.set_volume(max(0, min(100, valor)))
+                await c.set_volume(max(0, min(100, value)))
                 await c.disconnect()
-                return {"ok": True, "volumen": valor}
+                return {"ok": True, "volume": value}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def abrir_app(self, device: dict, app: str) -> dict:
+    def open_app(self, device: dict, app: str) -> dict:
         app_id = LG_APPS.get(app.lower(), app)
         try:
             async def _fn():
@@ -122,38 +122,26 @@ class LGTVDriver(BaseDriver):
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    def ejecutar(self, device: dict, accion: str, payload: dict = {}) -> dict:
+    def execute(self, device: dict, action: str, payload: dict = {}) -> dict:
         extras = {
-            Action.SUBIR_VOLUMEN: lambda: self._volumen(device, "up"),
-            Action.BAJAR_VOLUMEN: lambda: self._volumen(device, "down"),
-            Action.MUTE:          lambda: self._mute(device),
-            Action.SET_VOLUMEN:   lambda: self.set_volumen(device, int(payload.get("valor", 50))),
-            Action.ABRIR_APP:     lambda: self.abrir_app(device, str(payload.get("app", ""))),
+            Action.SUBIR_VOLUMEN: lambda: self._volume_step(device, "up"),
+            Action.BAJAR_VOLUMEN: lambda: self._volume_step(device, "down"),
+            Action.MUTE:          lambda: self.set_volume(device, 0),
+            Action.SET_VOLUMEN:   lambda: self.set_volume(device, int(payload.get("value", 50))),
+            Action.ABRIR_APP:     lambda: self.open_app(device, str(payload.get("app", ""))),
         }
-        if accion in extras:
-            return extras[accion]()
-        return super().ejecutar(device, accion, payload)
+        if action in extras:
+            return extras[action]()
+        return super().execute(device, action, payload)
 
-    def _volumen(self, device: dict, direccion: str) -> dict:
+    def _volume_step(self, device: dict, direction: str) -> dict:
         try:
             async def _fn():
                 c = await self._client(device)
-                if direccion == "up":
+                if direction == "up":
                     await c.volume_up()
                 else:
                     await c.volume_down()
-                await c.disconnect()
-                return {"ok": True}
-            return self._run(_fn())
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    def _mute(self, device: dict) -> dict:
-        try:
-            async def _fn():
-                c      = await self._client(device)
-                status = await c.get_volume()
-                await c.set_mute(not status["muted"])
                 await c.disconnect()
                 return {"ok": True}
             return self._run(_fn())

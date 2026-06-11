@@ -10,7 +10,6 @@ router = APIRouter(prefix="/commands", tags=["commands"])
 
 @router.post("")
 async def create_command(body: CommandRequest, current_user: CurrentUser):
-    """Crea y ejecuta un comando directo desde la app."""
     return await execute_command(
         action=body.action,
         payload=body.payload,
@@ -28,7 +27,5 @@ def create_command_from_bot_endpoint(body: dict, house: dict = Depends(bot_auth)
 
 @router.patch("/{command_id}", responses={401: {"description": "Invalid bot token"}})
 def update_command_endpoint(command_id: str, body: dict, house: dict = Depends(bot_auth)):
-    """Bot marca un comando como ejecutado/fallido. La autorización por bot_token
-    garantiza que solo el bot de la casa propietaria del comando puede modificarlo."""
     update_command_result(command_id, house["id"], body.get("error"), body.get("result_data"))
     return {"ok": True}

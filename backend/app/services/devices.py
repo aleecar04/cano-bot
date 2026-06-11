@@ -17,11 +17,8 @@ from app.models.drivers import DriverType
 
 
 def _detectar_driver_tv(hostname: str) -> DriverType | None:
-    hostname = hostname.lower()
-    if "lg" in hostname:
+    if "lg" in hostname.lower():
         return DriverType.LG_TV
-    if "samsung" in hostname:
-        return DriverType.SAMSUNG_TV
     return None
 
 
@@ -72,7 +69,7 @@ def vincular_device(device_in: DeviceVincular, user_id: str) -> dict:
         msg = str(e)
         if "house_id_name" in msg or "unique" in msg.lower():
             raise conflict("Ya existe un dispositivo con ese nombre en esta casa")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, msg)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Error interno al vincular dispositivo")
 
     if not result.data:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Error al vincular dispositivo")
@@ -134,8 +131,8 @@ def update_device(device_id: str, user_id: str, data: dict) -> dict | None:
 
 def update_device_status_in_house(device_id: str, house_id: str, status_in: DeviceStatusUpdate) -> bool:
     data: dict = {"is_online": status_in.is_online, "updated_at": "now()"}
-    if status_in.estado:
-        data["estado"] = status_in.estado
+    if status_in.state:
+        data["state"] = status_in.state
     result = (
         supabase.table("devices").update(data)
         .eq("id", device_id).eq("house_id", house_id)
@@ -161,7 +158,6 @@ def find_devices_in_scope(scope: str, scope_id: str, fields: str = "id") -> list
 
 
 async def send_group_command(scope: str, scope_id: str, action: str, user_id: str) -> dict:
-    """Send a power action ('encender'/'apagar') to every device in a room or floor."""
     if action not in ("encender", "apagar"):
         raise bad_request("Solo se permiten acciones 'encender' o 'apagar'")
     devices = find_devices_in_scope(scope, scope_id)
@@ -182,7 +178,6 @@ async def send_group_command(scope: str, scope_id: str, action: str, user_id: st
 
 
 async def request_device_poll(device_id: str, user_id: str) -> None:
-    """Ask the bot to do an immediate get_status() on a newly linked device."""
     try:
         jid = xmpp_account_repository.find_jid_by_user(user_id)
         if not jid:
@@ -206,14 +201,11 @@ async def request_device_poll(device_id: str, user_id: str) -> None:
 
 
 def update_device_config_in_house(device_id: str, house_id: str, config: dict) -> None:
-    """Update config solo si el device pertenece a esa casa (autorización por bot_token).
-    Usado por drivers (LG TV) para guardar client_key tras pairing."""
     supabase.table("devices").update({"config": config}) \
         .eq("id", device_id).eq("house_id", house_id).execute()
 
 
 def _ha_entity_mac_map(ha_url: str, token: str) -> dict[str, str]:
-    """Devuelve {entity_id: mac} consultando el registro de HA."""
     headers = {"Authorization": f"Bearer {token}"}
     try:
         er = requests.get(f"{ha_url}/api/config/entity_registry/list", headers=headers, timeout=5)
@@ -238,8 +230,6 @@ def _ha_entity_mac_map(ha_url: str, token: str) -> dict[str, str]:
 
 
 def _import_ha_states(house_id: str, owner_id: str, ha_url: str, token: str) -> int:
-    """Fetch /api/states de HA y hace upsert de cada entidad útil en devices.
-    Devuelve cuántas se importaron."""
     r = requests.get(
         f"{ha_url}/api/states",
         headers={"Authorization": f"Bearer {token}"},
@@ -271,7 +261,6 @@ def _import_ha_states(house_id: str, owner_id: str, ha_url: str, token: str) -> 
 
 
 def connect_ha(user_id: str, data: HAConnectSchema) -> dict:
-    """Owner-only: guarda credenciales HA en la casa e importa la lista de entidades."""
     house_id = get_house_id_for_user(user_id)
     if not house_id:
         raise bad_request("El usuario no tiene una casa asociada")
@@ -297,7 +286,6 @@ def connect_ha(user_id: str, data: HAConnectSchema) -> dict:
     return {"ok": True, "importados": importados}
 
 
-# ── Status (bot/webhook) ─────────────────────────────────────────────────────
 def get_status_for_bot_in_house(device_id: str, house_id: str) -> dict:
     """Bot read: snapshot del estado de un device. Solo si pertenece a esa casa."""
     d = device_repository.find_by_id_and_house(device_id, house_id)
@@ -306,12 +294,11 @@ def get_status_for_bot_in_house(device_id: str, house_id: str) -> dict:
     return {
         "device_id":   d["id"],
         "is_online":   d.get("is_online"),
-        "estado":      d.get("estado") or {},
+        "state":       d.get("state") or {},
         "last_update": d.get("updated_at"),
     }
 
 
-# ── Home Assistant integration management ───────────────────────────────────
 def get_ha_connection(user_id: str) -> dict:
     """Return HA connection info for the caller's house, or {connected: False}."""
     house_id = get_house_id_for_user(user_id)
@@ -324,12 +311,8 @@ def get_ha_connection(user_id: str) -> dict:
 
 
 def reimport_ha(user_id: str) -> dict:
-    """Any member can reimport: refresca la lista de devices usando las credenciales
-    guardadas en la casa. Raises HAConnectionMissing si la casa no tiene integración."""
     house_id = get_house_id_for_user(user_id)
-    if not house_id:
-        raise not_found("No hay integración de Home Assistant configurada")
-    stored = ha_integration_repository.find_credentials_by_house(house_id)
+    stored = ha_integration_repository.find_credentials_by_house(house_id) if house_id else None
     if not stored:
         raise not_found("No hay integración de Home Assistant configurada")
     importados = _import_ha_states(house_id, user_id, stored["ha_url"], stored["token"])

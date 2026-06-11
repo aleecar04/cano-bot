@@ -55,8 +55,8 @@ def is_action_supported(device_type: str, action: str) -> bool:
 def validate_payload(action: str, payload: dict) -> str | None:
     """Devuelve mensaje de error humano si el payload es inválido, o None si OK."""
     if action == Action.TEMPERATURA_COLOR.value:
-        valor = payload.get("valor")
-        if valor is None or int(valor) not in _TEMPERATURE_PRESETS:
+        value = payload.get("value")
+        if value is None or int(value) not in _TEMPERATURE_PRESETS:
             return (
                 "Solo acepto estas temperaturas de color:\n"
                 "  • Cálida → 2700K\n"
@@ -71,9 +71,9 @@ def validate_payload(action: str, payload: dict) -> str | None:
                 + ", ".join(sorted(_COLOR_NAMES))
             )
     elif action in (Action.BRILLO.value, Action.SET_VOLUMEN.value):
-        valor = payload.get("valor")
+        value = payload.get("value")
         try:
-            v = int(valor)
+            v = int(value)
         except (TypeError, ValueError):
             return "El valor debe ser un número entre 0 y 100."
         if not 0 <= v <= 100:

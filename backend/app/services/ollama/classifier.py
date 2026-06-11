@@ -1,4 +1,3 @@
-"""Cliente del clasificador NLP local (Ollama)."""
 import json
 import logging
 import ollama
@@ -12,9 +11,6 @@ _async_client = ollama.AsyncClient(host=settings.OLLAMA_HOST, timeout=30.0)
 
 
 async def classify_intent(texto: str) -> dict:
-    """Clasifica el mensaje y devuelve el intent como dict.
-    Errores: {"intent": "ollama_error"} si Ollama falla,
-    {"intent": "unknown"} si el modelo no devuelve JSON válido."""
     try:
         response = await _async_client.chat(
             model=settings.OLLAMA_MODEL,
