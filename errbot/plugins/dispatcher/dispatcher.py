@@ -143,7 +143,7 @@ class Dispatcher(BasePlugin, BotPlugin):
         method = self._get_command_from_plugins(cmd_name)
         if not method:
             return False
-        args = intent_data.get("dispositivo", "") if cmd_name == "acciones" else ""
+        args = intent_data.get("device", "") if cmd_name == "acciones" else ""
         response = method(msg, args)
         self._reply(msg, text, response)
         self._register_command_in_backend(

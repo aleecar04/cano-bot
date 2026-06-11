@@ -57,25 +57,25 @@ class HomeAssistantDriver(BaseDriver):
             data = r.json()
             return {
                 "is_online": data["state"] not in ("unavailable", "unknown"),
-                "estado": {
+                "state": {
                     "power":      data["state"] == "on",
-                    "state":      data["state"],
+                    "ha_state":   data["state"],
                     "attributes": data.get("attributes", {})
                 }
             }
         except Exception as e:
             return {"is_online": False, "error": str(e)}
 
-    def encender(self, device):
+    def turn_on(self, device):
         domain = device["config"]["entity_id"].split(".")[0]
         return self._call_service(device, f"{domain}/turn_on")
 
-    def apagar(self, device):
+    def turn_off(self, device):
         domain = device["config"]["entity_id"].split(".")[0]
         return self._call_service(device, f"{domain}/turn_off")
 
-    def brillo(self, device, valor):
-        return self._call_service(device, "light/turn_on", {"brightness_pct": valor})
+    def brightness(self, device, value):
+        return self._call_service(device, "light/turn_on", {"brightness_pct": value})
 
-    def temperatura_color(self, device, valor):
-        return self._call_service(device, "light/turn_on", {"color_temp": valor})
+    def color_temperature(self, device, value):
+        return self._call_service(device, "light/turn_on", {"color_temp": value})

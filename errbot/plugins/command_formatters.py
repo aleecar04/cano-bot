@@ -20,7 +20,7 @@ _RESPONSE_BUILDERS = {
 def format_command_response(action: str, data: dict, device_name: str, ok: bool, error: str | None) -> str:
     if not ok:
         if error:
-            return error  # error humano (lo pasa quien llama); el técnico va a commands.error
+            return error
         return f"No pude completar la acción sobre {device_name}." if device_name else "No se pudo completar la operación."
     builder = _RESPONSE_BUILDERS.get(action)
     if builder:

@@ -55,7 +55,7 @@ class Boot(BotPlugin):
         for d in self.devices:
             device_cache.update(
                 device_id=d["id"],
-                estado=d.get("estado") or {},
+                state=d.get("state") or {},
                 is_online=d.get("is_online", False),
             )
 
@@ -111,9 +111,9 @@ class Boot(BotPlugin):
 
     def _sync_if_changed(self, device_id: str, status: dict):
         current_online = status.get("is_online", False)
-        current_state  = status.get("estado") or {}
+        current_state  = status.get("state") or {}
         old = device_cache.get(device_id)
-        if old and old.is_online == current_online and old.estado == current_state:
+        if old and old.is_online == current_online and old.state == current_state:
             return  # sin cambio, no toques al backend
         self._patch_backend(device_id, current_online, current_state)
 
@@ -121,17 +121,17 @@ class Boot(BotPlugin):
         old = device_cache.get(device_id)
         if old and not old.is_online:
             return  # ya estaba offline
-        current_state = old.estado if old else {}
-        self._patch_backend(device_id, is_online=False, estado=current_state)
+        current_state = old.state if old else {}
+        self._patch_backend(device_id, is_online=False, state=current_state)
 
-    def _patch_backend(self, device_id: str, is_online: bool, estado: dict):
+    def _patch_backend(self, device_id: str, is_online: bool, state: dict):
         """PATCH /devices/{id}/status. Actualiza el cache SOLO si el PATCH tiene éxito;
         así un fallo deja la cache vieja y el próximo poll lo reintentará."""
         if not is_backend_reachable():
             return
         try:
-            api_devices.patch_status(device_id, is_online, estado, timeout=_PATCH_TIMEOUT_S)
-            device_cache.update(device_id, estado=estado, is_online=is_online)
+            api_devices.patch_status(device_id, is_online, state, timeout=_PATCH_TIMEOUT_S)
+            device_cache.update(device_id, state=state, is_online=is_online)
         except Exception as e:
             logger.warning(f"PATCH /devices/{device_id}/status failed: {e}")
 

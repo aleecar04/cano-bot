@@ -19,13 +19,10 @@ def resolve_sender(jid: str) -> str | None:
 
 
 def get_device(device_id: str) -> dict | None:
-    """Devuelve un device por id (de la casa de este bot).
-    Trae la lista completa porque el backend no expone GET /devices/{id}."""
     return next((d for d in api_devices.get_all() if d["id"] == device_id), None)
 
 
 def find_device_by_name(name: str) -> dict | None:
-    """Primer device cuyo nombre contiene el string (case-insensitive)."""
     name_lower = name.lower()
     return next((d for d in api_devices.get_all() if name_lower in d["name"].lower()), None)
 
@@ -45,9 +42,7 @@ _COLOR_HEX_MAP: dict[str, str] = {
 
 
 def calculate_expected_state(device: dict, action: str, payload: dict) -> dict:
-    """Predict the device state after executing an action.
-    Used to optimistically update the cache without waiting for the next poll."""
-    current_state = device.get("estado", {})
+    current_state = device.get("state", {})
     new_state = current_state.copy()
 
     if action == "encender":
@@ -55,9 +50,9 @@ def calculate_expected_state(device: dict, action: str, payload: dict) -> dict:
     elif action == "apagar":
         new_state["power"] = "off"
     elif action == "brillo":
-        new_state["brightness"] = payload.get("valor", 100)
+        new_state["brightness"] = payload.get("value", 100)
     elif action == "temperatura_color":
-        new_state["color_temp"] = payload.get("valor", 4000)
+        new_state["color_temp"] = payload.get("value", 4000)
         new_state["work_mode"] = "white"
     elif action == "color_rgb":
         color_name = payload.get("color", "")
@@ -70,6 +65,6 @@ def calculate_expected_state(device: dict, action: str, payload: dict) -> dict:
     elif action == "bajar_volumen":
         new_state["volume"] = max(0, new_state.get("volume", 50) - 5)
     elif action == "mute":
-        new_state["muted"] = not new_state.get("muted", False)
+        new_state["volume"] = 0
 
     return new_state
