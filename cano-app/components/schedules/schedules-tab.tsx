@@ -77,7 +77,8 @@ export function SchedulesTab({
       onSchedulesChange((prev) => prev.filter((s) =>
         s.cron_expr || s.is_active || (!isOwner && s.user_id !== currentUserId)
       ));
-      onToast(`${count} tarea${count !== 1 ? 's' : ''} completada${count !== 1 ? 's' : ''} eliminada${count !== 1 ? 's' : ''}`, 'success');
+      const plural = count === 1 ? '' : 's';
+      onToast(`${count} tarea${plural} completada${plural} eliminada${plural}`, 'success');
     } catch (err) {
       onToast(friendlyError(err), 'error');
     } finally {
@@ -96,6 +97,40 @@ export function SchedulesTab({
     } catch (err) {
       onToast(friendlyError(err), 'error');
     }
+  };
+
+  const renderSchedulesList = () => {
+    if (loadingSchedules) {
+      return (
+        <View className="py-12 items-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
+      );
+    }
+    if (schedules.length === 0) {
+      return (
+        <View className="py-16 items-center">
+          <View className="w-16 h-16 rounded-full bg-bg items-center justify-center mb-4">
+            <Ionicons name="alarm-outline" size={32} color="#475569" />
+          </View>
+          <Text className="text-text font-semibold text-base">Sin tareas</Text>
+          <Text className="text-text-secondary text-sm text-center mt-2 px-6">
+            Automatiza tus dispositivos creando una tarea programada
+          </Text>
+        </View>
+      );
+    }
+    return schedules.map((s) => (
+      <ScheduleItem
+        key={s.id}
+        schedule={s}
+        currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
+        creatorUsername={memberMap.get(s.user_id) ?? null}
+        onToggle={handleToggle}
+        onDelete={(id, name) => setDeleteTarget({ id, name })}
+      />
+    ));
   };
 
   return (
@@ -132,33 +167,7 @@ export function SchedulesTab({
         </View>
       </View>
 
-      {loadingSchedules ? (
-        <View className="py-12 items-center">
-          <ActivityIndicator size="large" color="#3B82F6" />
-        </View>
-      ) : schedules.length > 0 ? (
-        schedules.map((s) => (
-          <ScheduleItem
-            key={s.id}
-            schedule={s}
-            currentUserId={currentUserId}
-            currentUserRole={currentUserRole}
-            creatorUsername={memberMap.get(s.user_id) ?? null}
-            onToggle={handleToggle}
-            onDelete={(id, name) => setDeleteTarget({ id, name })}
-          />
-        ))
-      ) : (
-        <View className="py-16 items-center">
-          <View className="w-16 h-16 rounded-full bg-bg items-center justify-center mb-4">
-            <Ionicons name="alarm-outline" size={32} color="#475569" />
-          </View>
-          <Text className="text-text font-semibold text-base">Sin tareas</Text>
-          <Text className="text-text-secondary text-sm text-center mt-2 px-6">
-            Automatiza tus dispositivos creando una tarea programada
-          </Text>
-        </View>
-      )}
+      {renderSchedulesList()}
 
       <CreateScheduleModal
         visible={showCreate}

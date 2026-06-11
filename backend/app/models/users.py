@@ -41,7 +41,7 @@ class UserRegister(BaseModel):
         cleaned = " ".join(v.strip().split())
         if not cleaned:
             return None
-        if not re.fullmatch(r"[A-Za-zÀ-ÿñÑ\s\-']+", cleaned):
+        if not re.fullmatch(r"[A-Za-zÀ-ÿ\s\-']+", cleaned):
             raise ValueError("Solo se permiten letras, espacios, guiones y apóstrofes")
         return cleaned.title()
 

@@ -17,12 +17,8 @@ jobs:
 
       - name: Validate commit messages
         run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           BEFORE="${{ github.event.before }}"
           AFTER="${{ github.event.after }}"
-          echo "Branch: $BRANCH_NAME"
-          echo "Range:  $BEFORE..$AFTER"
-
           ZERO="0000000000000000000000000000000000000000"
           if [ "$BEFORE" = "$ZERO" ]; then
             git fetch origin develop
@@ -31,10 +27,7 @@ jobs:
             commits=$(git log "$BEFORE..$AFTER" --no-merges --oneline)
           fi
 
-          echo "Commits to validate:"
-          echo "$commits"
           if [ -z "$commits" ]; then
-            echo "No new commits to validate."
             exit 0
           fi
           while IFS= read -r commit; do
@@ -44,4 +37,3 @@ jobs:
               exit 1
             fi
           done <<< "$commits"
-          echo "All commit messages are valid."

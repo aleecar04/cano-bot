@@ -43,7 +43,7 @@ def get_devices(current_user: CurrentUser):
     response_model=list[DevicePublic],
     responses={401: {"description": "Invalid bot token"}},
 )
-def get_all_devices(house: dict = Depends(bot_auth)):
+def get_all_devices(house: Annotated[dict, Depends(bot_auth)]):
     """Bot-only endpoint: devuelve los devices de la casa autenticada por bot_token."""
     return device_service.get_devices_for_house(house["id"])
 
@@ -128,7 +128,7 @@ def desvincular_device(device_id: str, current_user: CurrentUser):
     "/{device_id}/status",
     responses={401: {"description": "Invalid bot token"}},
 )
-def update_status(device_id: str, status_in: DeviceStatusUpdate, house: dict = Depends(bot_auth)):
+def update_status(device_id: str, status_in: DeviceStatusUpdate, house: Annotated[dict, Depends(bot_auth)]):
     device_service.update_device_status_in_house(device_id, house["id"], status_in)
     return {"ok": True}
 
@@ -137,13 +137,13 @@ def update_status(device_id: str, status_in: DeviceStatusUpdate, house: dict = D
     "/{device_id}/config",
     responses={401: {"description": "Invalid bot token"}},
 )
-def update_config(device_id: str, config: dict, house: dict = Depends(bot_auth)):
+def update_config(device_id: str, config: dict, house: Annotated[dict, Depends(bot_auth)]):
     device_service.update_device_config_in_house(device_id, house["id"], config)
     return {"ok": True}
 
 
 @router.get("/{device_id}/status")
-def get_device_status(device_id: str, house: dict = Depends(bot_auth)):
+def get_device_status(device_id: str, house: Annotated[dict, Depends(bot_auth)]):
     return device_service.get_status_for_bot_in_house(device_id, house["id"])
 
 

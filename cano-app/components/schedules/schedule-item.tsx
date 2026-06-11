@@ -43,6 +43,60 @@ function scheduleTimeLabel(schedule: ScheduleDto): string {
   return d.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function getStatusColor(lastCmd: ScheduleDto['last_command']): string {
+  if (!lastCmd) return '#94a3b8';
+  return lastCmd.status === 'executed' ? '#22c55e' : '#ef4444';
+}
+
+function getStatusLabel(lastCmd: ScheduleDto['last_command']): string {
+  if (!lastCmd) return 'Sin ejecutar';
+  return lastCmd.status === 'executed' ? 'OK' : 'Error';
+}
+
+function getContainerStyle(isForeign: boolean, isActive: boolean): string {
+  if (isForeign) return 'bg-bg border-amber-500/20';
+  if (isActive) return 'bg-bg-secondary border-border';
+  return 'bg-bg border-border/50';
+}
+
+function getTitleColor(isActive: boolean, isForeign: boolean): string {
+  if (!isActive) return 'text-text-secondary';
+  return isForeign ? 'text-text/70' : 'text-text';
+}
+
+interface RightActionProps {
+  isCompleted: boolean;
+  isForeign:   boolean;
+  schedule:    ScheduleDto;
+  onToggle:    (id: string, active: boolean) => void;
+}
+
+function RightAction({ isCompleted, isForeign, schedule, onToggle }: Readonly<RightActionProps>) {
+  if (isCompleted) {
+    return (
+      <View className="bg-bg px-2 py-0.5 rounded-full">
+        <Text className="text-text-secondary text-xs font-semibold">Completada</Text>
+      </View>
+    );
+  }
+  if (isForeign) {
+    return (
+      <View className="w-8 h-8 items-center justify-center">
+        <Ionicons name="lock-closed-outline" size={15} color="#f59e0b" />
+      </View>
+    );
+  }
+  return (
+    <Switch
+      value={schedule.is_active}
+      onValueChange={(v) => onToggle(schedule.id, v)}
+      trackColor={{ false: '#334155', true: '#3B82F6' }}
+      thumbColor="white"
+      style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+    />
+  );
+}
+
 export function ScheduleItem({
   schedule,
   currentUserId,
@@ -58,27 +112,16 @@ export function ScheduleItem({
 
   const isOwn       = currentUserId ? schedule.user_id === currentUserId : true;
   const isOwner     = currentUserRole === 'owner';
-  const canAct      = isOwn || isOwner;     // can toggle / delete
-  const canDelete   = canAct;
-  const isForeign   = !isOwn && !isOwner;   // other member's task, current user is member
-  // One-time task that already ran
+  const canDelete   = isOwn || isOwner;
+  const isForeign   = !isOwn && !isOwner;
   const isCompleted = !schedule.cron_expr && !schedule.is_active;
 
-  const lastCmd = schedule.last_command;
-  const statusColor = !lastCmd
-    ? '#94a3b8'
-    : lastCmd.status === 'executed' ? '#22c55e' : '#ef4444';
-  const statusLabel = !lastCmd ? 'Sin ejecutar' : lastCmd.status === 'executed' ? 'OK' : 'Error';
-
-  // Visual style: foreign tasks get a muted amber-tinted border to signal "read-only for you"
-  const containerStyle = isForeign
-    ? 'bg-bg border-amber-500/20'
-    : schedule.is_active
-    ? 'bg-bg-secondary border-border'
-    : 'bg-bg border-border/50';
+  const lastCmd     = schedule.last_command;
+  const statusColor = getStatusColor(lastCmd);
+  const statusLabel = getStatusLabel(lastCmd);
 
   return (
-    <View className={`border rounded-xl px-4 py-3 mb-3 ${containerStyle}`}>
+    <View className={`border rounded-xl px-4 py-3 mb-3 ${getContainerStyle(isForeign, schedule.is_active)}`}>
       {/* Header row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-2 flex-1">
@@ -88,7 +131,7 @@ export function ScheduleItem({
           <View className="flex-1">
             <View className="flex-row items-center gap-2 flex-wrap">
               <Text
-                className={`font-semibold text-sm ${schedule.is_active ? (isForeign ? 'text-text/70' : 'text-text') : 'text-text-secondary'}`}
+                className={`font-semibold text-sm ${getTitleColor(schedule.is_active, isForeign)}`}
                 numberOfLines={1}
               >
                 {schedule.name}
@@ -116,7 +159,6 @@ export function ScheduleItem({
             <Ionicons name="trash-outline" size={16} color="#ef4444" />
           </TouchableOpacity>
         ) : (
-          // Spacer to keep alignment consistent
           <View className="w-8 h-8" />
         )}
       </View>
@@ -133,30 +175,17 @@ export function ScheduleItem({
         </View>
 
         <View className="flex-row items-center gap-3">
-          {/* Last status dot */}
           <View className="flex-row items-center gap-1">
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor }} />
             <Text className="text-xs" style={{ color: statusColor }}>{statusLabel}</Text>
           </View>
 
-          {/* Toggle / completed badge / lock */}
-          {isCompleted ? (
-            <View className="bg-bg px-2 py-0.5 rounded-full">
-              <Text className="text-text-secondary text-xs font-semibold">Completada</Text>
-            </View>
-          ) : isForeign ? (
-            <View className="w-8 h-8 items-center justify-center">
-              <Ionicons name="lock-closed-outline" size={15} color="#f59e0b" />
-            </View>
-          ) : (
-            <Switch
-              value={schedule.is_active}
-              onValueChange={(v) => onToggle(schedule.id, v)}
-              trackColor={{ false: '#334155', true: '#3B82F6' }}
-              thumbColor="white"
-              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-            />
-          )}
+          <RightAction
+            isCompleted={isCompleted}
+            isForeign={isForeign}
+            schedule={schedule}
+            onToggle={onToggle}
+          />
         </View>
       </View>
     </View>

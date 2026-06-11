@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUserProfile } from '@/context/user-profile';
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name }: Readonly<{ name: string }>) {
   const initials = name
     .split(' ')
     .filter(Boolean)

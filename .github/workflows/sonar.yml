@@ -22,12 +22,21 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install -r errbot/requirements.txt
           pip install -e backend
           pip install pytest pytest-cov
+
+      - name: Install frontend dependencies
+        working-directory: cano-app
+        run: npm ci --no-audit --no-fund
 
       - name: Run backend tests with coverage
         env:
@@ -55,14 +64,18 @@ jobs:
         run: |
           cd errbot && python -m pytest tests/ \
             --override-ini=addopts= \
-            --cov=plugins --cov=drivers --cov=api \
+            --cov=plugins --cov=drivers \
             --cov-branch \
             --cov-report=xml:../bot-coverage.xml \
             -q
           cd ..
           sed -i 's|/home/runner/work/.*/errbot/plugins|errbot/plugins|g' bot-coverage.xml
           sed -i 's|/home/runner/work/.*/errbot/drivers|errbot/drivers|g' bot-coverage.xml
-          sed -i 's|/home/runner/work/.*/errbot/api|errbot/api|g' bot-coverage.xml
+        continue-on-error: true
+
+      - name: Run frontend tests with coverage
+        working-directory: cano-app
+        run: npm test -- --coverage --silent
         continue-on-error: true
 
       - name: SonarCloud Scan

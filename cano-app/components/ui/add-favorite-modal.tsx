@@ -88,7 +88,7 @@ export function AddFavoriteModal({
   };
 
   const handleBack = () => {
-    if (step === 'name') { setStep(actionNeedsPayload(pendingAction!) ? 'payload' : 'action'); }
+    if (step === 'name' && pendingAction) { setStep(actionNeedsPayload(pendingAction) ? 'payload' : 'action'); }
     else if (step === 'payload') { setStep('action'); setPendingAction(null); }
     else if (step === 'action') { setStep('device'); setPendingDevice(null); }
   };

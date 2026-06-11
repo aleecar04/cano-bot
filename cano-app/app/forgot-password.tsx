@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
     try {
       const redirectTo =
         Platform.OS === 'web'
-          ? `${window.location.origin}/reset-password`
+          ? `${globalThis.location.origin}/reset-password`
           : 'cano4://reset-password';
       const { error: err } = await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo });
       if (err) throw err;
