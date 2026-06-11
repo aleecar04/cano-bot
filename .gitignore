@@ -230,6 +230,9 @@ android/app/build/
 ios/Pods/
 ios/build/
 
+# Jest / coverage del frontend
+cano-app/coverage/
+
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md

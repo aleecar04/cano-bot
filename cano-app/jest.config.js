@@ -1,0 +1,45 @@
+module.exports = {
+  preset: 'jest-expo',
+  setupFiles: ['<rootDir>/jest.setup.js'],
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo|expo-.*|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@expo/vector-icons|nativewind|react-native-css-interop)/)',
+  ],
+  testMatch: [
+    '<rootDir>/__tests__/**/*.test.{ts,tsx}',
+  ],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
+  },
+  collectCoverageFrom: [
+    'components/ui/error-message.tsx',
+    'components/ui/button.tsx',
+    'components/ui/form-field.tsx',
+    'components/ui/confirm-modal.tsx',
+    'components/ui/toast.tsx',
+    'components/chat/conversation-item.tsx',
+    'components/chat/message-bubble.tsx',
+    'components/chat/bot-device-list.tsx',
+    'components/chat/bot-json-bubble.tsx',
+    'components/casa/add-room-modal.tsx',
+    'components/schedules/schedule-item.tsx',
+    'context/user-profile.tsx',
+    'app/login.tsx',
+    'app/forgot-password.tsx',
+    'app/reset-password.tsx',
+    'app/register.tsx',
+    'utils/friendly-error.ts',
+    'utils/action-labels.ts',
+    'utils/device-actions.ts',
+    'utils/device-icons.ts',
+  ],
+  coverageReporters: ['text', 'text-summary', 'lcov'],
+  coverageDirectory: 'coverage',
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+};
