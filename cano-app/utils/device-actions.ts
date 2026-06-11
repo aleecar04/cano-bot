@@ -4,7 +4,7 @@
 export type PayloadType = 'brightness' | 'color_temp' | 'volumen' | 'app' | 'color';
 
 export interface ActionDef {
-  accion: string;
+  action: string;
   icon: string;
   label: string;
   payloadType?: PayloadType;
@@ -35,10 +35,10 @@ export const TV_VOLUMES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 export const BRIGHTNESS_PRESETS = [25, 50, 75, 100];
 
-export const TEMP_PRESETS: { label: string; valor: number; color: string }[] = [
-  { label: 'Cálida', valor: 2700, color: '#f97316' },
-  { label: 'Neutra', valor: 4000, color: '#fbbf24' },
-  { label: 'Fría',   valor: 6500, color: '#93c5fd' },
+export const TEMP_PRESETS: { label: string; value: number; color: string }[] = [
+  { label: 'Cálida', value: 2700, color: '#f97316' },
+  { label: 'Neutra', value: 4000, color: '#fbbf24' },
+  { label: 'Fría',   value: 6500, color: '#93c5fd' },
 ];
 
 export function kelvinToHex(k: number): string {
@@ -57,48 +57,48 @@ export const TUYA_BULB_TYPES = new Set(['Luz']);
 // ── Action lists per device type ──────────────────────────────────────────────
 
 const ON_OFF: ActionDef[] = [
-  { accion: 'encender', icon: 'power',         label: 'Encender' },
-  { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
+  { action: 'encender', icon: 'power',         label: 'Encender' },
+  { action: 'apagar',   icon: 'power-outline', label: 'Apagar' },
 ];
 
 const TV_ACCIONES: ActionDef[] = [
-  { accion: 'encender',      icon: 'power',           label: 'Encender' },
-  { accion: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
-  { accion: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
-  { accion: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
-  { accion: 'mute',          icon: 'volume-mute',     label: 'Mute' },
-  { accion: 'set_volumen',   icon: 'options-outline', label: 'Volumen',   payloadType: 'volumen' },
-  { accion: 'abrir_app',     icon: 'apps-outline',    label: 'Abrir app', payloadType: 'app' },
+  { action: 'encender',      icon: 'power',           label: 'Encender' },
+  { action: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
+  { action: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
+  { action: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
+  { action: 'mute',          icon: 'volume-mute',     label: 'Mute' },
+  { action: 'set_volumen',   icon: 'options-outline', label: 'Volumen',   payloadType: 'volumen' },
+  { action: 'abrir_app',     icon: 'apps-outline',    label: 'Abrir app', payloadType: 'app' },
 ];
 
 const SPEAKER_ACCIONES: ActionDef[] = [
-  { accion: 'encender',      icon: 'power',           label: 'Encender' },
-  { accion: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
-  { accion: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
-  { accion: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
-  { accion: 'mute',          icon: 'volume-mute',     label: 'Mute' },
-  { accion: 'set_volumen',   icon: 'options-outline', label: 'Volumen', payloadType: 'volumen' },
+  { action: 'encender',      icon: 'power',           label: 'Encender' },
+  { action: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
+  { action: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
+  { action: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
+  { action: 'mute',          icon: 'volume-mute',     label: 'Mute' },
+  { action: 'set_volumen',   icon: 'options-outline', label: 'Volumen', payloadType: 'volumen' },
 ];
 
 const MEDIA_ACCIONES: ActionDef[] = [
-  { accion: 'encender',      icon: 'play',            label: 'Play' },
-  { accion: 'apagar',        icon: 'pause',           label: 'Pausa' },
-  { accion: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
-  { accion: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
-  { accion: 'mute',          icon: 'volume-mute',     label: 'Mute' },
-  { accion: 'set_volumen',   icon: 'options-outline', label: 'Volumen', payloadType: 'volumen' },
+  { action: 'encender',      icon: 'play',            label: 'Play' },
+  { action: 'apagar',        icon: 'pause',           label: 'Pausa' },
+  { action: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
+  { action: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
+  { action: 'mute',          icon: 'volume-mute',     label: 'Mute' },
+  { action: 'set_volumen',   icon: 'options-outline', label: 'Volumen', payloadType: 'volumen' },
 ];
 
 const LUZ_ACCIONES: ActionDef[] = [
-  { accion: 'encender',          icon: 'sunny',               label: 'Encender' },
-  { accion: 'apagar',            icon: 'moon-outline',        label: 'Apagar' },
-  { accion: 'brillo',            icon: 'contrast',            label: 'Brillo',      payloadType: 'brightness' },
-  { accion: 'temperatura_color', icon: 'thermometer-outline', label: 'Temperatura', payloadType: 'color_temp' },
+  { action: 'encender',          icon: 'sunny',               label: 'Encender' },
+  { action: 'apagar',            icon: 'moon-outline',        label: 'Apagar' },
+  { action: 'brillo',            icon: 'contrast',            label: 'Brillo',      payloadType: 'brightness' },
+  { action: 'temperatura_color', icon: 'thermometer-outline', label: 'Temperatura', payloadType: 'color_temp' },
 ];
 
 const LUZ_TUYA_ACCIONES: ActionDef[] = [
   ...LUZ_ACCIONES,
-  { accion: 'color_rgb', icon: 'color-palette-outline', label: 'Color', payloadType: 'color' },
+  { action: 'color_rgb', icon: 'color-palette-outline', label: 'Color', payloadType: 'color' },
 ];
 
 // ── Type → actions map ────────────────────────────────────────────────────────

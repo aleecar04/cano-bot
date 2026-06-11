@@ -435,7 +435,7 @@ export default function CasaScreen() {
           type: d.type,
           ip: d.ip,
           is_online: d.is_online,
-          estado: d.estado ?? {},
+          state: d.state ?? {},
           room_id: d.room_id,
         }))}
         onClose={() => setShowDevicesModal(false)}

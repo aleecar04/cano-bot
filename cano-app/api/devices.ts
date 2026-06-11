@@ -11,7 +11,7 @@ export interface DeviceDto {
   ip: string | null;
   mac: string | null;
   config: Record<string, unknown>;
-  estado: Record<string, unknown>;
+  state: Record<string, unknown>;
   is_online: boolean;
   room_id: string | null;
   registered_at: string | null;
@@ -175,7 +175,7 @@ export async function getCommand(commandId: string): Promise<CommandDto> {
   return res.json();
 }
 
-/** Polls until the bot has updated the device after vinculation (estado populated OR updated_at changed). */
+/** Polls until the bot has updated the device after vinculation (state populated OR updated_at changed). */
 export async function waitForDeviceStatus(deviceId: string, maxAttempts = 15): Promise<DeviceDto> {
   // Capture baseline updated_at so we detect when the bot first touches the device
   let baseline: string | null = null;
@@ -186,8 +186,8 @@ export async function waitForDeviceStatus(deviceId: string, maxAttempts = 15): P
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, 2000));
     const device = await getDevice(deviceId);
-    if (device.estado && Object.keys(device.estado).length > 0) return device;
-    // Bot touched the device (updated_at changed) even if estado is still empty (e.g. TV off)
+    if (device.state && Object.keys(device.state).length > 0) return device;
+    // Bot touched the device (updated_at changed) even if state is still empty (e.g. TV off)
     if (baseline && device.updated_at && device.updated_at !== baseline) return device;
   }
   return getDevice(deviceId);

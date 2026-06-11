@@ -53,7 +53,7 @@ function favoriteLabel(fav: FavoriteDto): string {
 function favoriteIcon(fav: FavoriteDto): string {
   const type    = fav.devices?.type ?? '';
   const actions = getActionsForType(type);
-  return actions.find((a) => a.accion === fav.action)?.icon
+  return actions.find((a) => a.action === fav.action)?.icon
     ?? ACTION_ICON_MAP[fav.action]
     ?? 'flash';
 }
@@ -63,28 +63,28 @@ function favoriteIcon(fav: FavoriteDto): string {
 function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payloadType: PayloadType }>) {
   const p = fav.payload ?? {};
 
-  if (payloadType === 'brightness' && typeof p.valor === 'number') {
+  if (payloadType === 'brightness' && typeof p.value === 'number') {
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">
         <Ionicons name="contrast" size={11} color="#64748b" />
         <View className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-          <View style={{ width: `${p.valor}%`, height: '100%', backgroundColor: '#6366f1', borderRadius: 99 }} />
+          <View style={{ width: `${p.value}%`, height: '100%', backgroundColor: '#6366f1', borderRadius: 99 }} />
         </View>
-        <Text className="text-text-secondary text-xs">{p.valor}%</Text>
+        <Text className="text-text-secondary text-xs">{p.value}%</Text>
       </View>
     );
   }
 
-  if (payloadType === 'color_temp' && typeof p.valor === 'number') {
+  if (payloadType === 'color_temp' && typeof p.value === 'number') {
     const preset = TEMP_PRESETS.reduce(
       (a, b) =>
-        Math.abs(b.valor - (p.valor as number)) < Math.abs(a.valor - (p.valor as number)) ? b : a,
+        Math.abs(b.value - (p.value as number)) < Math.abs(a.value - (p.value as number)) ? b : a,
       TEMP_PRESETS[0],
     );
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: kelvinToHex(p.valor) }} />
-        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: kelvinToHex(p.valor), opacity: 0.6 }} />
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: kelvinToHex(p.value) }} />
+        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: kelvinToHex(p.value), opacity: 0.6 }} />
         <Text className="text-text-secondary text-xs">{preset.label}</Text>
       </View>
     );
@@ -101,11 +101,11 @@ function FavPayloadBadge({ fav, payloadType }: Readonly<{ fav: FavoriteDto; payl
     );
   }
 
-  if (payloadType === 'volumen' && typeof p.valor === 'number') {
+  if (payloadType === 'volumen' && typeof p.value === 'number') {
     return (
       <View className="flex-row items-center gap-1.5 mt-2.5">
         <Ionicons name="volume-medium-outline" size={11} color="#64748b" />
-        <Text className="text-text-secondary text-xs">Vol {p.valor}</Text>
+        <Text className="text-text-secondary text-xs">Vol {p.value}</Text>
       </View>
     );
   }
@@ -164,7 +164,6 @@ export default function HomeScreen() {
         setToast({ message: cmd.error || 'Error ejecutando comando', variant: 'error' });
       } else {
         setToast({ message: `${favoriteLabel(fav)} ejecutado`, variant: 'success' });
-        // Refresh device list so is_online / estado reflect updated state
         const devData = await getDevices();
         setDevices(devData);
       }
@@ -180,7 +179,7 @@ export default function HomeScreen() {
 
   const handleSelectAction = async (
     device: DeviceDto,
-    accion: string,
+    action: string,
     label: string,
     payload: Record<string, unknown>,
   ) => {
@@ -188,7 +187,7 @@ export default function HomeScreen() {
     try {
       const created = await addFavorite({
         device_id: device.id,
-        action:    accion,
+        action,
         label,  // nombre que el usuario ha escrito en el modal
         payload,
       });
@@ -314,7 +313,7 @@ export default function HomeScreen() {
                 const device      = devices.find((d) => d.id === fav.device_id);
                 const isTuya      = device?.driver === 'tuya';
                 const favActions  = getActionsForType(fav.devices?.type ?? device?.type ?? '', isTuya);
-                const payloadType = favActions.find((a) => a.accion === fav.action)?.payloadType;
+                const payloadType = favActions.find((a) => a.action === fav.action)?.payloadType;
 
                 return (
                   <View

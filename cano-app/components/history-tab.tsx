@@ -71,12 +71,12 @@ function CommandRow({ cmd, showUser, username }: Readonly<CommandRowProps>) {
             {actionLabel}{appPayload ? ` · ${appPayload}` : ''}
           </Text>
           <View className="flex-row items-center gap-2 mt-0.5 flex-wrap">
-            {deviceName && (
+            {!!deviceName && (
               <Text className="text-text-secondary text-xs">{deviceName}</Text>
             )}
             <SourceBadge sourceType={cmd.source_type} />
             <Text className="text-text-secondary text-xs">{date}</Text>
-            {showUser && username && (
+            {!!(showUser && username) && (
               <View className="flex-row items-center gap-1 bg-indigo-500/10 px-2 py-0.5 rounded-full">
                 <Ionicons name="person-outline" size={10} color="#818cf8" />
                 <Text className="text-indigo-400 text-xs">{username}</Text>
@@ -271,7 +271,7 @@ export function HistoryTab({ currentUserId, currentUserRole, houseMembers }: Rea
             style={{ background: 'transparent', border: 'none', color: '#64748B', fontSize: '12px', flex: 1, outline: 'none' }}
           />
         </View>
-        {(dateFrom || dateTo) && (
+        {!!(dateFrom || dateTo) && (
           <TouchableOpacity
             onPress={() => { setDateFrom(''); setDateTo(''); }}
             className="w-9 h-9 bg-bg-secondary border border-border rounded-xl items-center justify-center"

@@ -66,14 +66,14 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
   const selectedDeviceObj = devices.find((d) => d.id === selectedDevice);
   const isTuya            = selectedDeviceObj?.driver === 'tuya';
   const availableActions  = getActionsForType(selectedDeviceObj?.type ?? '', isTuya);
-  const currentActionDef  = availableActions.find((a) => a.accion === selectedAction);
+  const currentActionDef  = availableActions.find((a) => a.action === selectedAction);
 
   const handleSelectDevice = (id: string) => {
     setSelectedDevice(id);
     const dev     = devices.find((d) => d.id === id);
     const actions = getActionsForType(dev?.type ?? '', dev?.driver === 'tuya');
-    if (!actions.find((a) => a.accion === selectedAction)) {
-      setSelectedAction(actions[0]?.accion ?? 'encender');
+    if (!actions.find((a) => a.action === selectedAction)) {
+      setSelectedAction(actions[0]?.action ?? 'encender');
     }
   };
 
@@ -96,9 +96,9 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
 
   const buildPayload = (): Record<string, unknown> => {
     switch (currentActionDef?.payloadType) {
-      case 'brightness': return { valor: brightnessVal };
-      case 'color_temp': return { valor: colorTempVal };
-      case 'volumen':    return { valor: volumeVal };
+      case 'brightness': return { value: brightnessVal };
+      case 'color_temp': return { value: colorTempVal };
+      case 'volumen':    return { value: volumeVal };
       case 'app':        return { app: selectedApp };
       case 'color':      return { color: selectedColor };
       default:           return {};
@@ -107,7 +107,7 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
 
   const handleConfirm = () => {
     if (!selectedDevice) return;
-    const actionDef   = availableActions.find((a) => a.accion === selectedAction);
+    const actionDef   = availableActions.find((a) => a.action === selectedAction);
     const actionLabel = actionDef?.label ?? selectedAction;
     const deviceName  = selectedDeviceObj?.name ?? 'Dispositivo';
     const finalName   = name.trim() || `${actionLabel} ${deviceName}`;
@@ -172,15 +172,15 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
             </ScrollView>
 
             {/* Acción */}
-            {selectedDevice && (
+            {!!selectedDevice && (
               <>
                 <Text className="text-text text-sm font-semibold mb-2">Acción</Text>
                 <View className="flex-row flex-wrap gap-2 mb-5">
                   {availableActions.map((a) => (
-                    <TouchableOpacity key={a.accion} onPress={() => setSelectedAction(a.accion)} activeOpacity={0.7}
-                      className={`flex-row items-center gap-1.5 px-3 py-2 rounded-lg border ${selectedAction === a.accion ? 'bg-indigo-500 border-indigo-500' : 'bg-bg border-border'}`}>
-                      <Ionicons name={a.icon as any} size={14} color={selectedAction === a.accion ? 'white' : '#94a3b8'} />
-                      <Text className={`text-xs font-semibold ${selectedAction === a.accion ? 'text-white' : 'text-text-secondary'}`}>{a.label}</Text>
+                    <TouchableOpacity key={a.action} onPress={() => setSelectedAction(a.action)} activeOpacity={0.7}
+                      className={`flex-row items-center gap-1.5 px-3 py-2 rounded-lg border ${selectedAction === a.action ? 'bg-indigo-500 border-indigo-500' : 'bg-bg border-border'}`}>
+                      <Ionicons name={a.icon as any} size={14} color={selectedAction === a.action ? 'white' : '#94a3b8'} />
+                      <Text className={`text-xs font-semibold ${selectedAction === a.action ? 'text-white' : 'text-text-secondary'}`}>{a.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -208,11 +208,11 @@ export function CreateScheduleModal({ visible, devices, saving, onClose, onConfi
                 <Text className="text-text text-sm font-semibold mb-2">Temperatura de color</Text>
                 <View style={{ height: 14, borderRadius: 7, backgroundColor: kelvinToHex(colorTempVal), marginBottom: 8 }} />
                 <View className="flex-row gap-2">
-                  {TEMP_PRESETS.map(({ label, valor, color }) => (
-                    <TouchableOpacity key={valor} onPress={() => setColorTempVal(valor)} activeOpacity={0.7}
-                      className={`flex-1 py-2 rounded-lg border items-center ${colorTempVal === valor ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}>
+                  {TEMP_PRESETS.map(({ label, value, color }) => (
+                    <TouchableOpacity key={value} onPress={() => setColorTempVal(value)} activeOpacity={0.7}
+                      className={`flex-1 py-2 rounded-lg border items-center ${colorTempVal === value ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}>
                       <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color, marginBottom: 3 }} />
-                      <Text className={`text-xs font-semibold ${colorTempVal === valor ? 'text-indigo-400' : 'text-text-secondary'}`}>{label}</Text>
+                      <Text className={`text-xs font-semibold ${colorTempVal === value ? 'text-indigo-400' : 'text-text-secondary'}`}>{label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>

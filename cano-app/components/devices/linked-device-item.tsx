@@ -14,20 +14,20 @@ import { TV_APPS } from '@/utils/device-actions';
 const WOL_TYPES = new Set(['SmartTV']);
 
 function isActionDisabled(
-  accion: string,
+  action: string,
   is_online: boolean,
-  estado: Record<string, unknown>,
+  state: Record<string, unknown>,
   type: string,
 ): boolean {
-  const power = estado.power as string | undefined;
+  const power = state.power as string | undefined;
   const knownState = power === 'on' || power === 'off';
   if (!knownState) return false;
 
-  if (accion === 'encender') {
+  if (action === 'encender') {
     if (WOL_TYPES.has(type)) return false;
     return is_online && power === 'on';
   }
-  if (accion === 'apagar') return !is_online || power !== 'on';
+  if (action === 'apagar') return !is_online || power !== 'on';
   return !is_online || power !== 'on';
 }
 
@@ -38,7 +38,7 @@ interface LinkedDevice {
   ip: string | null;
   mac?: string | null;
   is_online: boolean;
-  estado: Record<string, unknown>;
+  state: Record<string, unknown>;
   room_id?: string | null;
   location?: string;
 }
@@ -51,7 +51,7 @@ interface LinkedDeviceItemProps {
 }
 
 type Accion = {
-  accion: string;
+  action: string;
   icon: string;
   label: string;
   payload?: Record<string, unknown>;
@@ -93,32 +93,32 @@ function closestTempPreset(k: number): number {
 }
 
 const TV_ACCIONES: Accion[] = [
-  { accion: 'encender',      icon: 'power',           label: 'Encender' },
-  { accion: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
-  { accion: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
-  { accion: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
-  { accion: 'mute',          icon: 'volume-mute',     label: 'Mute' },
-  { accion: 'set_volumen',   icon: 'options-outline', label: 'Volumen', picker: 'volumen' },
-  { accion: 'abrir_app',     icon: 'apps-outline',    label: 'Abrir app', picker: 'app' },
+  { action: 'encender',      icon: 'power',           label: 'Encender' },
+  { action: 'apagar',        icon: 'power-outline',   label: 'Apagar' },
+  { action: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
+  { action: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
+  { action: 'mute',          icon: 'volume-mute',     label: 'Mute' },
+  { action: 'set_volumen',   icon: 'options-outline', label: 'Volumen', picker: 'volumen' },
+  { action: 'abrir_app',     icon: 'apps-outline',    label: 'Abrir app', picker: 'app' },
 ];
 
 const LUZ_ACCIONES: Accion[] = [
-  { accion: 'encender', icon: 'sunny',        label: 'Encender' },
-  { accion: 'apagar',   icon: 'moon-outline', label: 'Apagar' },
+  { action: 'encender', icon: 'sunny',        label: 'Encender' },
+  { action: 'apagar',   icon: 'moon-outline', label: 'Apagar' },
 ];
 
 const SWITCH_ACCIONES: Accion[] = [
-  { accion: 'encender', icon: 'power',         label: 'Encender' },
-  { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
+  { action: 'encender', icon: 'power',         label: 'Encender' },
+  { action: 'apagar',   icon: 'power-outline', label: 'Apagar' },
 ];
 
 const MEDIA_ACCIONES: Accion[] = [
-  { accion: 'encender',      icon: 'play',            label: 'Play' },
-  { accion: 'apagar',        icon: 'pause',           label: 'Pausa' },
-  { accion: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
-  { accion: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
-  { accion: 'mute',          icon: 'volume-mute',     label: 'Mute' },
-  { accion: 'set_volumen',   icon: 'options-outline', label: 'Volumen', picker: 'volumen' },
+  { action: 'encender',      icon: 'play',            label: 'Play' },
+  { action: 'apagar',        icon: 'pause',           label: 'Pausa' },
+  { action: 'subir_volumen', icon: 'volume-high',     label: 'Vol +' },
+  { action: 'bajar_volumen', icon: 'volume-low',      label: 'Vol -' },
+  { action: 'mute',          icon: 'volume-mute',     label: 'Mute' },
+  { action: 'set_volumen',   icon: 'options-outline', label: 'Volumen', picker: 'volumen' },
 ];
 
 const ACCIONES: Record<string, Accion[]> = {
@@ -133,8 +133,8 @@ const ACCIONES: Record<string, Accion[]> = {
 };
 
 const DEFAULT_ACCIONES: Accion[] = [
-  { accion: 'encender', icon: 'power',         label: 'Encender' },
-  { accion: 'apagar',   icon: 'power-outline', label: 'Apagar' },
+  { action: 'encender', icon: 'power',         label: 'Encender' },
+  { action: 'apagar',   icon: 'power-outline', label: 'Apagar' },
 ];
 
 export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
@@ -167,10 +167,10 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
   const hasTuyaColor = _TUYA_BULB_TYPES.has(device.type);
   const isSensor     = device.type === 'Sensor' || device.type === 'sensor';
 
-  const handleAccion = async (accion: string, payload: Record<string, unknown> = {}) => {
-    setLoadingAccion(accion);
+  const handleAccion = async (action: string, payload: Record<string, unknown> = {}) => {
+    setLoadingAccion(action);
     try {
-      const { command_id } = await sendCommand(device.id, accion, payload);
+      const { command_id } = await sendCommand(device.id, action, payload);
       const cmd = await waitForCommand(command_id);
       if (cmd.status === 'failed') {
         setToast({ message: cmd.error || 'Error ejecutando comando', variant: 'error' });
@@ -195,7 +195,7 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
 
   const handlePickerAccion = (a: Accion) => {
     if (a.picker) { setPicker(a.picker); return; }
-    handleAccion(a.accion, a.payload ?? {});
+    handleAccion(a.action, a.payload ?? {});
   };
 
   const icon  = deviceIcon(device.type);
@@ -220,10 +220,10 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                   {device.is_online ? 'Disponible' : 'No disponible'}
                 </Text>
               </View>
-              {(device.estado?.power === 'on' || device.estado?.power === 'off') && (
-                <View className={`px-2 py-0.5 rounded-full ${device.estado.power === 'on' ? 'bg-blue-500/20' : 'bg-bg'}`}>
-                  <Text className={`text-xs font-semibold ${device.estado.power === 'on' ? 'text-blue-400' : 'text-text-secondary'}`}>
-                    {device.estado.power === 'on' ? 'Encendido' : 'Apagado'}
+              {(device.state?.power === 'on' || device.state?.power === 'off') && (
+                <View className={`px-2 py-0.5 rounded-full ${device.state.power === 'on' ? 'bg-blue-500/20' : 'bg-bg'}`}>
+                  <Text className={`text-xs font-semibold ${device.state.power === 'on' ? 'text-blue-400' : 'text-text-secondary'}`}>
+                    {device.state.power === 'on' ? 'Encendido' : 'Apagado'}
                   </Text>
                 </View>
               )}
@@ -279,36 +279,36 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
           {/* ── Sensor: mostrar lecturas en lugar de botones ── */}
           {isSensor && (
             <View className="flex-row flex-wrap gap-3">
-              {device.estado?.temperature !== undefined && (
+              {device.state?.temperature !== undefined && (
                 <View className="bg-bg border border-border rounded-xl px-4 py-3 items-center flex-1">
                   <Ionicons name="thermometer-outline" size={20} color="#06b6d4" />
-                  <Text className="text-text font-bold text-lg mt-1">{device.estado.temperature as number}°C</Text>
+                  <Text className="text-text font-bold text-lg mt-1">{device.state.temperature as number}°C</Text>
                   <Text className="text-text-secondary text-xs">Temperatura</Text>
                 </View>
               )}
-              {device.estado?.humidity !== undefined && (
+              {device.state?.humidity !== undefined && (
                 <View className="bg-bg border border-border rounded-xl px-4 py-3 items-center flex-1">
                   <Ionicons name="water-outline" size={20} color="#3b82f6" />
-                  <Text className="text-text font-bold text-lg mt-1">{device.estado.humidity as number}%</Text>
+                  <Text className="text-text font-bold text-lg mt-1">{device.state.humidity as number}%</Text>
                   <Text className="text-text-secondary text-xs">Humedad</Text>
                 </View>
               )}
-              {device.estado?.flood !== undefined && (
-                <View className={`border rounded-xl px-4 py-3 items-center flex-1 ${device.estado.flood ? 'bg-red-500/15 border-red-500/30' : 'bg-bg border-border'}`}>
-                  <Ionicons name="alert-circle-outline" size={20} color={device.estado.flood ? '#ef4444' : '#94a3b8'} />
-                  <Text className={`font-bold text-sm mt-1 ${device.estado.flood ? 'text-red-400' : 'text-text-secondary'}`}>
-                    {device.estado.flood ? '¡Inundación!' : 'Sin inundación'}
+              {device.state?.flood !== undefined && (
+                <View className={`border rounded-xl px-4 py-3 items-center flex-1 ${device.state.flood ? 'bg-red-500/15 border-red-500/30' : 'bg-bg border-border'}`}>
+                  <Ionicons name="alert-circle-outline" size={20} color={device.state.flood ? '#ef4444' : '#94a3b8'} />
+                  <Text className={`font-bold text-sm mt-1 ${device.state.flood ? 'text-red-400' : 'text-text-secondary'}`}>
+                    {device.state.flood ? '¡Inundación!' : 'Sin inundación'}
                   </Text>
                 </View>
               )}
-              {device.estado?.door !== undefined && (
+              {device.state?.door !== undefined && (
                 <View className="bg-bg border border-border rounded-xl px-4 py-3 items-center flex-1">
                   <Ionicons name="exit-outline" size={20} color="#f59e0b" />
-                  <Text className="text-text font-bold text-sm mt-1 capitalize">{String(device.estado.door)}</Text>
+                  <Text className="text-text font-bold text-sm mt-1 capitalize">{String(device.state.door)}</Text>
                   <Text className="text-text-secondary text-xs">Puerta</Text>
                 </View>
               )}
-              {!device.estado?.temperature && !device.estado?.humidity && !device.estado?.flood && !device.estado?.door && (
+              {!device.state?.temperature && !device.state?.humidity && !device.state?.flood && !device.state?.door && (
                 <Text className="text-text-secondary text-xs">Sin lecturas — esperando polling</Text>
               )}
             </View>
@@ -318,18 +318,18 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
           {!isSensor && (
             <View className="flex-row flex-wrap gap-2">
               {acciones.map((a) => {
-                const stateDisabled = isActionDisabled(a.accion, device.is_online, device.estado, device.type);
+                const stateDisabled = isActionDisabled(a.action, device.is_online, device.state, device.type);
                 const disabled = loadingAccion !== null || stateDisabled;
                 return (
                   <TouchableOpacity
-                    key={a.accion}
+                    key={a.action}
                     className="bg-primary/20 border border-primary/30 rounded-lg px-3 py-2 flex-row items-center gap-1"
                     style={{ opacity: stateDisabled ? 0.35 : 1 }}
                     onPress={() => handlePickerAccion(a)}
                     disabled={disabled}
                     activeOpacity={0.7}
                   >
-                    {loadingAccion === a.accion
+                    {loadingAccion === a.action
                       ? <ActivityIndicator size="small" color="#3B82F6" />
                       : <Ionicons name={a.icon as any} size={14} color="#3B82F6" />}
                     <Text className="text-primary text-xs font-semibold">{a.label}</Text>
@@ -346,19 +346,19 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               <View>
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-text-secondary text-xs font-semibold">Brillo</Text>
-                  {typeof device.estado?.brightness === 'number' && (
-                    <Text className="text-text-secondary text-xs">{device.estado.brightness as number}%</Text>
+                  {typeof device.state?.brightness === 'number' && (
+                    <Text className="text-text-secondary text-xs">{device.state.brightness as number}%</Text>
                   )}
                 </View>
                 <View className="flex-row gap-2">
                   {[25, 50, 75, 100].map((v) => {
-                    const cur = device.estado?.brightness as number | undefined;
+                    const cur = device.state?.brightness as number | undefined;
                     const isActive = cur !== undefined && Math.abs(cur - v) < 13;
                     return (
                       <TouchableOpacity
                         key={v}
                         className={`flex-1 py-2 rounded-lg border items-center ${isActive ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}
-                        onPress={() => handleAccion('brillo', { valor: v })}
+                        onPress={() => handleAccion('brillo', { value: v })}
                         disabled={loadingAccion !== null}
                         activeOpacity={0.7}
                       >
@@ -372,24 +372,24 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               {/* Temperatura */}
               <View>
                 <Text className="text-text-secondary text-xs font-semibold mb-2">Temperatura</Text>
-                {typeof device.estado?.color_temp === 'number' && device.estado?.work_mode !== 'colour' && (
-                  <View style={{ height: 14, borderRadius: 7, backgroundColor: kelvinToHex(device.estado.color_temp as number), marginBottom: 8 }} />
+                {typeof device.state?.color_temp === 'number' && device.state?.work_mode !== 'colour' && (
+                  <View style={{ height: 14, borderRadius: 7, backgroundColor: kelvinToHex(device.state.color_temp as number), marginBottom: 8 }} />
                 )}
                 <View className="flex-row gap-2">
                   {[
-                    { label: 'Cálida', valor: 2700, color: '#f97316' },
-                    { label: 'Neutra', valor: 4000, color: '#fbbf24' },
-                    { label: 'Fría',   valor: 6500, color: '#93c5fd' },
-                  ].map(({ label, valor, color }) => {
-                    const curTemp = device.estado?.color_temp as number | undefined;
+                    { label: 'Cálida', value: 2700, color: '#f97316' },
+                    { label: 'Neutra', value: 4000, color: '#fbbf24' },
+                    { label: 'Fría',   value: 6500, color: '#93c5fd' },
+                  ].map(({ label, value, color }) => {
+                    const curTemp = device.state?.color_temp as number | undefined;
                     const isActive = curTemp !== undefined
-                      && device.estado?.work_mode !== 'colour'
-                      && closestTempPreset(curTemp) === valor;
+                      && device.state?.work_mode !== 'colour'
+                      && closestTempPreset(curTemp) === value;
                     return (
                       <TouchableOpacity
                         key={label}
                         className={`flex-1 py-2 rounded-lg border items-center ${isActive ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}
-                        onPress={() => handleAccion('temperatura_color', { valor })}
+                        onPress={() => handleAccion("temperatura_color", { value })}
                         disabled={loadingAccion !== null}
                         activeOpacity={0.7}
                       >
@@ -405,17 +405,17 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               {hasTuyaColor && (
                 <View>
                   <Text className="text-text-secondary text-xs font-semibold mb-2">Color</Text>
-                  {typeof device.estado?.color_hex === 'string' && device.estado?.work_mode === 'colour' && (
+                  {typeof device.state?.color_hex === 'string' && device.state?.work_mode === 'colour' && (
                     <View className="flex-row items-center gap-2 mb-2">
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: device.estado.color_hex as string, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' }} />
-                      <View style={{ flex: 1, height: 14, borderRadius: 7, backgroundColor: device.estado.color_hex as string, opacity: 0.55 }} />
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: device.state.color_hex as string, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' }} />
+                      <View style={{ flex: 1, height: 14, borderRadius: 7, backgroundColor: device.state.color_hex as string, opacity: 0.55 }} />
                     </View>
                   )}
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View className="flex-row gap-2 pr-2">
                       {LUZ_COLORES.map(({ name, hex }) => {
-                        const curHex = device.estado?.color_hex as string | undefined;
-                        const isActive = device.estado?.work_mode === 'colour'
+                        const curHex = device.state?.color_hex as string | undefined;
+                        const isActive = device.state?.work_mode === 'colour'
                           && curHex?.toLowerCase() === hex.toLowerCase();
                         return (
                           <TouchableOpacity
@@ -465,7 +465,7 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
               {picker === 'volumen' && TV_VOLUMES.map(v => (
                 <TouchableOpacity
                   key={v}
-                  onPress={() => { setPicker(null); handleAccion('set_volumen', { valor: v }); }}
+                  onPress={() => { setPicker(null); handleAccion('set_volumen', { value: v }); }}
                   className="flex-row items-center gap-3 bg-bg border border-border rounded-xl px-4 py-3"
                   activeOpacity={0.7}
                 >

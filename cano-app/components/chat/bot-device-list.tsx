@@ -7,7 +7,7 @@ interface DeviceEntry {
   name: string;
   type: string;
   is_online: boolean;
-  estado?: Record<string, unknown>;
+  state?: Record<string, unknown>;
 }
 
 interface BotDeviceListProps {

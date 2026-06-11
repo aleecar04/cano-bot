@@ -17,7 +17,7 @@ interface AddFavoriteModalProps {
   devices: DeviceDto[];
   saving: boolean;
   onClose: () => void;
-  onSelectAction: (device: DeviceDto, accion: string, label: string, payload: Record<string, unknown>) => void;
+  onSelectAction: (device: DeviceDto, action: string, label: string, payload: Record<string, unknown>) => void;
 }
 
 export function AddFavoriteModal({
@@ -72,9 +72,9 @@ export function AddFavoriteModal({
     if (!pendingAction) return;
     let payload: Record<string, unknown> = {};
     switch (pendingAction.payloadType) {
-      case 'brightness': payload = { valor: brightnessVal }; break;
-      case 'color_temp': payload = { valor: colorTempVal }; break;
-      case 'volumen':    payload = { valor: volumeVal }; break;
+      case 'brightness': payload = { value: brightnessVal }; break;
+      case 'color_temp': payload = { value: colorTempVal }; break;
+      case 'volumen':    payload = { value: volumeVal }; break;
       case 'app':        payload = { app: selectedApp }; break;
       case 'color':      payload = { color: selectedColor }; break;
     }
@@ -84,7 +84,7 @@ export function AddFavoriteModal({
   const handleConfirmName = () => {
     if (!pendingAction || !pendingDevice) return;
     const label = customLabel.trim() || pendingAction.label;
-    onSelectAction(pendingDevice, pendingAction.accion, label, pendingPayload);
+    onSelectAction(pendingDevice, pendingAction.action, label, pendingPayload);
   };
 
   const handleBack = () => {
@@ -153,7 +153,7 @@ export function AddFavoriteModal({
 
             {/* Step: action */}
             {step === 'action' && actionItems.map((a) => (
-              <TouchableOpacity key={a.accion} onPress={() => handleSelectAction(a)} disabled={saving} activeOpacity={0.7}
+              <TouchableOpacity key={a.action} onPress={() => handleSelectAction(a)} disabled={saving} activeOpacity={0.7}
                 className="flex-row items-center gap-3 bg-bg border border-border rounded-xl px-4 py-3 mb-2">
                 {saving
                   ? <ActivityIndicator size="small" color="#6366f1" />
@@ -188,11 +188,11 @@ export function AddFavoriteModal({
                     <Text className="text-text text-sm font-semibold mb-3">Temperatura de color</Text>
                     <View style={{ height: 16, borderRadius: 8, backgroundColor: kelvinToHex(colorTempVal), marginBottom: 10 }} />
                     <View className="flex-row gap-2">
-                      {TEMP_PRESETS.map(({ label, valor, color }) => (
-                        <TouchableOpacity key={valor} onPress={() => setColorTempVal(valor)} activeOpacity={0.7}
-                          className={`flex-1 py-3 rounded-lg border items-center ${colorTempVal === valor ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}>
+                      {TEMP_PRESETS.map(({ label, value, color }) => (
+                        <TouchableOpacity key={value} onPress={() => setColorTempVal(value)} activeOpacity={0.7}
+                          className={`flex-1 py-3 rounded-lg border items-center ${colorTempVal === value ? 'border-indigo-500/60 bg-indigo-500/20' : 'border-border bg-bg'}`}>
                           <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color, marginBottom: 4 }} />
-                          <Text className={`text-xs font-semibold ${colorTempVal === valor ? 'text-indigo-400' : 'text-text-secondary'}`}>{label}</Text>
+                          <Text className={`text-xs font-semibold ${colorTempVal === value ? 'text-indigo-400' : 'text-text-secondary'}`}>{label}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>

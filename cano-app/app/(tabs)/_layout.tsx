@@ -8,7 +8,6 @@ import { HapticTab } from '@/components/haptic-tab';
 import { AppHeader } from '@/components/ui/app-header';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useUserProfile } from '@/context/user-profile';
 import "../../global.css"
 
 function FlashIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
@@ -23,16 +22,12 @@ function HomeIcon({ color, focused }: Readonly<{ color: string; focused: boolean
 function ChatIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'chatbox-sharp' : 'chatbox-outline'} size={28} color={color} />;
 }
-function ShieldIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
-  return <Ionicons name={focused ? 'shield-checkmark' : 'shield-checkmark-outline'} size={28} color={color} />;
-}
 function PersonIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
   return <Ionicons name={focused ? 'person-sharp' : 'person-outline'} size={28} color={color} />;
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { profile } = useUserProfile();
   const router = useRouter();
 
   useEffect(() => {
@@ -46,7 +41,6 @@ export default function TabLayout() {
   }, []);
 
   const colors = Colors[colorScheme ?? 'light'];
-  const isAdmin = profile?.is_superuser === true;
 
   return (
     <KeyboardAvoidingView
@@ -96,14 +90,6 @@ export default function TabLayout() {
           options={{
             title: 'Chat',
             tabBarIcon: ChatIcon,
-          }}
-        />
-        <Tabs.Screen
-          name="admin"
-          options={{
-            title: 'Admin',
-            href: isAdmin ? undefined : null,
-            tabBarIcon: ShieldIcon,
           }}
         />
         <Tabs.Screen
