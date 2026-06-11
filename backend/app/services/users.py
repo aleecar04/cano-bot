@@ -1,21 +1,16 @@
 import secrets
+
 from app.core.config import settings
 from app.core.db import supabase
-from app.core.errors import bad_request, conflict, forbidden, not_found
-from app.models.users import UserCreate, UserUpdate, UserUpdateMe, UserRegister
-from app.services.xmpp import create_xmpp_account
-from app.repositories.users import user_repository, xmpp_account_repository
+from app.core.errors import bad_request, not_found
+from app.models.users import UserRegister
 from app.repositories.houses import house_member_repository
+from app.repositories.users import user_repository, xmpp_account_repository
+from app.services.xmpp import change_xmpp_password, create_xmpp_account
 
 
-# ── Read helpers ─────────────────────────────────────────────────────────────
 def get_user_by_email(email: str) -> dict | None:
     return user_repository.find_by_email(email)
-
-
-def list_users(skip: int = 0, limit: int = 100) -> dict:
-    """Paginated list of users with total count."""
-    return user_repository.find_paginated(skip, limit)
 
 
 def resolve_jid_in_house(jid: str, house_id: str) -> str | None:
@@ -34,16 +29,6 @@ def resolve_username_to_email(username: str) -> str:
     return email
 
 
-def get_user_by_id(user_id: str, current_user: dict) -> dict:
-    user = user_repository.find_by_id(user_id)
-    if not user:
-        raise not_found("User not found")
-    if user["id"] != current_user["id"] and not current_user.get("is_superuser"):
-        raise forbidden("The user doesn't have enough privileges")
-    return user
-
-
-# ── Creation flows ──────────────────────────────────────────────────────────
 async def create_user_with_xmpp(
     email: str,
     password: str,
@@ -91,44 +76,9 @@ async def create_user_with_xmpp(
     return {**user, "xmpp_jid": jid, "xmpp_password": xmpp_password}
 
 
-def create_user_simple(email: str, password: str, username: str | None = None) -> dict:
-    auth_response = supabase.auth.admin.create_user({
-        "email": email,
-        "password": password,
-        "email_confirm": True,
-    })
-    user_id = auth_response.user.id
-    username = username or email.split("@")[0]
-    jid = f"{username}@{settings.XMPP_DOMAIN}"
-    dummy_password = secrets.token_urlsafe(16)
-
-    supabase.table("base_user").insert({
-        "id": user_id,
-        "username": username,
-        "email": email,
-        "first_name": None,
-        "last_name": None,
-    }).execute()
-
-    supabase.rpc("insert_xmpp_account", {
-        "p_user_id": user_id,
-        "p_jid": jid,
-        "p_password": dummy_password,
-        "p_key": settings.XMPP_ENCRYPTION_KEY,
-    }).execute()
-
-    return user_repository.find_by_id(user_id)
-
-
-def create_user_for_admin(user_in: UserCreate) -> dict:
-    if get_user_by_email(email=user_in.email):
-        raise bad_request("The user with this email already exists in the system.")
-    return create_user_simple(email=user_in.email, password=user_in.password)
-
-
 async def register(user_in: UserRegister) -> dict:
     if user_repository.exists_by_username(user_in.username):
-        raise bad_request("Username already taken")
+        raise bad_request("El nombre de usuario ya está en uso")
     return await create_user_with_xmpp(
         email=user_in.email,
         password=user_in.password,
@@ -138,7 +88,6 @@ async def register(user_in: UserRegister) -> dict:
     )
 
 
-# ── Profile / me ─────────────────────────────────────────────────────────────
 def get_profile(current_user: dict) -> dict:
     user_id = current_user["id"]
 
@@ -153,7 +102,6 @@ def get_profile(current_user: dict) -> dict:
         "id":            current_user["id"],
         "email":         current_user.get("email"),
         "is_active":     current_user.get("is_active"),
-        "is_superuser": current_user.get("is_superuser"),
         "full_name":    full,
         "created_at":   current_user.get("created_at"),
         "username":     row.get("username"),
@@ -163,56 +111,15 @@ def get_profile(current_user: dict) -> dict:
     }
 
 
-def update_me(user_id: str, user_in: UserUpdateMe) -> dict:
-    if user_in.email:
-        existing = get_user_by_email(email=user_in.email)
-        if existing and existing["id"] != user_id:
-            raise conflict("User with this email already exists")
-    data = user_in.model_dump(exclude_unset=True)
-    result = supabase.table("base_user").update(data).eq("id", user_id).execute()
-    return result.data[0]
-
-
-def change_password_me(email: str, current_password: str, new_password: str) -> None:
-    if current_password == new_password:
-        raise bad_request("New password cannot be the same as the current one")
-    try:
-        supabase.auth.sign_in_with_password({
-            "email":    email,
-            "password": current_password,
-        })
-    except Exception:
-        raise bad_request("Incorrect current password")
-    try:
-        supabase.auth.update_user({"password": new_password})
-    except Exception:
-        raise bad_request("Could not update password")
-
-
-def delete_me(current_user: dict) -> None:
-    if current_user.get("is_superuser"):
-        raise forbidden("Super users are not allowed to delete themselves")
-    supabase.table("base_user").delete().eq("id", current_user["id"]).execute()
-
-
-# ── Admin flows ─────────────────────────────────────────────────────────────
-def admin_update_user(user_id: str, user_in: UserUpdate) -> dict:
-    if not user_repository.find_by_id(user_id):
-        raise not_found("The user with this id does not exist in the system")
-    if user_in.email:
-        owner = get_user_by_email(email=user_in.email)
-        if owner and owner["id"] != user_id:
-            raise conflict("User with this email already exists")
-    data = user_in.model_dump(exclude_unset=True)
-    data.pop("password", None)
-    result = supabase.table("base_user").update(data).eq("id", user_id).execute()
-    return result.data[0]
-
-
-def admin_delete_user(user_id: str, current_user: dict) -> None:
-    user = user_repository.find_by_id(user_id)
-    if not user:
-        raise not_found("User not found")
-    if user["id"] == current_user["id"]:
-        raise forbidden("Super users are not allowed to delete themselves")
-    supabase.table("base_user").delete().eq("id", user_id).execute()
+async def regenerate_xmpp_password(user_id: str) -> dict:
+    jid = xmpp_account_repository.find_jid_by_user(user_id)
+    if not jid:
+        raise not_found("Cuenta XMPP no encontrada")
+    new_password = secrets.token_urlsafe(16)
+    await change_xmpp_password(jid, new_password)
+    supabase.rpc("update_xmpp_password", {
+        "p_user_id":  user_id,
+        "p_password": new_password,
+        "p_key":      settings.XMPP_ENCRYPTION_KEY,
+    }).execute()
+    return {"xmpp_jid": jid, "xmpp_password": new_password}

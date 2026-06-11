@@ -1,8 +1,10 @@
+import secrets
 import uuid
 
 import httpx
-import secrets
+
 from app.core.config import settings
+
 
 def _admin_auth() -> tuple:
     return (settings.XMPP_ADMIN_USER, settings.XMPP_ADMIN_PASSWORD)
@@ -58,6 +60,54 @@ async def _complete_add_user_command(client: httpx.AsyncClient, session_id: str,
                     "accountjid": jid,
                     "password": password,
                     "password-verify": password
+                }
+            }
+        }
+    )
+    r.raise_for_status()
+
+
+async def change_xmpp_password(jid: str, new_password: str) -> None:
+    async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
+        session_id = await _start_change_password_command(client)
+        await _complete_change_password_command(client, session_id, jid, new_password)
+
+
+async def _start_change_password_command(client: httpx.AsyncClient) -> str:
+    r = await client.post(
+        settings.XMPP_REST_URL,
+        auth=_admin_auth(),
+        headers=_base_headers(),
+        json={
+            "kind": "iq",
+            "type": "set",
+            "to": settings.XMPP_DOMAIN,
+            "command": {
+                "node": "http://jabber.org/protocol/admin#change-user-password",
+                "action": "execute"
+            }
+        }
+    )
+    r.raise_for_status()
+    return r.json()["command"]["sessionid"]
+
+
+async def _complete_change_password_command(client: httpx.AsyncClient, session_id: str, jid: str, password: str) -> None:
+    r = await client.post(
+        settings.XMPP_REST_URL,
+        auth=_admin_auth(),
+        headers=_base_headers(),
+        json={
+            "kind": "iq",
+            "type": "set",
+            "to": settings.XMPP_DOMAIN,
+            "command": {
+                "node": "http://jabber.org/protocol/admin#change-user-password",
+                "action": "complete",
+                "sessionid": session_id,
+                "data": {
+                    "accountjid": jid,
+                    "password": password
                 }
             }
         }

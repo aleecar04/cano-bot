@@ -162,9 +162,9 @@ async def _maybe_await(result: object) -> None:
 
 
 def _device_not_found_message(intent_data: dict) -> str:
-    nombre = intent_data.get("dispositivo") or ""
-    if nombre:
-        return f"No he encontrado ningún dispositivo llamado '{nombre}'."
+    name = intent_data.get("device") or ""
+    if name:
+        return f"No he encontrado ningún dispositivo llamado '{name}'."
     return "No he entendido qué dispositivo quieres controlar."
 
 
@@ -198,8 +198,8 @@ async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id:
     from app.services.command_executor import execute_command, CommandSource
     from app.services.device_catalog import is_action_supported, validate_payload
 
-    action = intent_data.get("accion")
-    name = (intent_data.get("dispositivo") or "").lower()
+    action = intent_data.get("action")
+    name = (intent_data.get("device") or "").lower()
     if not action or not name:
         raise _DeviceNotFound
 
@@ -269,7 +269,7 @@ def _get_base_user(user_id: str) -> dict:
 
 def _verify_conversation(conversation_id: str, user_id: str) -> None:
     if not conversation_repository.find_by_id_and_user(conversation_id, user_id):
-        raise not_found("Conversation not found")
+        raise not_found("Conversación no encontrada")
 
 
 def _get_or_create_xmpp_conversation_today(user_id: str) -> str:

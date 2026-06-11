@@ -24,5 +24,5 @@ def lookup_prefix_command(body: str) -> dict | None:
         return None
     intent_data: dict = {"intent": head}
     if head == "acciones" and tail:
-        intent_data["dispositivo"] = tail.strip()
+        intent_data["device"] = tail.strip()
     return intent_data
