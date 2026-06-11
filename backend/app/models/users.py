@@ -7,12 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class UserBase(BaseModel):
     email: EmailStr = Field(max_length=255)
     is_active: bool = True
-    is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
-
-
-class UserCreate(UserBase):
-    password: str = Field(min_length=8, max_length=128)
 
 
 class UserRegister(BaseModel):
@@ -51,21 +46,6 @@ class UserRegister(BaseModel):
         return cleaned.title()
 
 
-class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
-    password: str | None = Field(default=None, min_length=8, max_length=128)
-
-
-class UserUpdateMe(BaseModel):
-    full_name: str | None = Field(default=None, max_length=255)
-    email: EmailStr | None = Field(default=None, max_length=255)
-
-
-class UpdatePassword(BaseModel):
-    current_password: str = Field(min_length=8, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
-
-
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
@@ -74,16 +54,10 @@ class UserPublic(UserBase):
 class UserProfilePublic(UserPublic):
     email: str | None = None
     is_active: bool | None = None
-    is_superuser: bool | None = None
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
     xmpp_jid: str | None = None
-
-
-class UsersPublic(BaseModel):
-    data: list[UserPublic]
-    count: int
 
 
 class BaseUserPublic(BaseModel):
@@ -97,9 +71,3 @@ class BaseUserPublic(BaseModel):
 class RegisterResponse(BaseUserPublic):
     xmpp_jid: str | None = None
     xmpp_password: str | None = None
-
-
-class PrivateUserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str | None = None

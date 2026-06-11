@@ -12,13 +12,6 @@ class HouseRepository:
         res = supabase.table("houses").select("*").eq("bot_token_hash", token_hash).execute()
         return res.data[0] if res.data else None
 
-    def count_all(self) -> int:
-        return supabase.table("houses").select("id", count="exact").execute().count or 0
-
-    def find_all(self) -> list[dict]:
-        return supabase.table("houses").select("*").execute().data or []
-
-
 class FloorRepository:
 
     def find_by_house(self, house_id: str) -> list[dict]:
@@ -105,16 +98,6 @@ class HouseMemberRepository:
             .execute()
         )
         return res.data or []
-
-    def find_user_role_pairs(self, house_id: str) -> list[dict]:
-        res = (
-            supabase.table("house_members")
-            .select("user_id, role")
-            .eq("house_id", house_id)
-            .execute()
-        )
-        return res.data or []
-
 
 class HouseInvitationRepository:
 
