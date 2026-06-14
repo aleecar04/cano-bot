@@ -24,8 +24,10 @@ BOT_ADMINS = (
 )
 
 
-_BOT_TOKEN   = os.getenv("BOT_TOKEN", "")
-_BACKEND_URL = os.getenv("BACKEND_URL", "")
+_BOT_TOKEN    = os.getenv("BOT_TOKEN", "")
+_BACKEND_URL  = os.getenv("BACKEND_URL", "")
+_BOT_USERNAME = os.getenv("BOT_USERNAME", "")
+_BOT_PASSWORD = os.getenv("BOT_PASSWORD", "")
 _resource = "bot-" + hashlib.sha256(_BOT_TOKEN.encode()).hexdigest()[:12] if _BOT_TOKEN else "bot-default"
 
 
@@ -43,7 +45,10 @@ def _fetch_xmpp_credentials() -> tuple[str, str]:
     return data["username"], data["password"]
 
 
-_SHARED_JID, _SHARED_PASSWORD = _fetch_xmpp_credentials()
+if _BOT_USERNAME and _BOT_PASSWORD:
+    _SHARED_JID, _SHARED_PASSWORD = _BOT_USERNAME, _BOT_PASSWORD
+else:
+    _SHARED_JID, _SHARED_PASSWORD = _fetch_xmpp_credentials()
 
 BOT_IDENTITY = {
     'username': f"{_SHARED_JID}/{_resource}",

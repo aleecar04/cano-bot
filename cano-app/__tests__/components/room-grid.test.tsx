@@ -50,7 +50,7 @@ describe('<RoomGrid />', () => {
     expect(onRoomPress).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' }));
   });
 
-  it('dispara onDeleteFloor con id y nombre cuando se pulsa la papelera de planta', () => {
+  it('dispara onDeleteFloor con id y nombre cuando se pulsa "Eliminar planta" en el menú', () => {
     const onDeleteFloor = jest.fn();
     render(
       <RoomGrid
@@ -62,6 +62,7 @@ describe('<RoomGrid />', () => {
     );
     const buttons = screen.UNSAFE_getAllByType(TouchableOpacity);
     fireEvent.press(buttons.at(-1)!);
+    fireEvent.press(screen.getByText('Eliminar planta'));
     expect(onDeleteFloor).toHaveBeenCalledWith('f1', 'Planta baja');
   });
 });

@@ -58,10 +58,10 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
-enabled = true
-# Specifies an ordered list of seed files to load during db reset.
-# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+# Desactivado: seed.sql usa directivas psql (\set) que fallan al ejecutarse
+# desde supabase CLI. Para sembrar datos manualmente:
+#   psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/seed.sql
+enabled = false
 sql_paths = ["./seed.sql"]
 
 [db.network_restrictions]
