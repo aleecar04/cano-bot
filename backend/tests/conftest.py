@@ -1,12 +1,28 @@
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import uuid
-from unittest.mock import MagicMock
 
-os.environ.setdefault("PROJECT_NAME", "test")
-os.environ.setdefault("SUPABASE_URL", "http://test")
-os.environ.setdefault("SUPABASE_KEY", "test-key")
+
+def _supabase_status() -> dict:
+    out = subprocess.check_output(
+        ["supabase", "status", "--output", "json"],
+        stderr=subprocess.DEVNULL,
+    )
+    raw = json.loads(out)
+    return {
+        "url": raw.get("API_URL") or raw.get("api_url") or "http://localhost:54321",
+        "key": raw.get("SERVICE_ROLE_KEY") or raw.get("service_role_key"),
+    }
+
+
+_SUPA = _supabase_status()
+
+os.environ["PROJECT_NAME"] = "test"
+os.environ["SUPABASE_URL"] = _SUPA["url"]
+os.environ["SUPABASE_KEY"] = _SUPA["key"]
 os.environ.setdefault("XMPP_BOT_JID", "bot@test")
 os.environ.setdefault("XMPP_ADMIN_USER", "admin@test")
 os.environ.setdefault("XMPP_ADMIN_PASSWORD", "test123")
@@ -15,64 +31,8 @@ os.environ.setdefault("XMPP_ENCRYPTION_KEY", "0" * 64)
 
 import pytest
 from fastapi.testclient import TestClient
+from supabase import create_client, Client
 
-
-# ── Supabase builder mock ─────────────────────────────────────────────────────
-
-class _QueryBuilder:
-
-    def __init__(self, return_data: list[dict] | None = None):
-        self._data = return_data if return_data is not None else []
-        self._inserted: list[dict] | None = None
-
-    def select(self, *a, **kw) -> "_QueryBuilder": return self
-    def insert(self, data=None, *a, **kw) -> "_QueryBuilder":
-        if isinstance(data, dict):
-            self._inserted = [{**data, "id": self._data[0]["id"] if self._data else str(uuid.uuid4())}]
-        return self
-    def update(self, *a, **kw) -> "_QueryBuilder": return self
-    def delete(self, *a, **kw) -> "_QueryBuilder": return self
-    def upsert(self, *a, **kw) -> "_QueryBuilder": return self
-    def eq(self, *a, **kw) -> "_QueryBuilder": return self
-    def neq(self, *a, **kw) -> "_QueryBuilder": return self
-    def in_(self, *a, **kw) -> "_QueryBuilder": return self
-    def is_(self, *a, **kw) -> "_QueryBuilder": return self
-    def lte(self, *a, **kw) -> "_QueryBuilder": return self
-    def gte(self, *a, **kw) -> "_QueryBuilder": return self
-    def order(self, *a, **kw) -> "_QueryBuilder": return self
-    def limit(self, *a, **kw) -> "_QueryBuilder": return self
-    def single(self, *a, **kw) -> "_QueryBuilder": return self
-
-    def execute(self) -> MagicMock:
-        result = MagicMock()
-        result.data = self._inserted if self._inserted is not None else self._data
-        return result
-
-
-class SupabaseMock:
-    """
-    Mock del cliente Supabase con respuestas configurables por tabla.
-
-    Uso dentro de un test:
-        supabase_mock.set_data("houses", [{"id": "...", ...}])
-    """
-
-    def __init__(self):
-        self._table_data: dict[str, list[dict]] = {}
-
-    def set_data(self, table: str, data: list[dict]) -> None:
-        self._table_data[table] = data
-
-    def clear(self) -> None:
-        self._table_data = {}
-
-    def table(self, name: str) -> _QueryBuilder:
-        return _QueryBuilder(self._table_data.get(name, []))
-
-    auth = MagicMock()
-
-
-# ── Constantes de test ────────────────────────────────────────────────────────
 
 TEST_USER_ID   = str(uuid.uuid4())
 TEST_USER = {
@@ -83,30 +43,89 @@ TEST_USER = {
 }
 TEST_HOUSE_ID  = str(uuid.uuid4())
 TEST_HOUSE     = {"id": TEST_HOUSE_ID, "user_id": TEST_USER_ID, "name": "Mi Casa"}
-TEST_MEMBER_ID = str(uuid.uuid4())  # second user in same house
+TEST_MEMBER_ID = str(uuid.uuid4())
 
 WEBHOOK_SECRET = "test-webhook-secret"
 
 
-# ── Inyección de supabase_mock antes de cualquier import de la app ───────────
+_TABLES_TO_RESET = [
+    "favorite_actions",
+    "schedules",
+    "commands",
+    "messages",
+    "conversations",
+    "devices",
+    "ha_integrations",
+    "rooms",
+    "floors",
+    "house_invitations",
+    "house_members",
+    "houses",
+]
 
-_SUPABASE_MOCK = SupabaseMock()
+
+_REAL_SUPABASE: Client = create_client(_SUPA["url"], _SUPA["key"])
+
+
+@pytest.fixture(scope="session")
+def supabase() -> Client:
+    return _REAL_SUPABASE
+
+
 import app.core.db  # noqa: E402
-app.core.db.supabase = _SUPABASE_MOCK
+app.core.db.supabase = _REAL_SUPABASE
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
+@pytest.fixture(scope="session", autouse=True)
+def _setup_auth_users():
+    for user_id, email, username in [
+        (TEST_USER_ID, "test@example.com", "testuser"),
+        (TEST_MEMBER_ID, "member@example.com", "memberuser"),
+    ]:
+        try:
+            _REAL_SUPABASE.auth.admin.create_user({
+                "id": user_id,
+                "email": email,
+                "password": "testpass123",
+                "email_confirm": True,
+            })
+        except Exception:
+            pass
+        try:
+            _REAL_SUPABASE.table("base_user").upsert({
+                "id": user_id,
+                "username": username,
+                "email": email,
+                "is_active": True,
+            }).execute()
+        except Exception:
+            pass
+    yield
+    for user_id in (TEST_USER_ID, TEST_MEMBER_ID):
+        try:
+            _REAL_SUPABASE.auth.admin.delete_user(user_id)
+        except Exception:
+            pass
+
+
+def _truncate_all() -> None:
+    sentinel = "00000000-0000-0000-0000-000000000000"
+    for table in _TABLES_TO_RESET:
+        try:
+            _REAL_SUPABASE.table(table).delete().neq("id", sentinel).execute()
+        except Exception:
+            pass
+
+
+@pytest.fixture(autouse=True)
+def reset_db():
+    _truncate_all()
+    yield
+    _truncate_all()
+
 
 @pytest.fixture(scope="session")
-def supabase_mock() -> SupabaseMock:
-    return _SUPABASE_MOCK
-
-
-@pytest.fixture(scope="session")
-def client(supabase_mock: SupabaseMock) -> TestClient:
-    """TestClient con autenticación anulada. bot_auth se sobreescribe para
-    devolver la house de test, así los endpoints con bot_token funcionan
-    sin necesidad de header."""
+def client() -> TestClient:
     from app.main import app
     from app.api.deps import get_current_user
     from app.api.bot_auth import bot_auth
@@ -120,21 +139,11 @@ def client(supabase_mock: SupabaseMock) -> TestClient:
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(autouse=True)
-def reset_supabase(supabase_mock: SupabaseMock):
-    supabase_mock.clear()
-    yield
-    supabase_mock.clear()
-
-
-# ── Helpers de datos ──────────────────────────────────────────────────────────
-
 def make_house(**kwargs) -> dict:
     return {
         "id": TEST_HOUSE_ID,
-        "user_id": TEST_USER_ID,
         "name": "Mi Casa",
-        "bot_token_hash": "a" * 64,  # sha256 hex de prueba
+        "bot_token_hash": "a" * 64,
         **kwargs,
     }
 
@@ -154,19 +163,15 @@ def make_device(**kwargs) -> dict:
         "id": str(uuid.uuid4()),
         "owner_id": TEST_USER_ID,
         "house_id": TEST_HOUSE_ID,
-        "name": "Luz salón",
+        "name": f"Luz {uuid.uuid4().hex[:6]}",
         "type": "Luz",
         "driver": "tuya",
         "ip": "192.168.1.100",
-        "mac": "AA:BB:CC:DD:EE:FF",
+        "mac": f"AA:BB:CC:{uuid.uuid4().hex[:2]}:{uuid.uuid4().hex[:2]}:{uuid.uuid4().hex[:2]}".upper(),
         "config": {},
         "state": {},
         "is_online": True,
         "room_id": None,
-        "location": None,
-        "last_seen_at": None,
-        "registered_at": None,
-        "updated_at": None,
         **kwargs,
     }
 
@@ -176,7 +181,6 @@ def make_floor(house_id: str, **kwargs) -> dict:
         "id": str(uuid.uuid4()),
         "house_id": house_id,
         "name": "Planta Baja",
-        "level": 0,
         **kwargs,
     }
 

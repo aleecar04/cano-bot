@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
-_bot_env = os.path.join(ROOT_DIR, ".bot.env")
+_bot_env = os.path.join(BASE_DIR, ".env")
 if os.path.exists(_bot_env):
     load_dotenv(_bot_env, override=True)
 

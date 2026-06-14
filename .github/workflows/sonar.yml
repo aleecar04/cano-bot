@@ -38,17 +38,25 @@ jobs:
         working-directory: cano-app
         run: npm ci --no-audit --no-fund
 
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local
+        run: supabase start
+
+      - name: Apply migrations to local Supabase
+        run: supabase db reset --no-seed
+
       - name: Run backend tests with coverage
         env:
           PROJECT_NAME: "cano-bot-test"
-          SUPABASE_URL: "https://fake.supabase.co"
-          SUPABASE_KEY: "fake-supabase-anon-key"
           XMPP_BOT_JID: "bot@xmpp.test"
           XMPP_ADMIN_USER: "admin"
           XMPP_ADMIN_PASSWORD: "adminpass"
           XMPP_REST_URL: "http://localhost:9090"
           XMPP_ENCRYPTION_KEY: "fake-encryption-key-exactly-32ch"
-          WEBHOOK_SECRET: "fake-webhook-secret"
         run: |
           cd backend && python -m pytest tests/ \
             --override-ini=addopts= \
@@ -59,6 +67,10 @@ jobs:
           cd ..
           sed -i 's|/home/runner/work/.*/backend/app|backend/app|g' backend-coverage.xml
         continue-on-error: true
+
+      - name: Stop Supabase local
+        if: always()
+        run: supabase stop --no-backup
 
       - name: Run bot tests with coverage
         run: |
