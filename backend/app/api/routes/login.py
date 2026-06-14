@@ -6,8 +6,8 @@ from app.api.deps import CurrentUser
 from app.models.auth import NewPassword, Token
 from app.models.common import Message
 from app.models.users import UserPublic
-from app.services import auth as auth_service
-from app.services import users as user_service
+from app.services.auth import auth_service
+from app.services.users import users_service as user_service
 
 router = APIRouter(tags=["login"])
 

@@ -7,10 +7,10 @@ from app.models.houses import (
     HouseSetupRequest,
 )
 from app.models.schedules import GroupScheduleCreate
-from app.services import home as home_service
-from app.services import devices as device_service
-from app.services import schedules as schedule_service
-from app.services.xmpp import is_bot_online
+from app.services.home import home_service
+from app.services.devices import devices_service as device_service
+from app.services.schedules import schedules_service
+from app.services.xmpp import xmpp_service
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
@@ -30,7 +30,7 @@ async def get_bot_status(current_user: CurrentUser):
     bot_jid = home_service.get_bot_target_for_user(current_user["id"])
     if not bot_jid:
         return {"online": False}
-    return {"online": await is_bot_online(bot_jid)}
+    return {"online": await xmpp_service.is_bot_online(bot_jid)}
 
 
 @router.get("/me/rooms", response_model=list[RoomPublic])
@@ -92,12 +92,12 @@ async def floor_action(floor_id: str, body: GroupActionRequest, current_user: Cu
 
 @router.post("/rooms/{room_id}/schedule")
 def room_schedule(room_id: str, schedule_in: GroupScheduleCreate, current_user: CurrentUser):
-    return schedule_service.create_group_schedule("room", room_id, schedule_in, current_user["id"])
+    return schedules_service.create_group_schedule("room", room_id, schedule_in, current_user["id"])
 
 
 @router.post("/floors/{floor_id}/schedule")
 def floor_schedule(floor_id: str, schedule_in: GroupScheduleCreate, current_user: CurrentUser):
-    return schedule_service.create_group_schedule("floor", floor_id, schedule_in, current_user["id"])
+    return schedules_service.create_group_schedule("floor", floor_id, schedule_in, current_user["id"])
 
 
 # ── House members ─────────────────────────────────────────────────────────────

@@ -5,8 +5,8 @@ from app.api.deps import CurrentUser
 from app.api.bot_auth import bot_auth
 from app.core.errors import not_found
 from app.models.devices import DeviceVincular, DevicePublic, DeviceUpdate, DeviceStatusUpdate, HAConnectSchema
-from app.services import devices as device_service
-from app.services import commands as command_service
+from app.services.devices import devices_service as device_service
+from app.services.commands import commands_service as command_service
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 

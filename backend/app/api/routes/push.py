@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUser
 from app.core.config import settings
 from app.models.push import PushSubscriptionBody
-from app.services import push as push_service
+from app.services.push import push_service
 
 router = APIRouter(prefix="/push", tags=["push"])
 
