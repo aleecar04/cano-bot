@@ -12,13 +12,15 @@ class TestHelpers:
     def test_power_actions_toggle_state(self, device, action, expected_power):
         assert calculate_expected_state(device, action, {})["power"] == expected_power
 
-    @pytest.mark.parametrize("device, action, expected_volume", [
-        ({"state": {"volume": 98}}, "subir_volumen", 100),
-        ({"state": {"volume": 2}},  "bajar_volumen", 0),
-        ({"state": {"volume": 70}}, "mute",           0),
+    @pytest.mark.parametrize("device, action, payload, expected_volume", [
+        ({"state": {"volume": 98}}, "subir_volumen", {},             100),
+        ({"state": {"volume": 2}},  "bajar_volumen", {},             0),
+        ({"state": {"volume": 70}}, "mute",          {},             0),
+        ({},                          "set_volumen",   {"value": 35},  35),
+        ({},                          "set_volumen",   {"value": 200}, 100),
     ])
-    def test_volume_actions_step_and_clamp(self, device, action, expected_volume):
-        assert calculate_expected_state(device, action, {})["volume"] == expected_volume
+    def test_volume_actions_step_and_clamp(self, device, action, payload, expected_volume):
+        assert calculate_expected_state(device, action, payload)["volume"] == expected_volume
 
     def test_color_rgb_sets_hex_only_for_known_color_names(self):
         result = calculate_expected_state({}, "color_rgb", {"color": "azul"})

@@ -59,3 +59,13 @@ class TestControlPlugin:
         with patch("plugins.control.control.api_devices.get_all", side_effect=RuntimeError("boom")):
             result = ctrl.list_devices(msg, "")
         assert result["tipo"] == "error" and "boom" in result["mensaje"]
+
+    def test_verify_state_patches_only_when_real_state_differs_from_predicted(self):
+        device = {"id": "device_lampara", "driver": "tuya"}
+        predicted = {"power": "on"}
+        real_result = {"is_online": True, "state": {"power": "off"}}
+        with patch("plugins.control.control.get_status", return_value=real_result), \
+             patch("plugins.control.control.device_cache"), \
+             patch("plugins.control.control._patch_device_status") as mock_patch:
+            _make_control()._verify_state(device, "encender", predicted)
+        mock_patch.assert_called_once_with("device_lampara", is_online=True, state={"power": "off"})

@@ -21,9 +21,9 @@ async def _schedule_loop() -> None:
     while True:
         await asyncio.sleep(60)
         try:
-            from app.services.schedules import get_pending_schedules
+            from app.services.schedules import schedules_service
             from app.services.command_executor import execute_command, ScheduleSource
-            pending = get_pending_schedules()
+            pending = schedules_service.get_pending_schedules()
             for schedule in pending:
                 try:
                     await execute_command(
