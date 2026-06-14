@@ -1,4 +1,5 @@
 import json
+import threading
 from errbot import BotPlugin, botcmd
 
 from plugins._core import BasePlugin
@@ -9,10 +10,25 @@ from plugins._helpers import (
 from plugins.device_cache import device_cache
 from api import is_backend_reachable
 from api import devices as api_devices
-from drivers import execute_command
+from drivers import execute_command, get_status
 
 
 _PATCH_TIMEOUT_S = 5
+_VERIFY_DELAY_S = 1.5
+
+# Claves del estado que cada acción modifica. Se usan para comparar
+# solo lo relevante durante la verificación post-acción.
+_ACTION_TO_KEYS: dict[str, tuple[str, ...]] = {
+    "encender":          ("power",),
+    "apagar":            ("power",),
+    "brillo":            ("brightness",),
+    "temperatura_color": ("color_temp", "work_mode"),
+    "color_rgb":         ("color_hex", "work_mode"),
+    "subir_volumen":     ("volume",),
+    "bajar_volumen":     ("volume",),
+    "mute":              ("volume",),
+    "set_volumen":       ("volume",),
+}
 
 
 def _patch_device_status(device_id: str, is_online: bool, state: dict) -> None:
@@ -22,6 +38,12 @@ def _patch_device_status(device_id: str, is_online: bool, state: dict) -> None:
         api_devices.patch_status(device_id, is_online, state, timeout=_PATCH_TIMEOUT_S)
     except Exception:
         pass
+
+
+def _states_match(predicted: dict, real: dict, action: str) -> bool:
+    """Compara solo las claves que la acción tenía que modificar."""
+    keys = _ACTION_TO_KEYS.get(action, ())
+    return all(predicted.get(k) == real.get(k) for k in keys)
 
 
 class Control(BasePlugin, BotPlugin):
@@ -43,17 +65,41 @@ class Control(BasePlugin, BotPlugin):
             return {"ok": False, "error": str(e)}
 
     def _sync_after_action(self, device: dict, action: str, payload: dict, result: dict) -> None:
-        """Actualiza cache + backend tras ejecutar una acción."""
+        """Actualiza cache + backend tras ejecutar una acción y programa
+        una verificación asíncrona del estado real (patrón optimista con
+        reconciliación)."""
         device_id = device["id"]
         if result.get("ok"):
-            new_state = calculate_expected_state(device, action, payload)
-            device_cache.update(device_id, state=new_state, is_online=True)
-            _patch_device_status(device_id, is_online=True, state=new_state)
+            predicted = calculate_expected_state(device, action, payload)
+            device_cache.update(device_id, state=predicted, is_online=True)
+            _patch_device_status(device_id, is_online=True, state=predicted)
+            # Reconciliación asíncrona: confirma o corrige la predicción
+            timer = threading.Timer(
+                _VERIFY_DELAY_S,
+                self._verify_state,
+                args=(device, action, predicted),
+            )
+            timer.daemon = True
+            timer.start()
         else:
             old = device_cache.get(device_id)
             old_state = old.state if old else {}
             device_cache.mark_offline(device_id)
             _patch_device_status(device_id, is_online=False, state=old_state)
+
+    def _verify_state(self, device: dict, action: str, predicted: dict) -> None:
+        """Consulta el estado real al dispositivo y, si difiere del estado
+        predicho en alguna de las claves modificadas por la acción, propaga
+        el estado real al backend. Silencia errores: el polling periódico
+        actúa como red de seguridad si la verificación falla."""
+        try:
+            result = get_status(device)
+            real_state = result.get("state") if isinstance(result, dict) else None
+            if real_state and not _states_match(predicted, real_state, action):
+                device_cache.update(device["id"], state=real_state, is_online=True)
+                _patch_device_status(device["id"], is_online=True, state=real_state)
+        except Exception:
+            pass
 
     @botcmd
     def list_devices(self, msg, args):
