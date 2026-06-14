@@ -324,6 +324,7 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
   const floorLoading = floorLoadingId === floorId;
 
   const [scheduleTarget, setScheduleTarget] = useState<ScheduleTarget | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <View className="mb-4 bg-bg-secondary rounded-xl p-3 border border-border">
@@ -339,18 +340,42 @@ export const RoomGrid: React.FC<RoomGridProps> = ({
               onSchedule={() => setScheduleTarget({ kind: 'floor', id: floorId, name: floorName })}
             />
           )}
-          {onAddRoom && (
-            <TouchableOpacity onPress={onAddRoom} activeOpacity={0.7}>
-              <Ionicons name="add-circle" size={22} color="#3B82F6" />
-            </TouchableOpacity>
-          )}
-          {onDeleteFloor && (
-            <TouchableOpacity onPress={() => onDeleteFloor(floorId, floorName)} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
+          {(onAddRoom || onDeleteFloor) && (
+            <TouchableOpacity onPress={() => setMenuOpen(true)} activeOpacity={0.7}>
+              <Ionicons name="ellipsis-vertical" size={18} color="#94a3b8" />
             </TouchableOpacity>
           )}
         </View>
       </View>
+
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <TouchableOpacity className="flex-1 bg-black/40" activeOpacity={1} onPress={() => setMenuOpen(false)}>
+          <View className="flex-1 justify-center items-center px-8">
+            <View className="bg-bg-secondary rounded-xl border border-border overflow-hidden w-full max-w-xs">
+              {onAddRoom && (
+                <TouchableOpacity
+                  className="flex-row items-center gap-3 px-4 py-3 border-b border-border"
+                  onPress={() => { setMenuOpen(false); onAddRoom(); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="#3B82F6" />
+                  <Text className="text-text text-sm font-medium">Añadir habitación</Text>
+                </TouchableOpacity>
+              )}
+              {onDeleteFloor && (
+                <TouchableOpacity
+                  className="flex-row items-center gap-3 px-4 py-3"
+                  onPress={() => { setMenuOpen(false); onDeleteFloor(floorId, floorName); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                  <Text className="text-red-400 text-sm font-medium">Eliminar planta</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {rooms.length === 0 ? (
         <Text className="text-text-secondary text-xs text-center py-3">

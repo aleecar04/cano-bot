@@ -57,24 +57,34 @@ class LGTVDriver(BaseDriver):
             async def _fn():
                 c = await self._client(device)
                 power_state = await c.get_power_state()
+                volume = None
+                try:
+                    vol_info = await c.get_volume()
+                    if isinstance(vol_info, dict):
+                        volume = vol_info.get("volume")
+                except Exception:
+                    pass
                 await c.disconnect()
-                return power_state
+                return power_state, volume
 
             result = self._run(_fn())
 
             if time.time() - start_time > timeout:
                 return {"is_online": False}
 
-            if isinstance(result, dict) and "ok" in result and not result["ok"]:
-                return {"is_online": False, "error": result.get("error")}
+            power_state, volume = result if isinstance(result, tuple) else (result, None)
 
-            state_str = (result or {}).get("state", "") if isinstance(result, dict) else ""
+            if isinstance(power_state, dict) and "ok" in power_state and not power_state["ok"]:
+                return {"is_online": False, "error": power_state.get("error")}
+
+            state_str = (power_state or {}).get("state", "") if isinstance(power_state, dict) else ""
             is_online = state_str in ("Active", "Screen On", "Screen Saver")
 
-            return {
-                "is_online": is_online,
-                "state": {"power": "on" if is_online else "off"}
-            }
+            state: dict = {"power": "on" if is_online else "off"}
+            if volume is not None:
+                state["volume"] = int(volume)
+
+            return {"is_online": is_online, "state": state}
         except Exception as e:
             return {"is_online": False, "error": str(e)}
 

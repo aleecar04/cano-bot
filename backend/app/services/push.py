@@ -31,36 +31,38 @@ def _dispatch(sub: dict, payload: str) -> None:
         logger.warning("Push error sub=%s: %s", sub["id"], exc)
 
 
-def send_push(user_id: str, title: str, body: str) -> None:
-    """Envía una push a todas las subscriptions del usuario.
-    Único uso: notificar el resultado de una tarea programada (éxito/fallo)."""
-    if not settings.VAPID_PRIVATE_KEY:
-        return
-    payload = json.dumps({"title": title, "body": body})
-    for sub in push_subscription_repository.find_by_user(user_id):
-        _dispatch(sub, payload)
+class PushService:
+
+    def send_push(self, user_id: str, title: str, body: str) -> None:
+        """Envía una push a todas las subscriptions del usuario.
+        Único uso: notificar el resultado de una tarea programada (éxito/fallo)."""
+        if not settings.VAPID_PRIVATE_KEY:
+            return
+        payload = json.dumps({"title": title, "body": body})
+        for sub in push_subscription_repository.find_by_user(user_id):
+            _dispatch(sub, payload)
+
+    def subscribe(self, user_id: str, endpoint: str, p256dh: str, auth: str) -> None:
+        """Register a push subscription for a user (upsert by endpoint)."""
+        supabase.table("push_subscriptions").upsert(
+            {
+                "user_id":  user_id,
+                "endpoint": endpoint,
+                "p256dh":   p256dh,
+                "auth":     auth,
+            },
+            on_conflict="endpoint",
+        ).execute()
+
+    def unsubscribe(self, user_id: str, endpoint: str) -> None:
+        """Remove a push subscription for a user by endpoint."""
+        (
+            supabase.table("push_subscriptions")
+            .delete()
+            .eq("user_id", user_id)
+            .eq("endpoint", endpoint)
+            .execute()
+        )
 
 
-# ── Subscriptions ───────────────────────────────────────────────────────────
-def subscribe(user_id: str, endpoint: str, p256dh: str, auth: str) -> None:
-    """Register a push subscription for a user (upsert by endpoint)."""
-    supabase.table("push_subscriptions").upsert(
-        {
-            "user_id":  user_id,
-            "endpoint": endpoint,
-            "p256dh":   p256dh,
-            "auth":     auth,
-        },
-        on_conflict="endpoint",
-    ).execute()
-
-
-def unsubscribe(user_id: str, endpoint: str) -> None:
-    """Remove a push subscription for a user by endpoint."""
-    (
-        supabase.table("push_subscriptions")
-        .delete()
-        .eq("user_id", user_id)
-        .eq("endpoint", endpoint)
-        .execute()
-    )
+push_service = PushService()

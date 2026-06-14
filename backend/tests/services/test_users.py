@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.users import UserRegister
-from app.services import users as user_service
+from app.services.users import users_service as user_service
 
 
 _VALID = {"email": "anabel@cano-app.com", "username": "anabel", "password": "CanoBot2026!"}
@@ -83,8 +83,9 @@ class TestUsersService:
             assert exc.value.status_code == 404
 
     def test_regenerate_xmpp_password_returns_jid_and_new_password(self):
+        from app.services.xmpp import xmpp_service
         with patch("app.services.users.xmpp_account_repository") as mock_x, \
-             patch("app.services.users.change_xmpp_password", new_callable=MagicMock) as mock_chg, \
+             patch.object(xmpp_service, "change_xmpp_password", new_callable=MagicMock) as mock_chg, \
              patch("app.services.users.supabase"):
             mock_x.find_jid_by_user.return_value = "anabel@xmpp.cano-app.com"
             mock_chg.return_value = asyncio.sleep(0)

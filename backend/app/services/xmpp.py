@@ -13,17 +13,6 @@ def _base_headers() -> dict:
     return {"Content-Type": "application/json"}
 
 
-async def create_xmpp_account(username: str) -> str:
-    xmpp_password = secrets.token_urlsafe(16)
-    jid = f"{username}@{settings.XMPP_DOMAIN}"
-
-    async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
-        session_id = await _start_add_user_command(client)
-        await _complete_add_user_command(client, session_id, jid, xmpp_password)
-
-    return xmpp_password
-
-
 async def _start_add_user_command(client: httpx.AsyncClient) -> str:
     r = await client.post(
         settings.XMPP_REST_URL,
@@ -65,12 +54,6 @@ async def _complete_add_user_command(client: httpx.AsyncClient, session_id: str,
         }
     )
     r.raise_for_status()
-
-
-async def change_xmpp_password(jid: str, new_password: str) -> None:
-    async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
-        session_id = await _start_change_password_command(client)
-        await _complete_change_password_command(client, session_id, jid, new_password)
 
 
 async def _start_change_password_command(client: httpx.AsyncClient) -> str:
@@ -115,38 +98,57 @@ async def _complete_change_password_command(client: httpx.AsyncClient, session_i
     r.raise_for_status()
 
 
-async def is_bot_online(bot_jid: str, timeout: float = 3.0) -> bool:
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+class XmppService:
+
+    async def create_xmpp_account(self, username: str) -> str:
+        xmpp_password = secrets.token_urlsafe(16)
+        jid = f"{username}@{settings.XMPP_DOMAIN}"
+
+        async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
+            session_id = await _start_add_user_command(client)
+            await _complete_add_user_command(client, session_id, jid, xmpp_password)
+
+        return xmpp_password
+
+    async def change_xmpp_password(self, jid: str, new_password: str) -> None:
+        async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
+            session_id = await _start_change_password_command(client)
+            await _complete_change_password_command(client, session_id, jid, new_password)
+
+    async def is_bot_online(self, bot_jid: str, timeout: float = 3.0) -> bool:
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                r = await client.post(
+                    settings.XMPP_REST_URL,
+                    auth=_admin_auth(),
+                    headers=_base_headers(),
+                    json={"kind": "iq", "type": "get", "to": bot_jid, "ping": {}},
+                )
+            return r.status_code == 200 and r.json().get("type") == "result"
+        except Exception:
+            return False
+
+    async def send_xmpp_message(
+        self, body: str, from_jid: str, xmpp_password: str, to_jid: str, message_id: str | None = None
+    ) -> str | None:
+        username = from_jid.split("@")[0]
+        message_id = message_id or str(uuid.uuid4())
+        recipient = to_jid
+        async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
             r = await client.post(
                 settings.XMPP_REST_URL,
-                auth=_admin_auth(),
+                auth=(username, xmpp_password),
                 headers=_base_headers(),
-                json={"kind": "iq", "type": "get", "to": bot_jid, "ping": {}},
+                json={
+                    "kind": "message",
+                    "type": "chat",
+                    "id": message_id,
+                    "to": recipient,
+                    "body": body
+                }
             )
-        return r.status_code == 200 and r.json().get("type") == "result"
-    except Exception:
-        return False
+            r.raise_for_status()
+            return message_id
 
 
-async def send_xmpp_message(
-    body: str, from_jid: str, xmpp_password: str, to_jid: str, message_id: str | None = None
-) -> str | None:
-    username = from_jid.split("@")[0]
-    message_id = message_id or str(uuid.uuid4())
-    recipient = to_jid
-    async with httpx.AsyncClient(verify=True, timeout=10.0) as client:
-        r = await client.post(
-            settings.XMPP_REST_URL,
-            auth=(username, xmpp_password),
-            headers=_base_headers(),
-            json={
-                "kind": "message",
-                "type": "chat",
-                "id": message_id,
-                "to": recipient,
-                "body": body
-            }
-        )
-        r.raise_for_status()
-        return message_id
+xmpp_service = XmppService()

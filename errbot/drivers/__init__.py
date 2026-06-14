@@ -25,3 +25,11 @@ def execute_command(device: dict, action: str, payload: dict = None) -> dict:
     if not driver:
         return {"ok": False, "error": f"Driver '{driver_type}' no reconocido"}
     return driver.execute(device, action, payload or {})
+
+
+def get_status(device: dict, timeout: float = 2.0) -> dict:
+    driver_type = device.get("driver")
+    driver = DRIVERS.get(driver_type)
+    if not driver:
+        return {"is_online": False, "error": f"Driver '{driver_type}' no reconocido"}
+    return driver.get_status(device, timeout=timeout)

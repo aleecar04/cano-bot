@@ -9,7 +9,7 @@ from app.models.users import (
     UserProfilePublic,
     UserRegister,
 )
-from app.services import users as user_service
+from app.services.users import users_service as user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 

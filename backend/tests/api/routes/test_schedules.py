@@ -2,56 +2,58 @@ import uuid
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from supabase import Client
 
 from tests.conftest import (
-    SupabaseMock, TEST_HOUSE_ID, TEST_MEMBER_ID, TEST_USER_ID,
-    make_house, make_house_member, make_schedule,
+    TEST_HOUSE_ID, TEST_MEMBER_ID, TEST_USER_ID,
+    make_device, make_house, make_house_member, make_schedule,
 )
 
 _NO_CONFLICT = patch("app.services.schedules._check_conflicting_power_schedule")
-_HOUSE_MEMBERS = [
-    make_house_member(TEST_HOUSE_ID, TEST_USER_ID, "owner"),
-    make_house_member(TEST_HOUSE_ID, TEST_MEMBER_ID, "member"),
-]
 
 
-def _setup_house(supabase_mock: SupabaseMock):
-    supabase_mock.set_data("houses", [make_house()])
-    supabase_mock.set_data("house_members", _HOUSE_MEMBERS)
+def _setup_house_with_device(supabase: Client):
+    supabase.table("houses").insert(make_house()).execute()
+    supabase.table("house_members").insert([
+        make_house_member(TEST_HOUSE_ID, TEST_USER_ID, "owner"),
+        make_house_member(TEST_HOUSE_ID, TEST_MEMBER_ID, "member"),
+    ]).execute()
+    device = make_device()
+    supabase.table("devices").insert(device).execute()
+    return device
 
 
 class TestSchedulesRoutes:
 
-    def test_returns_house_schedules(self, client: TestClient, supabase_mock: SupabaseMock):
-        _setup_house(supabase_mock)
-        supabase_mock.set_data("schedules", [
-            make_schedule(name="Apagar", user_id=TEST_USER_ID),
-            make_schedule(name="Encender", user_id=TEST_MEMBER_ID),
-        ])
+    def test_returns_house_schedules(self, client: TestClient, supabase: Client):
+        device = _setup_house_with_device(supabase)
+        supabase.table("schedules").insert([
+            make_schedule(device_id=device["id"], name="Apagar", user_id=TEST_USER_ID),
+            make_schedule(device_id=device["id"], name="Encender", user_id=TEST_MEMBER_ID),
+        ]).execute()
         assert len(client.get("/api/v1/schedules/").json()) == 2
 
-        supabase_mock.set_data("schedules", [])
+    def test_returns_empty_when_no_schedules(self, client: TestClient, supabase: Client):
+        _setup_house_with_device(supabase)
         assert client.get("/api/v1/schedules/").json() == []
 
-    def test_rejects_power_action_in_same_minute(self, client: TestClient, supabase_mock: SupabaseMock):
-        device_id = str(uuid.uuid4())
-        _setup_house(supabase_mock)
-        supabase_mock.set_data("schedules", [make_schedule(
-            device_id=device_id, action="encender",
+    def test_rejects_power_action_in_same_minute(self, client: TestClient, supabase: Client):
+        device = _setup_house_with_device(supabase)
+        supabase.table("schedules").insert(make_schedule(
+            device_id=device["id"], action="encender",
             next_run_at="2026-06-01T09:00:00+00:00",
-        )])
+        )).execute()
         res = client.post("/api/v1/schedules/", json={
-            "device_id": device_id, "name": "Apagar",
+            "device_id": device["id"], "name": "Apagar",
             "action": "apagar", "run_at": "2026-06-01T09:00:30+00:00",
         })
         assert res.status_code == 400
 
-    def test_creates_schedule_with_cron(self, client: TestClient, supabase_mock: SupabaseMock):
-        new_schedule = make_schedule(name="Test")
-        supabase_mock.set_data("schedules", [new_schedule])
+    def test_creates_schedule_with_cron(self, client: TestClient, supabase: Client):
+        device = _setup_house_with_device(supabase)
         with _NO_CONFLICT:
             res = client.post("/api/v1/schedules/", json={
-                "device_id": new_schedule["device_id"], "name": "Test",
+                "device_id": device["id"], "name": "Test",
                 "action": "apagar", "payload": {}, "cron_expr": "0 22 * * *",
             })
         assert res.status_code == 201 and res.json()["cron_expr"] == "0 22 * * *"
@@ -63,17 +65,22 @@ class TestSchedulesRoutes:
         })
         assert res.status_code == 400
 
-    def test_delete(self, client: TestClient, supabase_mock: SupabaseMock):
-        schedule = make_schedule()
-        supabase_mock.set_data("schedules", [schedule])
+    def test_delete(self, client: TestClient, supabase: Client):
+        device = _setup_house_with_device(supabase)
+        schedule = make_schedule(device_id=device["id"])
+        supabase.table("schedules").insert(schedule).execute()
         assert client.delete(f"/api/v1/schedules/{schedule['id']}").status_code == 204
 
-    def test_toggle(self, client: TestClient, supabase_mock: SupabaseMock):
-        schedule = make_schedule(is_active=True)
-        supabase_mock.set_data("schedules", [schedule])
+    def test_toggle(self, client: TestClient, supabase: Client):
+        device = _setup_house_with_device(supabase)
+        schedule = make_schedule(device_id=device["id"], is_active=True)
+        supabase.table("schedules").insert(schedule).execute()
         res = client.patch(f"/api/v1/schedules/{schedule['id']}/toggle", json={"is_active": False})
         assert res.status_code == 200 and res.json()["id"] == schedule["id"]
 
-        supabase_mock.set_data("schedules", [])
-        assert client.patch("/api/v1/schedules/nonexistent/toggle",
-                            json={"is_active": True}).status_code == 404
+    def test_toggle_404_when_missing(self, client: TestClient, supabase: Client):
+        _setup_house_with_device(supabase)
+        assert client.patch(
+            f"/api/v1/schedules/{uuid.uuid4()}/toggle",
+            json={"is_active": True},
+        ).status_code == 404

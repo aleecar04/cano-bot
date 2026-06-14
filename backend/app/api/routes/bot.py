@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, Header
 from app.api.bot_auth import bot_auth
 from app.core.config import settings
 from app.core.errors import unauthorized
-from app.services import bot_auth as bot_auth_service
+from app.services.bot_auth import bot_auth_service
 
 router = APIRouter(prefix="/bot", tags=["bot"])
 internal_router = APIRouter(prefix="/internal", tags=["internal"])

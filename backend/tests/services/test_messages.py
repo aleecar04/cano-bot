@@ -1,4 +1,5 @@
 import asyncio
+from app.services.home import home_service
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -6,6 +7,7 @@ from fastapi import HTTPException
 
 from app.models.xmpp import BotWebhookPayload
 from app.services import messages as msg_service
+from app.services.messages import messages_service
 
 
 def _run(coro):
@@ -15,12 +17,12 @@ def _run(coro):
 class TestMessagesService:
 
     def test_require_bot_target_raises_or_returns_jid(self):
-        with patch("app.services.messages.get_bot_target_for_user", return_value=None), \
+        with patch.object(home_service, "get_bot_target_for_user", return_value=None), \
              pytest.raises(HTTPException) as exc:
             msg_service._require_bot_target("user_anabel")
         assert exc.value.status_code == 400
 
-        with patch("app.services.messages.get_bot_target_for_user", return_value="cano-bot@xmpp.cano-app.com"):
+        with patch.object(home_service, "get_bot_target_for_user", return_value="cano-bot@xmpp.cano-app.com"):
             assert msg_service._require_bot_target("user_anabel") == "cano-bot@xmpp.cano-app.com"
 
     def test_authenticate_gajim_sender_when_same_house(self):
@@ -84,13 +86,13 @@ class TestMessagesService:
         assert result is True and resolve.calls == []
 
     def test_user_without_house_raises_device_not_found(self):
-        with patch("app.services.messages.get_house_id_for_user", return_value=None), \
+        with patch.object(home_service, "get_house_id_for_user", return_value=None), \
              pytest.raises(msg_service._DeviceNotFound):
             _run(msg_service._dispatch_device_from_nlp(
                 {"action": "encender", "device": "luz"}, "user_anabel", "msg_hola"))
 
     def test_unknown_device_raises_device_not_found(self):
-        with patch("app.services.messages.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.messages.device_repository") as mock_d:
             mock_d.find_by_name_and_house.return_value = None
             with pytest.raises(msg_service._DeviceNotFound):
@@ -102,7 +104,7 @@ class TestMessagesService:
         ("Luz", "brillo", {"value": 200}),
     ])
     def test_invalid_action_or_payload_raises(self, device_type, action, payload):
-        with patch("app.services.messages.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.messages.device_repository") as mock_d:
             mock_d.find_by_name_and_house.return_value = {
                 "id": "device_lampara", "name": device_type, "type": device_type,
@@ -121,7 +123,7 @@ class TestMessagesService:
                    new_callable=AsyncMock, return_value=False), \
              patch("app.services.messages._forward_to_bot", new_callable=AsyncMock) as mock_fwd, \
              patch("app.services.messages._touch_conversation"):
-            result = _run(msg_service.process_message("hola", "user_anabel", "conv_demo"))
+            result = _run(messages_service.process_message("hola", "user_anabel", "conv_demo"))
         assert result == {"id": "msg_hola"}
         mock_fwd.assert_awaited_once()
 
@@ -134,7 +136,7 @@ class TestMessagesService:
                    new_callable=AsyncMock, return_value=True), \
              patch("app.services.messages._forward_to_bot", new_callable=AsyncMock) as mock_fwd, \
              patch("app.services.messages._touch_conversation"):
-            _run(msg_service.process_message("hola", "user_anabel", "conv_demo"))
+            _run(messages_service.process_message("hola", "user_anabel", "conv_demo"))
         mock_fwd.assert_not_called()
 
     def test_updates_existing_message_when_same_house(self):
@@ -145,7 +147,7 @@ class TestMessagesService:
             mock_m.find_by_id.return_value = {"id": "msg_hola", "conversation_id": "conv_demo"}
             mock_c.find_user_id_by_id.return_value = "user_anabel"
             mock_h.find_house_id_by_user.return_value = "casa_demo"
-            msg_service.handle_webhook(self._payload(), "casa_demo")
+            messages_service.handle_webhook(self._payload(), "casa_demo")
 
     def test_message_from_other_house_raises_403(self):
         with patch("app.services.messages.message_repository") as mock_m, \
@@ -155,7 +157,7 @@ class TestMessagesService:
             mock_c.find_user_id_by_id.return_value = "user_anabel"
             mock_h.find_house_id_by_user.return_value = "otra_casa"
             with pytest.raises(HTTPException) as exc:
-                msg_service.handle_webhook(self._payload(), "casa_demo")
+                messages_service.handle_webhook(self._payload(), "casa_demo")
             assert exc.value.status_code == 403
 
     def test_get_user_messages_returns_list_for_user_conversations(self):
@@ -163,7 +165,7 @@ class TestMessagesService:
              patch("app.services.messages.message_repository") as mock_m:
             mock_c.find_ids_by_user.return_value = ["conv_demo"]
             mock_m.find_by_conversation_ids.return_value = [{"id": "msg_hola"}]
-            assert msg_service.get_user_messages("user_anabel") == [{"id": "msg_hola"}]
+            assert messages_service.get_user_messages("user_anabel") == [{"id": "msg_hola"}]
 
     def _fake_resolve(self):
         calls = []

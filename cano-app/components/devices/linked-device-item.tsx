@@ -227,6 +227,13 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                   </Text>
                 </View>
               )}
+              {typeof device.state?.volume === 'number' && (
+                <View className="px-2 py-0.5 rounded-full bg-bg">
+                  <Text className="text-xs font-semibold text-text-secondary">
+                    Vol. {device.state.volume}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text className="text-text-secondary text-xs mt-0.5">{device.type} · {device.ip}</Text>
           </View>

@@ -1,4 +1,5 @@
 import asyncio
+from app.services.home import home_service
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,16 +7,17 @@ import pytest
 from fastapi import HTTPException
 
 from app.services.command_executor import CommandSource, ScheduleSource, execute_command
+from app.services.xmpp import xmpp_service
 
 
 @contextmanager
 def _patched_deps(device=None, send=None):
     with patch("app.services.command_executor.xmpp_account_repository") as mock_x, \
-         patch("app.services.command_executor.get_bot_target_for_user", return_value="cano-bot@xmpp.cano-app.com"), \
+         patch.object(home_service, "get_bot_target_for_user", return_value="cano-bot@xmpp.cano-app.com"), \
          patch("app.services.command_executor.supabase") as mock_db, \
-         patch("app.services.command_executor.get_house_id_for_user", return_value="casa_demo"), \
+         patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
          patch("app.services.command_executor.device_repository") as mock_d, \
-         patch("app.services.command_executor.send_xmpp_message", new_callable=AsyncMock) as mock_send:
+         patch.object(xmpp_service, "send_xmpp_message", new_callable=AsyncMock) as mock_send:
         mock_x.find_jid_by_user.return_value = "anabel@xmpp.cano-app.com"
         mock_db.rpc.return_value.execute.return_value.data = "CanoBot2026!"
         mock_d.find_by_id_and_house.return_value = device
@@ -30,9 +32,10 @@ def _patched_deps(device=None, send=None):
 class TestCommandExecutor:
 
     def test_schedule_source_marks_run_on_post_execute(self):
+        from app.services.schedules import schedules_service
         s = ScheduleSource(schedule_id="schedule_apagar")
         assert s.source_type == "schedule" and s.source_id == "schedule_apagar"
-        with patch("app.services.schedules.mark_schedule_run") as mock_mark:
+        with patch.object(schedules_service, "mark_schedule_run") as mock_mark:
             s.post_execute("schedule_apagar", "cmd_encender")
         mock_mark.assert_called_once()
 
@@ -77,7 +80,7 @@ class TestCommandExecutor:
 
     def test_execute_command_without_bot_target_raises_400(self):
         with patch("app.services.command_executor.xmpp_account_repository") as mock_x, \
-             patch("app.services.command_executor.get_bot_target_for_user", return_value=None), \
+             patch.object(home_service, "get_bot_target_for_user", return_value=None), \
              patch("app.services.command_executor.supabase") as mock_db:
             mock_x.find_jid_by_user.return_value = "anabel@xmpp.cano-app.com"
             mock_db.rpc.return_value.execute.return_value.data = "CanoBot2026!"

@@ -203,3 +203,10 @@ Este proyecto es parte de un Trabajo de Fin de Grado.
 - Errbot community
 - Supabase
 - React Native / Expo teams
+
+
+## 📊 Stats
+
+![GitHub stats](https://github-readme-stats.vercel.app/api?username=aleecar04&show_icons=true)
+
+![Top langs](https://github-readme-stats.vercel.app/api/top-langs/?username=aleecar04&repo=cano-bot&layout=compact)

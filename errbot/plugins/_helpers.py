@@ -66,5 +66,7 @@ def calculate_expected_state(device: dict, action: str, payload: dict) -> dict:
         new_state["volume"] = max(0, new_state.get("volume", 50) - 5)
     elif action == "mute":
         new_state["volume"] = 0
+    elif action == "set_volumen":
+        new_state["volume"] = max(0, min(100, int(payload.get("value", 50))))
 
     return new_state
