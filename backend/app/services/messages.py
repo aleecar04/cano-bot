@@ -7,8 +7,8 @@ from typing import Callable
 from app.core.db import supabase
 from app.core.errors import bad_request, forbidden, not_found, service_unavailable
 from app.models.xmpp import BotWebhookPayload
-from app.services.xmpp import send_xmpp_message
-from app.services.home import get_bot_target_for_user, get_house_id_for_user
+from app.services.xmpp import xmpp_service
+from app.services.home import home_service
 from app.services.ollama import classify_intent
 from app.services.command_kinds import lookup_prefix_command
 from app.repositories.devices import device_repository
@@ -38,77 +38,16 @@ class _ValidationError(Exception):
         self.message = msg
 
 
-# ── Entry points públicos ────────────────────────────────────────────────────
-
-async def process_message(body: str, user_id: str, conversation_id: str) -> dict:
-    """Mensaje desde la PWA: persiste, clasifica, intenta resolver en backend
-    o lo reenvía al bot. La respuesta se guarda en messages.response."""
-    _verify_conversation(conversation_id, user_id)
-    bot_target = _require_bot_target(user_id)
-
-    message = _create_message(None, body, conversation_id)
-    intent_data = await _classify(body)
-
-    if await _try_resolve_in_backend(intent_data, user_id, message, _save_response):
-        _touch_conversation(conversation_id)
-        return message
-
-    await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
-    _touch_conversation(conversation_id)
-    return message
-
-
-async def process_gajim_message(from_jid: str, body: str, house_id: str) -> dict:
-    user_id = _authenticate_gajim_sender(from_jid, house_id)
-    bot_target = _require_bot_target(user_id)
-    conv_id = _get_or_create_xmpp_conversation_today(user_id)
-
-    message = _create_message(None, body, conv_id)
-    correlation_id = str(message["id"])
-    intent_data = await _classify(body)
-
-    async def on_resolve(mid: str, text: str) -> None:
-        await _resolve_for_gajim(mid, correlation_id, user_id, text)
-
-    if await _try_resolve_in_backend(intent_data, user_id, message, on_resolve):
-        return message
-
-    await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
-    return message
-
-
-def handle_webhook(payload: BotWebhookPayload, house_id: str) -> None:
-    message = _find_message(payload)
-    if message:
-        owner = conversation_repository.find_user_id_by_id(message["conversation_id"])
-        if not owner or house_member_repository.find_house_id_by_user(owner) != house_id:
-            raise forbidden("El mensaje no pertenece a esta casa")
-        _save_response(message["id"], payload.response)
-        return
-
-    jid_bare = payload.from_jid.split("/")[0]
-    user_id = xmpp_account_repository.find_user_id_by_jid(jid_bare)
-    if not user_id or house_member_repository.find_house_id_by_user(user_id) != house_id:
-        raise not_found("JID desconocido en esta casa")
-    conv_id = _get_or_create_xmpp_conversation_today(user_id)
-    supabase.table("messages").insert({
-        "conversation_id": conv_id,
-        "body":            payload.body,
-        "response":        payload.response,
-    }).execute()
-
-
-# ── Pasos del pipeline (orquestación) ────────────────────────────────────────
+# ── Pasos del pipeline (orquestación, privados) ──────────────────────────────
 
 def _require_bot_target(user_id: str) -> str:
-    bot_target = get_bot_target_for_user(user_id)
+    bot_target = home_service.get_bot_target_for_user(user_id)
     if not bot_target:
         raise bad_request("La casa no tiene un bot configurado")
     return bot_target
 
 
 def _authenticate_gajim_sender(from_jid: str, house_id: str) -> str:
-    """Resuelve el JID a user_id y valida que pertenezca a la casa autenticada."""
     jid_bare = from_jid.split("/")[0]
     user_id = xmpp_account_repository.find_user_id_by_jid(jid_bare)
     if not user_id or house_member_repository.find_house_id_by_user(user_id) != house_id:
@@ -180,7 +119,7 @@ async def _forward_to_bot(
     xmpp_body = f"{correlation_id}|{payload}"
     xmpp_account = _get_base_user(user_id)
     try:
-        await send_xmpp_message(
+        await xmpp_service.send_xmpp_message(
             xmpp_body, xmpp_account["jid"], xmpp_account["password"],
             to_jid=bot_target, message_id=correlation_id,
         )
@@ -196,14 +135,14 @@ async def _forward_to_bot(
 
 async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id: str) -> None:
     from app.services.command_executor import execute_command, CommandSource
-    from app.services.device_catalog import is_action_supported, validate_payload
+    from app.services.device_catalog import device_catalog_service
 
     action = intent_data.get("action")
     name = (intent_data.get("device") or "").lower()
     if not action or not name:
         raise _DeviceNotFound
 
-    house_id = get_house_id_for_user(user_id)
+    house_id = home_service.get_house_id_for_user(user_id)
     if not house_id:
         raise _DeviceNotFound
 
@@ -211,11 +150,11 @@ async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id:
     if not device:
         raise _DeviceNotFound
 
-    if not is_action_supported(device.get("type", ""), action):
+    if not device_catalog_service.is_action_supported(device.get("type", ""), action):
         raise _ValidationError(f"{device['name']} no soporta la acción '{action}'.")
 
     payload = intent_data.get("payload") or {}
-    err = validate_payload(action, payload)
+    err = device_catalog_service.validate_payload(action, payload)
     if err:
         raise _ValidationError(err)
 
@@ -231,13 +170,13 @@ async def _dispatch_device_from_nlp(intent_data: dict, user_id: str, message_id:
 
 async def _resolve_for_gajim(message_id: str, correlation_id: str, user_id: str, text: str) -> None:
     _save_response(message_id, text)
-    bot_target = get_bot_target_for_user(user_id)
+    bot_target = home_service.get_bot_target_for_user(user_id)
     if not bot_target:
         return
     payload = json.dumps({"type": "relay", "text": text})
     xmpp_account = _get_base_user(user_id)
     try:
-        await send_xmpp_message(
+        await xmpp_service.send_xmpp_message(
             f"{correlation_id}|{payload}",
             xmpp_account["jid"], xmpp_account["password"],
             to_jid=bot_target, message_id=correlation_id,
@@ -246,7 +185,7 @@ async def _resolve_for_gajim(message_id: str, correlation_id: str, user_id: str,
         pass
 
 
-# ── Helpers de acceso a datos ────────────────────────────────────────────────
+# ── Helpers de acceso a datos (privados) ─────────────────────────────────────
 
 def _get_base_user(user_id: str) -> dict:
     jid_result = supabase.table("xmpp_accounts") \
@@ -309,24 +248,79 @@ def _create_message(command_id, body, conversation_id) -> dict:
     return result.data[0]
 
 
-# ── CRUD simple ──────────────────────────────────────────────────────────────
+# ── Servicio público ─────────────────────────────────────────────────────────
 
-def get_user_messages(user_id: str) -> list:
-    conv_ids = conversation_repository.find_ids_by_user(user_id)
-    return message_repository.find_by_conversation_ids(conv_ids)
+class MessagesService:
+
+    async def process_message(self, body: str, user_id: str, conversation_id: str) -> dict:
+        _verify_conversation(conversation_id, user_id)
+        bot_target = _require_bot_target(user_id)
+
+        message = _create_message(None, body, conversation_id)
+        intent_data = await _classify(body)
+
+        if await _try_resolve_in_backend(intent_data, user_id, message, _save_response):
+            _touch_conversation(conversation_id)
+            return message
+
+        await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
+        _touch_conversation(conversation_id)
+        return message
+
+    async def process_gajim_message(self, from_jid: str, body: str, house_id: str) -> dict:
+        user_id = _authenticate_gajim_sender(from_jid, house_id)
+        bot_target = _require_bot_target(user_id)
+        conv_id = _get_or_create_xmpp_conversation_today(user_id)
+
+        message = _create_message(None, body, conv_id)
+        correlation_id = str(message["id"])
+        intent_data = await _classify(body)
+
+        async def on_resolve(mid: str, text: str) -> None:
+            await _resolve_for_gajim(mid, correlation_id, user_id, text)
+
+        if await _try_resolve_in_backend(intent_data, user_id, message, on_resolve):
+            return message
+
+        await _forward_to_bot(body, intent_data, message["id"], user_id, bot_target)
+        return message
+
+    def handle_webhook(self, payload: BotWebhookPayload, house_id: str) -> None:
+        message = _find_message(payload)
+        if message:
+            owner = conversation_repository.find_user_id_by_id(message["conversation_id"])
+            if not owner or house_member_repository.find_house_id_by_user(owner) != house_id:
+                raise forbidden("El mensaje no pertenece a esta casa")
+            _save_response(message["id"], payload.response)
+            return
+
+        jid_bare = payload.from_jid.split("/")[0]
+        user_id = xmpp_account_repository.find_user_id_by_jid(jid_bare)
+        if not user_id or house_member_repository.find_house_id_by_user(user_id) != house_id:
+            raise not_found("JID desconocido en esta casa")
+        conv_id = _get_or_create_xmpp_conversation_today(user_id)
+        supabase.table("messages").insert({
+            "conversation_id": conv_id,
+            "body":            payload.body,
+            "response":        payload.response,
+        }).execute()
+
+    def get_user_messages(self, user_id: str) -> list:
+        conv_ids = conversation_repository.find_ids_by_user(user_id)
+        return message_repository.find_by_conversation_ids(conv_ids)
+
+    def create_conversation(self, user_id: str, title: str = "Nueva conversación") -> dict:
+        result = supabase.table("conversations").insert({
+            "user_id": user_id,
+            "title": title
+        }).execute()
+        return result.data[0]
+
+    def get_user_conversations(self, user_id: str) -> list:
+        return conversation_repository.find_by_user(user_id)
+
+    def get_conversation_messages(self, conversation_id: str) -> list:
+        return message_repository.find_by_conversation(conversation_id)
 
 
-def create_conversation(user_id: str, title: str = "Nueva conversación") -> dict:
-    result = supabase.table("conversations").insert({
-        "user_id": user_id,
-        "title": title
-    }).execute()
-    return result.data[0]
-
-
-def get_user_conversations(user_id: str) -> list:
-    return conversation_repository.find_by_user(user_id)
-
-
-def get_conversation_messages(conversation_id: str) -> list:
-    return message_repository.find_by_conversation(conversation_id)
+messages_service = MessagesService()

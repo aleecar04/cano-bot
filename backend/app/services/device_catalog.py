@@ -41,41 +41,45 @@ _COLOR_NAMES: frozenset[str] = frozenset({
 })
 
 
-def is_action_supported(device_type: str, action: str) -> bool:
-    """True si el tipo de dispositivo soporta la acción."""
-    category = _TYPE_TO_CATEGORY.get(device_type)
-    if category is None:
-        return False
-    try:
-        return Action(action) in _ACTIONS_BY_CATEGORY[category]
-    except ValueError:
-        return False
+class DeviceCatalogService:
 
-
-def validate_payload(action: str, payload: dict) -> str | None:
-    """Devuelve mensaje de error humano si el payload es inválido, o None si OK."""
-    if action == Action.TEMPERATURA_COLOR.value:
-        value = payload.get("value")
-        if value is None or int(value) not in _TEMPERATURE_PRESETS:
-            return (
-                "Solo acepto estas temperaturas de color:\n"
-                "  • Cálida → 2700K\n"
-                "  • Neutra → 4000K\n"
-                "  • Fría → 6500K"
-            )
-    elif action == Action.COLOR_RGB.value:
-        color = str(payload.get("color", "")).lower()
-        if color not in _COLOR_NAMES:
-            return (
-                "Ese color no está soportado. Prueba con alguno de:\n"
-                + ", ".join(sorted(_COLOR_NAMES))
-            )
-    elif action in (Action.BRILLO.value, Action.SET_VOLUMEN.value):
-        value = payload.get("value")
+    def is_action_supported(self, device_type: str, action: str) -> bool:
+        """True si el tipo de dispositivo soporta la acción."""
+        category = _TYPE_TO_CATEGORY.get(device_type)
+        if category is None:
+            return False
         try:
-            v = int(value)
-        except (TypeError, ValueError):
-            return "El valor debe ser un número entre 0 y 100."
-        if not 0 <= v <= 100:
-            return "El valor debe estar entre 0 y 100."
-    return None
+            return Action(action) in _ACTIONS_BY_CATEGORY[category]
+        except ValueError:
+            return False
+
+    def validate_payload(self, action: str, payload: dict) -> str | None:
+        """Devuelve mensaje de error humano si el payload es inválido, o None si OK."""
+        if action == Action.TEMPERATURA_COLOR.value:
+            value = payload.get("value")
+            if value is None or int(value) not in _TEMPERATURE_PRESETS:
+                return (
+                    "Solo acepto estas temperaturas de color:\n"
+                    "  • Cálida → 2700K\n"
+                    "  • Neutra → 4000K\n"
+                    "  • Fría → 6500K"
+                )
+        elif action == Action.COLOR_RGB.value:
+            color = str(payload.get("color", "")).lower()
+            if color not in _COLOR_NAMES:
+                return (
+                    "Ese color no está soportado. Prueba con alguno de:\n"
+                    + ", ".join(sorted(_COLOR_NAMES))
+                )
+        elif action in (Action.BRILLO.value, Action.SET_VOLUMEN.value):
+            value = payload.get("value")
+            try:
+                v = int(value)
+            except (TypeError, ValueError):
+                return "El valor debe ser un número entre 0 y 100."
+            if not 0 <= v <= 100:
+                return "El valor debe estar entre 0 y 100."
+        return None
+
+
+device_catalog_service = DeviceCatalogService()

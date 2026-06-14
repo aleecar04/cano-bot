@@ -4,9 +4,9 @@ import json
 from app.core.db import supabase
 from app.core.config import settings
 from app.core.errors import bad_request, conflict, not_found
-from app.services.xmpp import send_xmpp_message
-from app.services.home import get_bot_target_for_user, get_house_id_for_user
-from app.services.device_catalog import is_action_supported, validate_payload
+from app.services.xmpp import xmpp_service
+from app.services.home import home_service
+from app.services.device_catalog import device_catalog_service
 from app.repositories.devices import device_repository
 from app.repositories.users import xmpp_account_repository
 
@@ -28,9 +28,9 @@ class ScheduleSource(CommandSource):
         super().__init__(source_type="schedule", source_id=schedule_id)
 
     def post_execute(self, schedule_id: str | None, command_id: str) -> None:
-        from app.services.schedules import mark_schedule_run
+        from app.services.schedules import schedules_service
         from app.models.schedules import ScheduleMarkRun
-        mark_schedule_run(self.source_id, ScheduleMarkRun(command_id=command_id))
+        schedules_service.mark_schedule_run(self.source_id, ScheduleMarkRun(command_id=command_id))
 
 
 
@@ -72,7 +72,7 @@ def _get_xmpp_context(user_id: str) -> tuple[str, str, str]:
         "p_user_id": user_id,
         "p_key": settings.XMPP_ENCRYPTION_KEY,
     }).execute()
-    bot_target = get_bot_target_for_user(user_id)
+    bot_target = home_service.get_bot_target_for_user(user_id)
     if not bot_target:
         raise bad_request("La casa no tiene un bot configurado")
     return jid, password_result.data, bot_target
@@ -81,7 +81,7 @@ def _get_xmpp_context(user_id: str) -> tuple[str, str, str]:
 def _resolve_target(user_id: str, device_id: str | None) -> tuple[str, dict | None]:
     if not device_id:
         return "system", None
-    house_id = get_house_id_for_user(user_id)
+    house_id = home_service.get_house_id_for_user(user_id)
     device = device_repository.find_by_id_and_house(device_id, house_id)
     if not device:
         raise not_found("Dispositivo no encontrado")
@@ -115,9 +115,9 @@ async def execute_command(
     if target_type == "device":
         if device is None:
             _, device = _resolve_target(user_id, device_id)
-        if device and not is_action_supported(device.get("type", ""), action):
+        if device and not device_catalog_service.is_action_supported(device.get("type", ""), action):
             raise conflict(f"{device['name']} no soporta la acción '{action}'.")
-        err = validate_payload(action, payload)
+        err = device_catalog_service.validate_payload(action, payload)
         if err:
             raise conflict(err)
 
@@ -133,7 +133,7 @@ async def execute_command(
 
     body = _build_command_body(device_id, action, payload, command_id)
     try:
-        await send_xmpp_message(body=body, from_jid=jid, xmpp_password=xmpp_password, to_jid=bot_target)
+        await xmpp_service.send_xmpp_message(body=body, from_jid=jid, xmpp_password=xmpp_password, to_jid=bot_target)
     except Exception as e:
         _update_command(command_id, error=f"XMPP error: {e}")
         raise
