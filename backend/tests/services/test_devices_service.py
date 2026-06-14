@@ -1,4 +1,5 @@
 import asyncio
+from app.services.home import home_service
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,7 +7,7 @@ from fastapi import HTTPException
 
 from app.models.devices import DeviceVincular
 from app.models.drivers import DriverType
-from app.services import devices as dev_service
+from app.services.devices import devices_service as dev_service
 
 
 def _run(coro):
@@ -38,7 +39,7 @@ class TestDevicesService:
         )
 
     def test_user_without_house_raises_400(self):
-        with patch("app.services.devices.get_house_id_for_user", return_value=None), \
+        with patch.object(home_service, "get_house_id_for_user", return_value=None), \
              pytest.raises(HTTPException) as exc:
             dev_service.vincular_device(self._device_in(), "user_anabel")
         assert exc.value.status_code == 400
@@ -48,7 +49,7 @@ class TestDevicesService:
         ("random error", 500),
     ])
     def test_duplicate_returns_409_unknown_returns_500(self, exc_msg, expected_status):
-        with patch("app.services.devices.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.devices.supabase") as mock_db:
             mock_db.table.return_value.upsert.return_value.execute.side_effect = Exception(exc_msg)
             with pytest.raises(HTTPException) as exc:
@@ -56,7 +57,7 @@ class TestDevicesService:
             assert exc.value.status_code == expected_status
 
     def test_returns_device_on_success(self):
-        with patch("app.services.devices.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.devices.supabase") as mock_db:
             mock_db.table.return_value.upsert.return_value.execute.return_value = MagicMock(data=[{"id": "device_lampara"}])
             assert dev_service.vincular_device(self._device_in(), "user_anabel") == {"id": "device_lampara"}
@@ -73,7 +74,7 @@ class TestDevicesService:
         assert result[0]["config"]["entity_id"] == "light.x"
 
     def test_returns_devices_when_house_exists(self):
-        with patch("app.services.devices.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.devices.device_repository") as mock_d:
             mock_d.find_by_house.return_value = [{"id": "device_lampara"}]
             assert dev_service.get_devices("user_anabel") == [{"id": "device_lampara"}]
@@ -83,7 +84,7 @@ class TestDevicesService:
         ([{"id": "device_lampara"}], True),
     ])
     def test_desvincular_returns_delete_outcome(self, data, expected):
-        with patch("app.services.devices.get_user_role", return_value="member"), \
+        with patch.object(home_service, "get_user_role", return_value="member"), \
              patch("app.services.devices.supabase") as mock_db:
             mock_db.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(data=data)
             assert dev_service.desvincular_device("device_lampara", "user_anabel") is expected
@@ -93,7 +94,7 @@ class TestDevicesService:
         ({"ha_url": "http://ha", "created_at": "2025-01-01"}, True),
     ])
     def test_get_ha_connection_uses_credentials(self, summary, expected_connected):
-        with patch("app.services.devices.get_house_id_for_user", return_value="casa_demo"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
              patch("app.services.devices.ha_integration_repository") as mock_ha:
             mock_ha.find_summary_by_house.return_value = summary
             result = dev_service.get_ha_connection("user_anabel")

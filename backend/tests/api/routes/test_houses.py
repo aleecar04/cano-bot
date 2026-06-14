@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.services.xmpp import xmpp_service
+
 from tests.conftest import (
     SupabaseMock, TEST_MEMBER_ID, TEST_USER_ID,
     make_device, make_floor, make_house, make_house_member, make_room, make_schedule,
@@ -46,7 +48,7 @@ class TestHousesRoutes:
         _setup_house(supabase_mock)
         with patch("app.api.routes.houses.home_service.get_bot_target_for_user",
                    return_value="cano-bot@xmpp.cano-app.com"), \
-             patch("app.api.routes.houses.is_bot_online", new=AsyncMock(return_value=True)):
+             patch.object(xmpp_service, "is_bot_online", new=AsyncMock(return_value=True)):
             res = client.get("/api/v1/houses/me/bot-status")
         assert res.status_code == 200 and res.json() == {"online": True}
 

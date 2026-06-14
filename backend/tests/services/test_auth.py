@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.services import auth as auth_service
+from app.services.auth import auth_service
 
 
 class TestAuthService:

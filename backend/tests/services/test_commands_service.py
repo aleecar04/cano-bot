@@ -1,9 +1,11 @@
 from unittest.mock import MagicMock, patch
+from app.services.home import home_service
 
 import pytest
 from fastapi import HTTPException
 
-from app.services import commands as cmd_service
+from app.services.push import push_service
+from app.services.commands import commands_service as cmd_service
 
 
 class TestCommandsService:
@@ -14,8 +16,8 @@ class TestCommandsService:
         ("owner", ["user_carlos"], "user_carlos", "user_carlos"),
     ])
     def test_history_filtered_by_role(self, role, member_ids, member_id_arg, expected_user_ids):
-        with patch("app.services.commands.get_user_role", return_value=role), \
-             patch("app.services.commands.get_house_member_ids", return_value=member_ids or []), \
+        with patch.object(home_service, "get_user_role", return_value=role), \
+             patch.object(home_service, "get_house_member_ids", return_value=member_ids or []), \
              patch("app.services.commands.command_repository") as mock_repo:
             mock_repo.find_history.return_value = []
             cmd_service.get_command_history("user_anabel", member_id=member_id_arg)
@@ -89,7 +91,7 @@ class TestCommandsService:
         with patch("app.services.commands.command_repository") as mock_repo, \
              patch("app.services.commands.house_member_repository") as mock_h, \
              patch("app.services.commands.supabase"), \
-             patch("app.services.commands.send_push") as mock_push:
+             patch.object(push_service, "send_push") as mock_push:
             mock_repo.find_meta_by_id.return_value = meta
             mock_h.find_house_id_by_user.return_value = "casa_demo"
             cmd_service.update_command_result("cmd_encender", "casa_demo", None)
@@ -98,7 +100,7 @@ class TestCommandsService:
         with patch("app.services.commands.command_repository") as mock_repo, \
              patch("app.services.commands.house_member_repository") as mock_h, \
              patch("app.services.commands.supabase"), \
-             patch("app.services.commands.send_push", side_effect=Exception("boom")):
+             patch.object(push_service, "send_push", side_effect=Exception("boom")):
             mock_repo.find_meta_by_id.return_value = meta
             mock_h.find_house_id_by_user.return_value = "casa_demo"
             cmd_service.update_command_result("cmd_encender", "casa_demo", None)

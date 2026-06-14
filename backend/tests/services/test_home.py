@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.services import home as home_service
+from app.services.home import home_service
 
 
 class TestHomeService:
@@ -59,13 +59,13 @@ class TestHomeService:
         assert "cano-bot@xmpp.cano-app.com" in result and "bot-demo2026abcd" in result
 
     def test_user_already_member(self):
-        with patch("app.services.home.get_house_id_for_user", return_value="casa_previa"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_previa"), \
              pytest.raises(HTTPException) as exc:
             home_service.setup_house("user_anabel", "Casa Demo")
         assert exc.value.status_code == 409
 
     def test_full_flow_returns_house_id_and_token(self):
-        with patch("app.services.home.get_house_id_for_user", return_value=None), \
+        with patch.object(home_service, "get_house_id_for_user", return_value=None), \
              patch("app.services.home.supabase") as mock_db:
             houses_chain = MagicMock()
             houses_chain.execute.return_value.data = [{"id": "casa_nueva"}]
@@ -84,7 +84,7 @@ class TestHomeService:
         assert result["house_id"] == "casa_nueva" and isinstance(result["bot_token"], str)
 
     def test_rolls_back_house_when_member_insert_fails(self):
-        with patch("app.services.home.get_house_id_for_user", return_value=None), \
+        with patch.object(home_service, "get_house_id_for_user", return_value=None), \
              patch("app.services.home.supabase") as mock_db:
             houses_chain = MagicMock()
             houses_chain.execute.return_value.data = [{"id": "casa_nueva"}]
@@ -104,12 +104,12 @@ class TestHomeService:
             assert calls.count("houses") >= 2
 
     def test_leave_without_house_is_noop(self):
-        with patch("app.services.home.get_house_id_for_user", return_value=None):
+        with patch.object(home_service, "get_house_id_for_user", return_value=None):
             home_service.leave_house("user_anabel")
 
     def test_deletes_house_when_last_member_leaves(self):
-        with patch("app.services.home.get_house_id_for_user", return_value="casa_demo"), \
-             patch("app.services.home.get_user_role", return_value="owner"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
+             patch.object(home_service, "get_user_role", return_value="owner"), \
              patch("app.services.home.supabase") as mock_db:
             remaining_chain = MagicMock()
             remaining_chain.execute.return_value.data = []
@@ -127,8 +127,8 @@ class TestHomeService:
             assert "houses" in tables_called
 
     def test_owner_leaving_transfers_ownership(self):
-        with patch("app.services.home.get_house_id_for_user", return_value="casa_demo"), \
-             patch("app.services.home.get_user_role", return_value="owner"), \
+        with patch.object(home_service, "get_house_id_for_user", return_value="casa_demo"), \
+             patch.object(home_service, "get_user_role", return_value="owner"), \
              patch("app.services.home.supabase") as mock_db:
             update_calls = {}
 
@@ -149,19 +149,19 @@ class TestHomeService:
             update_calls["update"].assert_called_with({"role": "owner"})
 
     def test_member_cannot_delete_room(self):
-        with patch("app.services.home.get_user_role", return_value="member"):
+        with patch.object(home_service, "get_user_role", return_value="member"):
             with pytest.raises(HTTPException) as exc:
                 home_service.delete_room("user_anabel", "floor_baja", "room_salon")
         assert exc.value.status_code == 403
 
     def test_delete_floor_requires_owner_and_existing_house(self):
-        with patch("app.services.home.get_user_house", return_value=None):
+        with patch.object(home_service, "get_user_house", return_value=None):
             with pytest.raises(HTTPException) as exc:
                 home_service.delete_floor("user_anabel", "floor_baja")
         assert exc.value.status_code == 404
 
-        with patch("app.services.home.get_user_house", return_value={"id": "casa_demo"}), \
-             patch("app.services.home.get_user_role", return_value="member"):
+        with patch.object(home_service, "get_user_house", return_value={"id": "casa_demo"}), \
+             patch.object(home_service, "get_user_role", return_value="member"):
             with pytest.raises(HTTPException) as exc:
                 home_service.delete_floor("user_anabel", "floor_baja")
         assert exc.value.status_code == 403

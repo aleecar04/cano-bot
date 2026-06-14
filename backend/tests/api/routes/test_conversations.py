@@ -11,7 +11,8 @@ _CONV_ID = str(uuid.uuid4())
 class TestConversationsRoutes:
 
     def test_new_conversation_uses_body_title(self, client: TestClient):
-        with patch("app.api.routes.conversations.create_conversation") as mock_create:
+        from app.services.messages import messages_service
+        with patch.object(messages_service, "create_conversation") as mock_create:
             mock_create.return_value = {"id": _CONV_ID, "user_id": TEST_USER_ID, "title": "Mi chat"}
             res = client.post("/api/v1/conversations/", json={"title": "Mi chat"})
         assert res.status_code == 200

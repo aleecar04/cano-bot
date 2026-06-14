@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from pywebpush import WebPushException
 
-from app.services import push as push_service
+from app.services.push import push_service
 
 
 class TestPushService:

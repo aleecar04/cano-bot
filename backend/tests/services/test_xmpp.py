@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services import xmpp as xmpp_service
+from app.services.xmpp import xmpp_service
 
 
 class TestXmppService:

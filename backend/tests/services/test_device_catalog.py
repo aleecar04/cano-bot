@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.device_catalog import is_action_supported, validate_payload
+from app.services.device_catalog import device_catalog_service
 
 
 class TestDeviceCatalog:
@@ -13,7 +13,7 @@ class TestDeviceCatalog:
         ("Luz", "telepatear", False),
     ])
     def test_is_action_supported(self, device_type, action, supported):
-        assert is_action_supported(device_type, action) is supported
+        assert device_catalog_service.is_action_supported(device_type, action) is supported
 
     @pytest.mark.parametrize("action, payload, ok", [
         ("temperatura_color", {"value": 2700}, True),
@@ -29,5 +29,5 @@ class TestDeviceCatalog:
         ("mute", {}, True),
     ])
     def test_validate_payload(self, action, payload, ok):
-        result = validate_payload(action, payload)
+        result = device_catalog_service.validate_payload(action, payload)
         assert (result is None) is ok
