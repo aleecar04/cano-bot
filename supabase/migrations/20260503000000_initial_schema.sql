@@ -260,3 +260,13 @@ CREATE TABLE push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX push_subscriptions_user_id_idx ON push_subscriptions(user_id);
+
+
+-- ── Grants para service_role (necesarios en entornos frescos como CI) ────
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
