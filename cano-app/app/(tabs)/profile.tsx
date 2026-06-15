@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, Clipboard,
-  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
+  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,6 +98,14 @@ function renderInviteModalContent({
         >
           <Ionicons name="copy-outline" size={16} color="white" />
           <Text className="text-text font-semibold text-sm">Copiar código</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-row items-center gap-2 bg-[#25D366] rounded-xl px-6 py-3 w-full justify-center"
+          onPress={handleShareCode}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="logo-whatsapp" size={16} color="white" />
+          <Text className="text-white font-semibold text-sm">Compartir por WhatsApp</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={handleOpenInvite} activeOpacity={0.7}>
           <Text className="text-text-secondary text-xs underline">Generar nuevo código</Text>
@@ -277,6 +285,14 @@ export default function ProfileScreen() {
     if (!inviteData) return;
     Clipboard.setString(inviteData.code);
     setToast({ message: 'Código copiado al portapapeles', variant: 'success' });
+  };
+
+  const handleShareCode = () => {
+    if (!inviteData) return;
+    const message =
+      '¡Únete a mi hogar en Cano! Introduce este código de invitación: ' +
+      `${inviteData.code} (caduca en ${inviteData.expires_in_hours} horas).`;
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
   };
 
   const handleHaConnect = async () => {
