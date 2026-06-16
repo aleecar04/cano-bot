@@ -16,6 +16,19 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Cano-Bot" />
         <ScrollViewStyleReset />
+        {/* Bloquea el scroll del documento: en iOS Safari, al enfocar un input
+            el navegador hacía scroll de TODA la página (y el footer) hacia arriba.
+            Anclando el body, el teclado se superpone y la pantalla no se mueve.
+            El scroll vive en los contenedores internos (ScrollView/listas). */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+              body { position: fixed; inset: 0; width: 100%; }
+              #root { height: 100%; display: flex; flex-direction: column; }
+            `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
