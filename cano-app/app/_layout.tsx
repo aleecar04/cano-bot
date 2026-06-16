@@ -45,12 +45,16 @@ function RootLayoutInner() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      supabase.realtime.setAuth(session?.access_token ?? null);
       if (session) loadProfile();
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // Mantiene el socket de realtime autenticado con el token vigente
+      // (también al refrescarse), para que RLS siga entregando los eventos.
+      supabase.realtime.setAuth(session?.access_token ?? null);
       if (session) {
         loadProfile();
       } else {
