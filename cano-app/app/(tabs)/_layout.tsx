@@ -8,6 +8,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { AppHeader } from '@/components/ui/app-header';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useKeyboardVisible } from '@/hooks/use-keyboard-visible';
 import "../../global.css"
 
 function FlashIcon({ color, focused }: Readonly<{ color: string; focused: boolean }>) {
@@ -41,6 +42,7 @@ export default function TabLayout() {
   }, []);
 
   const colors = Colors[colorScheme ?? 'light'];
+  const keyboardVisible = useKeyboardVisible();
 
   return (
     <KeyboardAvoidingView
@@ -62,6 +64,9 @@ export default function TabLayout() {
             borderTopWidth: 1,
             height: 60,
             paddingBottom: 8,
+            // Oculta el footer mientras el teclado está abierto (web/PWA), para que
+            // el teclado lo tape sin que el footer "salte" hacia arriba.
+            display: keyboardVisible ? 'none' : 'flex',
           },
         }}>
         <Tabs.Screen
