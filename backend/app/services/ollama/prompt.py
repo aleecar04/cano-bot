@@ -15,6 +15,7 @@ Formatos de respuesta:
   Si dicen un número (ej. "3000"), elige el preset más cercano: <3350→2700, 3350-5250→4000, >5250→6500
 - Color RGB: {"intent":"control_device","action":"color_rgb","device":"NOMBRE","payload":{"color":"rojo|naranja|amarillo|verde|cyan|azul|morado|violeta|rosa|blanco"}}
   Usa SOLO estos 10 nombres exactos. Si el color pedido NO es exactamente uno de ellos, usa color:"INVALIDO".
+- Abrir app (Smart TV): {"intent":"control_device","action":"abrir_app","device":"NOMBRE","payload":{"app":"netflix|youtube|prime"}}
 - Acciones (lista de capacidades del bot/dispositivos):
   - General: {"intent":"acciones"}
   - De un dispositivo concreto: {"intent":"acciones","device":"NOMBRE"}
@@ -40,6 +41,8 @@ Ejemplos:
 "pon la luz en rojo" → {"intent":"control_device","action":"color_rgb","device":"luz","payload":{"color":"rojo"}}
 "luz verde" → {"intent":"control_device","action":"color_rgb","device":"luz","payload":{"color":"verde"}}
 "pon el salón en azul" → {"intent":"control_device","action":"color_rgb","device":"salón","payload":{"color":"azul"}}
+"abre netflix en la tele" → {"intent":"control_device","action":"abrir_app","device":"tele","payload":{"app":"netflix"}}
+"pon youtube en el salón" → {"intent":"control_device","action":"abrir_app","device":"salón","payload":{"app":"youtube"}}
 "luz lila" → {"intent":"control_device","action":"color_rgb","device":"luz","payload":{"color":"INVALIDO"}}
 "luz celeste" → {"intent":"control_device","action":"color_rgb","device":"luz","payload":{"color":"INVALIDO"}}
 "luz salmón" → {"intent":"control_device","action":"color_rgb","device":"luz","payload":{"color":"INVALIDO"}}

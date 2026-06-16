@@ -1,4 +1,31 @@
+import unicodedata
+
 from app.core.db import supabase
+
+_NAME_STOPWORDS = {"el", "la", "los", "las", "del", "de", "en", "mi", "mis", "un", "una"}
+
+
+def _normalize_name(s: str) -> str:
+    s = unicodedata.normalize("NFKD", (s or "").lower()).encode("ascii", "ignore").decode()
+    return " ".join(s.split())
+
+
+def match_device_by_name(name: str, devices: list[dict]) -> dict | None:
+    q = _normalize_name(name)
+    if not q or not devices:
+        return None
+    for d in devices:
+        n = _normalize_name(d.get("name", ""))
+        if q in n or n in q:
+            return d
+    q_tokens = {t for t in q.split() if t not in _NAME_STOPWORDS}
+    best, best_score = None, 0
+    for d in devices:
+        n_tokens = {t for t in _normalize_name(d.get("name", "")).split() if t not in _NAME_STOPWORDS}
+        score = len(q_tokens & n_tokens)
+        if score > best_score:
+            best, best_score = d, score
+    return best if best_score > 0 else None
 
 
 class DeviceRepository:
@@ -28,15 +55,14 @@ class DeviceRepository:
         return res.data[0] if res.data else None
 
     def find_by_name_and_house(self, name: str, house_id: str) -> dict | None:
-        res = (
+        devices = (
             supabase.table("devices")
             .select("*")
             .eq("house_id", house_id)
-            .ilike("name", name)
-            .limit(1)
             .execute()
-        )
-        return res.data[0] if res.data else None
+            .data
+        ) or []
+        return match_device_by_name(name, devices)
 
     def find_by_room(self, room_id: str, fields: str = "id") -> list[dict]:
         return (
