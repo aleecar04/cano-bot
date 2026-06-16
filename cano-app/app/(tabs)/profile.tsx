@@ -42,6 +42,7 @@ type InviteModalContentProps = Readonly<{
   inviteData: InviteCodeDto | null;
   handleOpenInvite: () => void;
   handleCopyCode: () => void;
+  handleShareCode: () => void;
 }>;
 
 function renderInviteModalContent({
@@ -50,6 +51,7 @@ function renderInviteModalContent({
   inviteData,
   handleOpenInvite,
   handleCopyCode,
+  handleShareCode,
 }: InviteModalContentProps) {
   if (generatingCode) {
     return (
@@ -589,6 +591,7 @@ export default function ProfileScreen() {
               inviteData,
               handleOpenInvite,
               handleCopyCode,
+              handleShareCode,
             })}
           </View>
         </View>

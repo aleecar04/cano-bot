@@ -256,7 +256,7 @@ export function LinkDeviceModal({
               ) : (
                 <Ionicons name="link" size={16} color="white" />
               )}
-              <Text className="text-text font-semibold text-sm">
+              <Text className="text-white font-semibold text-sm">
                 {linking ? 'Vinculando...' : 'Vincular'}
               </Text>
             </TouchableOpacity>

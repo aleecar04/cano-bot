@@ -175,58 +175,39 @@ export default function ChatScreen() {
       }
       const messageId: string = data.id;
 
-      const channel = supabase
-        .channel(`message-${messageId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'messages',
-            filter: `id=eq.${messageId}`,
-          },
-          async (payload) => {
-            const updated = payload.new;
-            if (!updated.response) return;
-            channel.unsubscribe();
-
-            if (persistedConvId.current !== activeId) {
-              setThinking(false);
-              return;
-            }
-
-            const newItems: Message[] = [
-              { id: `${messageId}_bot`, from: 'bot', text: updated.response, timestamp: new Date() },
-            ];
-
-            // Si el mensaje tiene un comando asociado, recuperamos su result_data
-            // con una sola petición HTTP (no merece la pena suscribirse también
-            // a la tabla commands para un evento puntual).
-            if (updated.command_id) {
-              try {
-                const msgs = await getConversationMessages(activeId);
-                const fullMsg = msgs.find((m: any) => m.id === messageId);
-                const result = fullMsg?.command?.result_data;
-                if (result) {
-                  newItems.push({ id: `${messageId}_data`, from: 'bot', result, timestamp: new Date() });
-                }
-              } catch {
-                // Si falla, al menos mostramos el texto
-              }
-            }
-
-            setMessages((prev) => [...prev, ...newItems]);
-            setThinking(false);
+      // Polling por GET: esperamos a que el bot rellene la respuesta del mensaje.
+      // No usamos realtime para no depender del socket/RLS; el GET ya trae la
+      // respuesta y el result_data del comando asociado. El bucle está acotado
+      // por RESPONSE_TIMEOUT_MS y se detiene si cambias de conversación.
+      const startedAt = Date.now();
+      const pollResponse = async () => {
+        while (Date.now() - startedAt < RESPONSE_TIMEOUT_MS) {
+          await new Promise((r) => setTimeout(r, 1500));
+          if (persistedConvId.current !== activeId) { setThinking(false); return; }
+          let msgs;
+          try {
+            msgs = await getConversationMessages(activeId);
+          } catch {
+            continue;
           }
-        )
-        .subscribe();
-
-      // Fallback: si en 30s no llega la respuesta, cerramos canal y desactivamos
-      // el indicador de "pensando". El mensaje queda en BD para mostrarse al volver.
-      setTimeout(() => {
-        channel.unsubscribe();
+          const full = msgs.find((m: any) => m.id === messageId);
+          if (full?.response) {
+            const newItems: Message[] = [
+              { id: `${messageId}_bot`, from: 'bot', text: full.response, timestamp: new Date() },
+            ];
+            const result = full.command?.result_data;
+            if (result) {
+              newItems.push({ id: `${messageId}_data`, from: 'bot', result, timestamp: new Date() });
+            }
+            if (persistedConvId.current === activeId) setMessages((prev) => [...prev, ...newItems]);
+            setThinking(false);
+            return;
+          }
+        }
+        // Timeout: el mensaje queda en BD y se verá al reabrir la conversación.
         if (persistedConvId.current === activeId) setThinking(false);
-      }, RESPONSE_TIMEOUT_MS);
+      };
+      pollResponse();
     } catch (err) {
       Alert.alert('No se pudo enviar', friendlyError(err));
       setThinking(false);

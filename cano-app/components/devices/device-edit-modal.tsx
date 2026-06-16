@@ -10,7 +10,7 @@ import { friendlyError } from '@/utils/friendly-error';
 
 interface DeviceEditModalProps {
   visible: boolean;
-  device: { id: string; name: string; type?: string; room_id?: string | null };
+  device: { id: string; name: string; type?: string; room_id?: string | null; ip?: string; mac?: string };
   onClose: () => void;
   onSave: (updated: DeviceDto) => void;
   onError: (message: string) => void;
@@ -90,6 +90,14 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
               </View>
             </View>
 
+            {(!!device.ip || !!device.mac) && (
+              <View className="bg-bg border border-border rounded-xl px-4 py-3 gap-1">
+                <Text className="text-text-secondary text-xs font-semibold">Información de red</Text>
+                {!!device.ip && <Text className="text-text-secondary text-xs">IP: {device.ip}</Text>}
+                {!!device.mac && <Text className="text-text-secondary text-xs">MAC: {device.mac}</Text>}
+              </View>
+            )}
+
             <View>
               <Text className="text-text-secondary text-xs font-semibold mb-2">Habitación</Text>
               {loadingRooms ? (
@@ -149,7 +157,7 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
                 ? <ActivityIndicator color="white" size="small" />
                 : <Ionicons name="checkmark" size={16} color="white" />
               }
-              <Text className="text-text font-semibold text-sm">Guardar</Text>
+              <Text className="text-white font-semibold text-sm">Guardar</Text>
             </TouchableOpacity>
           </View>
 

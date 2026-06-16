@@ -235,7 +235,7 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 </View>
               )}
             </View>
-            <Text className="text-text-secondary text-xs mt-0.5">{device.type} · {device.ip}</Text>
+            <Text className="text-text-secondary text-xs mt-0.5">{device.type}</Text>
           </View>
         </View>
 
@@ -481,14 +481,13 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 </TouchableOpacity>
               ))}
 
-              {picker === 'app' && TV_APPS.map(({ app, label, icon }) => (
+              {picker === 'app' && TV_APPS.map(({ app, label }) => (
                 <TouchableOpacity
                   key={app}
                   onPress={() => { setPicker(null); handleAccion('abrir_app', { app }); }}
-                  className="flex-row items-center gap-3 bg-bg border border-border rounded-xl px-4 py-3"
+                  className="bg-bg border border-border rounded-xl px-4 py-3 items-center"
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={icon as any} size={20} color="#3B82F6" />
                   <Text className="text-text font-semibold text-sm">{label}</Text>
                 </TouchableOpacity>
               ))}
