@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { updateDevice, type DeviceDto } from '@/api/devices';
 import { getMyRooms, type RoomDto } from '@/api/houses';
 import { friendlyError } from '@/utils/friendly-error';
+import { deviceTypeLabel } from '@/utils/device-icons';
 
 interface DeviceEditModalProps {
   visible: boolean;
@@ -85,7 +86,7 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
             <View className="flex-row items-center gap-2 bg-bg border border-border rounded-xl px-4 py-3">
               <Ionicons name="lock-closed-outline" size={15} color="#64748b" />
               <View className="flex-1">
-                <Text className="text-text text-sm font-semibold">{device.type}</Text>
+                <Text className="text-text text-sm font-semibold">{deviceTypeLabel(device.type)}</Text>
                 <Text className="text-text-secondary text-xs mt-0.5">Una vez vinculado, el tipo no se puede cambiar</Text>
               </View>
             </View>

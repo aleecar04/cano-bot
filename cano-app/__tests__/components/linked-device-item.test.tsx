@@ -48,7 +48,7 @@ describe('<LinkedDeviceItem />', () => {
         onUnlink={jest.fn()}
       />,
     );
-    expect(screen.getByText('No disponible')).toBeTruthy();
+    expect(screen.getByText(' Sin acceso')).toBeTruthy();
     expect(screen.getByText('Encendido')).toBeTruthy();
   });
 

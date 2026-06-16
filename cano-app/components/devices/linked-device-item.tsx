@@ -8,7 +8,7 @@ import { sendCommand, waitForCommand, getDevice, refreshDevice, type DeviceDto }
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { DeviceEditModal } from '@/components/devices/device-edit-modal';
-import { deviceIcon, deviceColor } from '@/utils/device-icons';
+import { deviceIcon, deviceColor, deviceTypeLabel } from '@/utils/device-icons';
 import { TV_APPS } from '@/utils/device-actions';
 
 const WOL_TYPES = new Set(['SmartTV']);
@@ -236,7 +236,7 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 </View>
               )}
             </View>
-            <Text className="text-text-secondary text-xs mt-0.5">{device.type}</Text>
+            <Text className="text-text-secondary text-xs mt-0.5">{deviceTypeLabel(device.type)}</Text>
           </View>
         </View>
 
