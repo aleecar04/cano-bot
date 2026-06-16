@@ -94,12 +94,17 @@ export function DevicesTab({
       const result = await vincularDevice(params);
       setShowLinkModal(false);
       setPendingDevice(null);
+      onLinkSuccess(result);            // pinta el device ya, aunque su estado aún no esté actualizado
       onToast(`Comprobando ${params.name}…`, 'success');
 
-      const updated = await waitForDeviceStatus(result.id);
-      onLinkSuccess(updated);
-      const estadoMsg = updated.is_online ? 'en línea' : 'sin conexión';
-      onToast(`${params.name} listo — ${estadoMsg}`, updated.is_online ? 'success' : 'error');
+      // El estado real lo trae el bot; lo refrescamos en segundo plano sin bloquear la UI
+      waitForDeviceStatus(result.id)
+        .then((updated) => {
+          onDeviceUpdate(updated);
+          const estadoMsg = updated.is_online ? 'en línea' : 'sin conexión';
+          onToast(`${params.name} listo — ${estadoMsg}`, updated.is_online ? 'success' : 'error');
+        })
+        .catch(() => {});
     } catch (err) {
       onToast(friendlyError(err), 'error');
     } finally {

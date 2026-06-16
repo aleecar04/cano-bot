@@ -6,6 +6,7 @@ from app.api.bot_auth import bot_auth
 from app.core.config import settings
 from app.core.errors import unauthorized
 from app.services.bot_auth import bot_auth_service
+from app.services import bot_presence
 
 router = APIRouter(prefix="/bot", tags=["bot"])
 internal_router = APIRouter(prefix="/internal", tags=["internal"])
@@ -16,6 +17,13 @@ def issue_xmpp_token(house: Annotated[dict, Depends(bot_auth)]) -> dict:
     """Emite un token efimero de un solo uso para que la instancia del bot
     se autentique contra Prosody via SASL OAUTHBEARER."""
     return bot_auth_service.issue_token(house["id"])
+
+
+@router.post("/heartbeat")
+def heartbeat(house: Annotated[dict, Depends(bot_auth)]) -> dict:
+    """El bot avisa de que sigue vivo. Se usa para el estado online/offline."""
+    bot_presence.mark_seen(house["id"])
+    return {"ok": True}
 
 
 @internal_router.post("/introspect")

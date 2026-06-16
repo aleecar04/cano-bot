@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator, Platform,
+  ScrollView, ActivityIndicator, Platform, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type RoomDto } from '@/api/houses';
@@ -75,7 +75,11 @@ export function LinkDeviceModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="px-5 pt-4" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="px-5 pt-4"
+            style={{ maxHeight: Dimensions.get('window').height * 0.6 }}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Device info */}
             <View className="bg-bg border border-border rounded-xl px-4 py-3 mb-5">
               <Text className="text-text-secondary text-xs mb-1">IP detectada</Text>

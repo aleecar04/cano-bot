@@ -10,7 +10,7 @@ from app.models.schedules import GroupScheduleCreate
 from app.services.home import home_service
 from app.services.devices import devices_service as device_service
 from app.services.schedules import schedules_service
-from app.services.xmpp import xmpp_service
+from app.services import bot_presence
 
 router = APIRouter(prefix="/houses", tags=["houses"])
 
@@ -26,11 +26,11 @@ def get_my_house(current_user: CurrentUser):
 
 
 @router.get("/me/bot-status")
-async def get_bot_status(current_user: CurrentUser):
-    bot_jid = home_service.get_bot_target_for_user(current_user["id"])
-    if not bot_jid:
+def get_bot_status(current_user: CurrentUser):
+    house_id = home_service.get_house_id_for_user(current_user["id"])
+    if not house_id:
         return {"online": False}
-    return {"online": await xmpp_service.is_bot_online(bot_jid)}
+    return {"online": bot_presence.is_online(house_id)}
 
 
 @router.get("/me/rooms", response_model=list[RoomPublic])
