@@ -150,8 +150,8 @@ def get_device_status(device_id: str, house: Annotated[dict, Depends(bot_auth)])
 # ── Home Assistant integration ──────────────────────────────────────────────
 
 @router.post("/ha/connect")
-def ha_connect(data: HAConnectSchema, current_user: CurrentUser):
-    return device_service.connect_ha(current_user["id"], data)
+async def ha_connect(data: HAConnectSchema, current_user: CurrentUser):
+    return await device_service.connect_ha(current_user["id"], data)
 
 
 @router.get("/ha/connection")
@@ -160,9 +160,28 @@ def get_ha_connection(current_user: CurrentUser):
 
 
 @router.post("/ha/reimport")
-def ha_reimport(current_user: CurrentUser):
+async def ha_reimport(current_user: CurrentUser):
     """Re-imports HA devices using the already stored credentials."""
-    return device_service.reimport_ha(current_user["id"])
+    return await device_service.reimport_ha(current_user["id"])
+
+
+@router.get("/ha/credentials")
+def ha_credentials(house: Annotated[dict, Depends(bot_auth)]):
+    """Bot-only: el bot pide las credenciales para hacer el fetch local a HA."""
+    return device_service.get_ha_credentials_for_house(house["id"])
+
+
+@router.post("/ha/import")
+def ha_import(body: dict, house: Annotated[dict, Depends(bot_auth)]):
+    """Bot-only: recibe los estados crudos de HA descargados por el bot."""
+    importados = device_service.process_ha_import(
+        house["id"],
+        body.get("user_id"),
+        body.get("states") or [],
+        body.get("entity_registry") or [],
+        body.get("device_registry") or [],
+    )
+    return {"ok": True, "importados": importados}
 
 
 @router.delete("/ha/connection")

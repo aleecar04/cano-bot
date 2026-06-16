@@ -57,4 +57,20 @@ Ejemplos:
 "qué acciones soportas" → {"intent":"acciones"}
 "acciones de la tele" → {"intent":"acciones","device":"tele"}
 "acciones del salón" → {"intent":"acciones","device":"salón"}
-"qué soporta la luz del salón" → {"intent":"acciones","device":"luz del salón"}"""
+"qué soporta la luz del salón" → {"intent":"acciones","device":"luz del salón"}
+"luz acciones" → {"intent":"acciones","device":"luz"}
+"tele acciones" → {"intent":"acciones","device":"tele"}
+"acciones luz" → {"intent":"acciones","device":"luz"}
+"acciones tele" → {"intent":"acciones","device":"tele"}
+"acciones de la luz" → {"intent":"acciones","device":"luz"}
+"enciende el enchufe" → {"intent":"control_device","action":"encender","device":"enchufe","payload":{}}
+"apaga el enchufe" → {"intent":"control_device","action":"apagar","device":"enchufe","payload":{}}
+"enciende el interruptor" → {"intent":"control_device","action":"encender","device":"interruptor","payload":{}}
+"apaga el interruptor de la cocina" → {"intent":"control_device","action":"apagar","device":"interruptor de la cocina","payload":{}}
+"acciones del enchufe" → {"intent":"acciones","device":"enchufe"}
+"enchufe acciones" → {"intent":"acciones","device":"enchufe"}
+"acciones enchufe" → {"intent":"acciones","device":"enchufe"}
+"acciones del interruptor" → {"intent":"acciones","device":"interruptor"}
+"acciones del sensor" → {"intent":"acciones","device":"sensor"}
+"sensor acciones" → {"intent":"acciones","device":"sensor"}
+"acciones sensor" → {"intent":"acciones","device":"sensor"}"""

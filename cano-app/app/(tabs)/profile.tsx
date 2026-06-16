@@ -305,11 +305,11 @@ export default function ProfileScreen() {
     setHaConnecting(true);
     setHaError(null);
     try {
-      const result = await connectHa(haUrl.trim(), haToken.trim());
+      await connectHa(haUrl.trim(), haToken.trim());
       setHaConnection({ connected: true, ha_url: haUrl.trim() });
       setHaUrl('');
       setHaToken('');
-      setToast({ message: `${result.importados} dispositivos importados de Home Assistant`, variant: 'success' });
+      setToast({ message: 'Conectando con Home Assistant… el bot importará tus dispositivos en unos segundos', variant: 'success' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo conectar con Home Assistant';
       setHaError(msg);
@@ -473,8 +473,8 @@ export default function ProfileScreen() {
                         onPress={async () => {
                           setHaConnecting(true);
                           try {
-                            const result = await reimportHa();
-                            setToast({ message: `${result.importados} dispositivos reimportados`, variant: 'success' });
+                            await reimportHa();
+                            setToast({ message: 'Reimportando desde Home Assistant… se actualizarán en unos segundos', variant: 'success' });
                           } catch (e) {
                             setToast({ message: e instanceof Error ? e.message : 'Error reimportando', variant: 'error' });
                           } finally {

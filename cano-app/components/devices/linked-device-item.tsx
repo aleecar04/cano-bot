@@ -24,7 +24,8 @@ function isActionDisabled(
   if (!knownState) return false;
 
   if (action === 'encender') {
-    if (WOL_TYPES.has(type)) return false;
+    // Tele apagada/inalcanzable: permitir Encender (Wake-on-LAN), no reporta estado fiable.
+    if (WOL_TYPES.has(type) && !is_online) return false;
     return is_online && power === 'on';
   }
   if (action === 'apagar') return !is_online || power !== 'on';

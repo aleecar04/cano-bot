@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from supabase import Client
@@ -94,17 +94,24 @@ class TestDevicesRoutes:
         }).execute()
         assert client.delete("/api/v1/devices/ha/connection").json() == {"ok": True}
 
-    def test_connect_ha_imports_supported_entities(self, client: TestClient, supabase: Client):
+    def test_connect_ha_stores_credentials_and_triggers_bot(self, client: TestClient, supabase: Client):
         _setup_house(supabase)
+        with patch("app.api.routes.devices.device_service._trigger_ha_import", new_callable=AsyncMock) as mock_trig:
+            res = client.post("/api/v1/devices/ha/connect",
+                              json={"ha_url": "http://192.0.2.50:8123", "token": "valid-token"})
+        assert res.status_code == 200 and res.json()["pending"] is True
+        mock_trig.assert_awaited_once()
+        stored = supabase.table("ha_integrations").select("ha_url").eq("house_id", make_house()["id"]).execute()
+        assert stored.data and stored.data[0]["ha_url"] == "http://192.0.2.50:8123"
 
-        api = MagicMock(); api.raise_for_status = lambda: None
-        states = MagicMock(); states.raise_for_status = lambda: None
-        states.json.return_value = [
+    def test_ha_import_persists_supported_entities(self, client: TestClient, supabase: Client):
+        _setup_house(supabase)
+        states = [
             {"entity_id": "light.salon",  "state": "on",  "attributes": {"friendly_name": "Lampara Salon"}},
             {"entity_id": "switch.cocina","state": "off", "attributes": {"friendly_name": "Enchufe Cocina"}},
             {"entity_id": "sensor.temp",  "state": "22",  "attributes": {}},
         ]
-        with patch("app.services.devices.requests.get", side_effect=[api, states]):
-            res = client.post("/api/v1/devices/ha/connect",
-                              json={"ha_url": "http://192.0.2.50:8123", "token": "valid-token"})
+        res = client.post("/api/v1/devices/ha/import",
+                          json={"user_id": TEST_USER_ID, "states": states,
+                                "entity_registry": [], "device_registry": []})
         assert res.status_code == 200 and res.json()["importados"] == 2

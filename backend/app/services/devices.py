@@ -1,5 +1,4 @@
 import json
-import requests
 from fastapi import HTTPException, status
 
 from app.core.db import supabase
@@ -22,46 +21,28 @@ def _detectar_driver_tv(hostname: str) -> DriverType | None:
     return None
 
 
-def _ha_entity_mac_map(ha_url: str, token: str) -> dict[str, str]:
-    headers = {"Authorization": f"Bearer {token}"}
-    try:
-        er = requests.get(f"{ha_url}/api/config/entity_registry/list", headers=headers, timeout=5)
-        er.raise_for_status()
-        entity_to_device = {e["entity_id"]: e.get("device_id") for e in er.json()}
-
-        dr = requests.get(f"{ha_url}/api/config/device_registry/list", headers=headers, timeout=5)
-        dr.raise_for_status()
-        device_to_mac: dict[str, str] = {}
-        for d in dr.json():
-            for conn_type, conn_val in d.get("connections", []):
-                if conn_type == "mac":
-                    device_to_mac[d["id"]] = conn_val
-
-        return {
-            eid: device_to_mac[did]
-            for eid, did in entity_to_device.items()
-            if did and did in device_to_mac
-        }
-    except Exception:
-        return {}
+# El fetch HTTP a Home Assistant lo hace el BOT (está en la red local); aquí solo
+# procesamos los datos crudos que nos envía y persistimos en BD.
+def _build_mac_map(entity_registry: list, device_registry: list) -> dict[str, str]:
+    entity_to_device = {e["entity_id"]: e.get("device_id") for e in entity_registry}
+    device_to_mac: dict[str, str] = {}
+    for d in device_registry:
+        for conn_type, conn_val in d.get("connections", []):
+            if conn_type == "mac":
+                device_to_mac[d["id"]] = conn_val
+    return {
+        eid: device_to_mac[did]
+        for eid, did in entity_to_device.items()
+        if did and did in device_to_mac
+    }
 
 
-def _import_ha_states(house_id: str, owner_id: str, ha_url: str, token: str) -> int:
-    r = requests.get(
-        f"{ha_url}/api/states",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=5
-    )
-    entidades = r.json()
-
+def _store_ha_states(house_id: str, owner_id: str, states: list, mac_map: dict[str, str]) -> int:
     tipos_utiles = ("light.", "switch.", "climate.", "media_player.")
-    mac_map      = _ha_entity_mac_map(ha_url, token)
-    importados   = 0
-
-    for e in entidades:
+    importados = 0
+    for e in states:
         if not e["entity_id"].startswith(tipos_utiles):
             continue
-
         supabase.table("devices").upsert({
             "owner_id":     owner_id,
             "house_id":     house_id,
@@ -72,7 +53,6 @@ def _import_ha_states(house_id: str, owner_id: str, ha_url: str, token: str) -> 
             "mac":          mac_map.get(e["entity_id"]),
             "config":       {},
         }, on_conflict="house_id,ha_entity_id").execute()
-
         importados += 1
     return importados
 
@@ -224,56 +204,68 @@ class DevicesService:
                 results.append({"device_id": d["id"], "error": "No se pudo enviar"})
         return {"ok": True, "results": results}
 
+    async def _send_to_bot_for_user(self, user_id: str, payload: dict) -> None:
+        jid = xmpp_account_repository.find_jid_by_user(user_id)
+        if not jid:
+            return
+        password_result = supabase.rpc("get_xmpp_password", {
+            "p_user_id": user_id,
+            "p_key": settings.XMPP_ENCRYPTION_KEY
+        }).execute()
+        bot_target = home_service.get_bot_target_for_user(user_id)
+        if not bot_target:
+            return
+        await xmpp_service.send_xmpp_message(
+            body=json.dumps(payload),
+            from_jid=jid,
+            xmpp_password=password_result.data,
+            to_jid=bot_target,
+        )
+
     async def request_device_poll(self, device_id: str, user_id: str) -> None:
         try:
-            jid = xmpp_account_repository.find_jid_by_user(user_id)
-            if not jid:
-                return
-            password_result = supabase.rpc("get_xmpp_password", {
-                "p_user_id": user_id,
-                "p_key": settings.XMPP_ENCRYPTION_KEY
-            }).execute()
-            xmpp_password = password_result.data
-            bot_target = home_service.get_bot_target_for_user(user_id)
-            if not bot_target:
-                return
-            await xmpp_service.send_xmpp_message(
-                body=json.dumps({"type": "poll_device", "device_id": device_id}),
-                from_jid=jid,
-                xmpp_password=xmpp_password,
-                to_jid=bot_target,
-            )
+            await self._send_to_bot_for_user(user_id, {"type": "poll_device", "device_id": device_id})
         except Exception:
             pass  # Non-critical — device will be polled on next cycle
+
+    async def _trigger_ha_import(self, user_id: str) -> None:
+        # El bot (en la red local) recibirá esto, leerá las credenciales del backend,
+        # hablará con HA y devolverá los estados para importarlos.
+        await self._send_to_bot_for_user(user_id, {"type": "ha_import", "user_id": user_id})
 
     def update_device_config_in_house(self, device_id: str, house_id: str, config: dict) -> None:
         supabase.table("devices").update({"config": config}) \
             .eq("id", device_id).eq("house_id", house_id).execute()
 
-    def connect_ha(self, user_id: str, data: HAConnectSchema) -> dict:
+    async def connect_ha(self, user_id: str, data: HAConnectSchema) -> dict:
         house_id = home_service.get_house_id_for_user(user_id)
         if not house_id:
             raise bad_request("El usuario no tiene una casa asociada")
         home_service.require_owner(user_id)
 
-        try:
-            r = requests.get(
-                f"{data.ha_url}/api/",
-                headers={"Authorization": f"Bearer {data.token}"},
-                timeout=5
-            )
-            r.raise_for_status()
-        except Exception:
-            raise bad_request("No se pudo conectar con Home Assistant")
-
+        # Guardamos credenciales y delegamos la conexión/importación al bot local.
+        # El test de conexión y el resultado llegan de forma asíncrona (vía bot).
         supabase.table("ha_integrations").upsert({
             "house_id": house_id,
             "ha_url":   data.ha_url,
             "token":    data.token
         }, on_conflict="house_id").execute()
 
-        importados = _import_ha_states(house_id, user_id, data.ha_url, data.token)
-        return {"ok": True, "importados": importados}
+        await self._trigger_ha_import(user_id)
+        return {"ok": True, "pending": True}
+
+    def get_ha_credentials_for_house(self, house_id: str) -> dict:
+        """Bot-only: credenciales de HA de la casa para que el bot haga el fetch local."""
+        stored = ha_integration_repository.find_credentials_by_house(house_id)
+        if not stored:
+            raise not_found("No hay integración de Home Assistant configurada")
+        return {"ha_url": stored["ha_url"], "token": stored["token"]}
+
+    def process_ha_import(self, house_id: str, owner_id: str, states: list,
+                          entity_registry: list, device_registry: list) -> int:
+        """Bot-only: recibe los datos crudos de HA y los persiste como devices."""
+        mac_map = _build_mac_map(entity_registry or [], device_registry or [])
+        return _store_ha_states(house_id, owner_id, states or [], mac_map)
 
     def get_status_for_bot_in_house(self, device_id: str, house_id: str) -> dict:
         """Bot read: snapshot del estado de un device. Solo si pertenece a esa casa."""
@@ -297,13 +289,13 @@ class DevicesService:
             return {"connected": False}
         return {"connected": True, "ha_url": row["ha_url"], "created_at": row["created_at"]}
 
-    def reimport_ha(self, user_id: str) -> dict:
+    async def reimport_ha(self, user_id: str) -> dict:
         house_id = home_service.get_house_id_for_user(user_id)
         stored = ha_integration_repository.find_credentials_by_house(house_id) if house_id else None
         if not stored:
             raise not_found("No hay integración de Home Assistant configurada")
-        importados = _import_ha_states(house_id, user_id, stored["ha_url"], stored["token"])
-        return {"ok": True, "importados": importados}
+        await self._trigger_ha_import(user_id)
+        return {"ok": True, "pending": True}
 
     def disconnect_ha(self, user_id: str) -> None:
         """Owner-only: remove the house's HA integration and all its HA-imported devices."""
