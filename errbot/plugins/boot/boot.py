@@ -14,8 +14,8 @@ from drivers import DRIVERS
 logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL_S         = 45
-_DRIVER_TIMEOUT_S        = 2.0
-_POLL_FUTURE_TIMEOUT_S   = 5     # cuánto esperamos a cada worker del ThreadPool
+_DRIVER_TIMEOUT_S        = 4.0
+_POLL_FUTURE_TIMEOUT_S   = 7     # cuánto esperamos a cada worker del ThreadPool
 _PATCH_TIMEOUT_S         = 5     # timeout del PATCH HTTP al backend
 _REACHABLE_PROBE_TIMEOUT = 1.5
 
@@ -140,9 +140,9 @@ class Boot(BotPlugin):
 
 
     def _send_heartbeat(self):
-        """Avisa al backend de que el bot sigue vivo (estado online/offline)."""
-        if not is_backend_reachable():
-            return
+        """Avisa al backend de que el bot sigue vivo (estado online/offline).
+        Se intenta siempre (tiene su propio timeout); no se condiciona a la
+        comprobación cacheada de alcanzabilidad para no perder latidos."""
         try:
             api_bot.heartbeat()
         except Exception as e:

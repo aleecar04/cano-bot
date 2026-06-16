@@ -34,7 +34,8 @@ class LGTVDriver(BaseDriver):
 
         return client
 
-    def _run(self, coro):
+    def _run(self, coro, timeout: float = 6.0):
+        coro = asyncio.wait_for(coro, timeout)
         try:
             try:
                 loop = asyncio.get_event_loop()
@@ -48,7 +49,7 @@ class LGTVDriver(BaseDriver):
             except RuntimeError:
                 return asyncio.run(coro)
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": str(e) or "tiempo de espera agotado"}
 
     def get_status(self, device: dict, timeout: float = 2.0) -> dict:
         try:
@@ -114,8 +115,10 @@ class LGTVDriver(BaseDriver):
             async def _fn():
                 c = await self._client(device)
                 await c.set_volume(max(0, min(100, value)))
+                vol_info = await c.get_volume()
                 await c.disconnect()
-                return {"ok": True, "volume": value}
+                real = vol_info.get("volume") if isinstance(vol_info, dict) else value
+                return {"ok": True, "state": {"power": "on", "volume": int(real)}}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -152,8 +155,12 @@ class LGTVDriver(BaseDriver):
                     await c.volume_up()
                 else:
                     await c.volume_down()
+                vol_info = await c.get_volume()
                 await c.disconnect()
-                return {"ok": True}
+                state = {"power": "on"}
+                if isinstance(vol_info, dict) and vol_info.get("volume") is not None:
+                    state["volume"] = int(vol_info["volume"])
+                return {"ok": True, "state": state}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}

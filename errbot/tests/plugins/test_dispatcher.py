@@ -112,6 +112,26 @@ class TestDispatcherPlugin:
         d._invoke_info_plugin("acciones", "acciones", {"device": "luz"}, _msg(), "x", "user_anabel")
         assert plugin.call_args[0][1] == "luz"
 
+    def test_acciones_attaches_actions_result_data(self):
+        d = _make_dispatcher()
+        d._reply = MagicMock()
+        d._register_command_in_backend = MagicMock()
+        d._bot.all_commands = {"acciones": MagicMock(return_value="text")}
+        with patch("plugins.help.help.actions_list_data",
+                   return_value={"tipo": "actions_list", "grupos": []}):
+            d._invoke_info_plugin("acciones", "acciones", {}, _msg(), "x", "user_anabel")
+        rd = d._register_command_in_backend.call_args.kwargs["result_data"]
+        assert rd is not None and rd["tipo"] == "actions_list"
+
+    def test_ayuda_attaches_help_result_data(self):
+        d = _make_dispatcher()
+        d._reply = MagicMock()
+        d._register_command_in_backend = MagicMock()
+        d._bot.all_commands = {"ayuda": MagicMock(return_value="HELP")}
+        d._invoke_info_plugin("ayuda", "ayuda", {}, _msg(), "x", "user_anabel")
+        rd = d._register_command_in_backend.call_args.kwargs["result_data"]
+        assert rd is not None and rd["tipo"] == "help"
+
     @pytest.mark.parametrize("plugin_result, expected_error", [
         ({"tipo": "ok"}, None),
         ({"tipo": "error", "mensaje": "boom"}, "boom"),

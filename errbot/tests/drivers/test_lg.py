@@ -42,6 +42,21 @@ class TestLGTVDriver:
         with patch.object(LGTVDriver, "_client", AsyncMock(side_effect=RuntimeError("net"))):
             assert LGTVDriver().get_status(_device())["is_online"] is False
 
+    def test_set_volume_returns_real_volume_from_tv(self):
+        client = _client_mock(set_volume=None, get_volume={"volume": 42})
+        with _patch_client(client):
+            result = LGTVDriver().set_volume(_device(), 50)
+        assert result["ok"] is True
+        # devuelve el volumen REAL leído (42), no el pedido (50)
+        assert result["state"]["volume"] == 42
+
+    def test_volume_step_returns_real_volume_from_tv(self):
+        client = _client_mock(volume_up=None, get_volume={"volume": 11})
+        with _patch_client(client):
+            result = LGTVDriver()._volume_step(_device(), "up")
+        assert result["ok"] is True
+        assert result["state"]["volume"] == 11
+
     def test_turn_on_uses_wol(self):
         with patch("drivers.lg_tv.send_magic_packet") as mock_wol:
             assert LGTVDriver().turn_on(_device()) == {"ok": True}

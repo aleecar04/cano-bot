@@ -145,6 +145,22 @@ class Dispatcher(BasePlugin, BotPlugin):
             return False
         args = intent_data.get("device", "") if cmd_name == "acciones" else ""
         response = method(msg, args)
+        result_data = None
+        if cmd_name == "acciones":
+            try:
+                from plugins.help.help import actions_list_data
+                result_data = actions_list_data(args)
+                if result_data:
+                    response = "Aquí tienes las acciones disponibles:"
+            except Exception:
+                result_data = None  # si falla la consulta, al menos queda el texto
+        elif cmd_name == "ayuda":
+            try:
+                from plugins.help.help import help_data
+                result_data = help_data()
+                response = "Esto es lo que puedo hacer:"
+            except Exception:
+                result_data = None
         self._reply(msg, text, response)
         self._register_command_in_backend(
             user_id=sender_id,
@@ -153,7 +169,7 @@ class Dispatcher(BasePlugin, BotPlugin):
             payload={},
             error=None,
             message_id=msg.extras.get("correlation_id"),
-            result_data=None,
+            result_data=result_data,
         )
         return True
 
