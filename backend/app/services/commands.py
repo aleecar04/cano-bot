@@ -149,6 +149,10 @@ class CommandsService:
             data["result_data"] = result_data
         supabase.table("commands").update(data).eq("id", command_id).execute()
 
+      
+        from app.services.messages import save_command_response
+        save_command_response(command_id, error or "Acción ejecutada")
+
         if row.get("source_type") == "schedule":
             _send_schedule_push(row, error)
 

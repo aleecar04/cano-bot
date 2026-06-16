@@ -232,6 +232,14 @@ def _save_response(message_id: str, response: str) -> None:
     supabase.table("messages").update({"response": response}).eq("id", message_id).execute()
 
 
+def save_command_response(command_id: str, response: str) -> None:
+    """Deja la respuesta en el mensaje del chat enlazado a un comando (si lo hay),
+    reutilizando el mismo mecanismo que el resto de respuestas del chat."""
+    res = supabase.table("messages").select("id").eq("command_id", command_id).limit(1).execute()
+    if res.data:
+        _save_response(res.data[0]["id"], response)
+
+
 def _touch_conversation(conversation_id: str) -> None:
     supabase.table("conversations").update({
         "updated_at": _NOW

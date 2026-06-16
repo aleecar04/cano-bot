@@ -1,7 +1,5 @@
 import { BotScanResponse } from './bot-scan-response';
 import { BotDeviceList } from './bot-device-list';
-import { BotActionsList } from './bot-actions-list';
-import { BotHelp } from './bot-help';
 
 interface BotJsonBubbleProps {
   data: Record<string, unknown>;
@@ -29,22 +27,6 @@ export function BotJsonBubble({ data, timestamp }: Readonly<BotJsonBubbleProps>)
         dispositivos={(data.dispositivos as any[]) ?? []}
         total={(data.total as number) ?? 0}
         timestamp={timestamp}
-      />
-    );
-  }
-
-  if (tipo === 'help') {
-    return <BotHelp secciones={(data.secciones as any[]) ?? []} />;
-  }
-
-  if (tipo === 'actions_list') {
-    return (
-      <BotActionsList
-        device={data.device as string | undefined}
-        device_type={data.device_type as string | undefined}
-        label={data.label as string | undefined}
-        acciones={(data.acciones as any[]) ?? undefined}
-        grupos={(data.grupos as any[]) ?? undefined}
       />
     );
   }
