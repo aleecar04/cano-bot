@@ -237,3 +237,12 @@ cano-app/coverage/
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
 .scannerwork/
+
+# Informes de cobertura (generados por CI)
+backend-coverage.xml
+bot-coverage.xml
+*coverage*.xml
+htmlcov/
+htmlcov-bot/
+.coverage
+coverage/

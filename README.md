@@ -1,212 +1,49 @@
-# Cano Bot - TFG Chatbot System
+# Cano-bot
 
-Sistema completo de chatbot con backend Errbot y aplicación móvil React Native.
+Sistema domótico de control del hogar mediante un agente conversacional (chatbot) basado en el protocolo **XMPP**. Permite gestionar dispositivos IoT (luces, enchufes, televisores, etc.) tanto con controles desde una PWA como mediante mensajes en **lenguaje natural**, e integra **Home Assistant** para ampliar la compatibilidad.
 
-## 📋 Descripción
+El proyecto se compone de tres módulos:
 
-Proyecto de TFG que implementa un sistema de chatbot completo, compuesto por:
+- **`backend/`** — API REST (FastAPI) con la lógica de negocio y la persistencia en Supabase (PostgreSQL).
+- **`errbot/`** — bot que se ejecuta en la red local del usuario y controla los dispositivos.
+- **`cano-app/`** — aplicación web progresiva (PWA) en React Native / Expo.
 
-- **Backend**: Bot basado en Errbot con almacenamiento en Supabase
+## Instalación
 
-- **Frontend**: Aplicación móvil multiplataforma con React Native y Expo
+### Requisitos
 
-## 🏗️ Estructura del Proyecto
+- Docker y Docker Compose.
+- Para el bot, se recomienda un equipo **Linux** dentro de la red local del hogar (el descubrimiento de dispositivos usa el modo de red `host` de Docker).
 
-```
-cano4/
-├── venv/                 # Entorno virtual Python
-├── config.py             # Configuración de Errbot
-├── plugins/              # Plugins personalizados del bot
-│   └── mibot/           # Plugin principal con integración Supabase
-├── data/                 # Datos persistentes del bot
-├── requirements.txt      # Dependencias Python
-├── .env                  # Variables de entorno (credenciales)
-└── cano-app/            # Aplicación móvil React Native
-    ├── app/
-    ├── components/
-    ├── node_modules/
-    └── package.json
-```
+### Desplegar el bot (sobre la instancia ya desplegada)
 
-## 🛠️ Tecnologías
-
-### Backend
-
-- **Python 3.12** - Lenguaje base
-- **Errbot 6.2.0** - Framework para chatbots
-- **Supabase 2.27.3** - Base de datos PostgreSQL en la nube
-- **python-dotenv 1.2.1** - Gestión de variables de entorno
-- **Pydantic 2.x** - Validación de datos
-
-### Frontend (Aplicación Móvil)
-
-- **React Native 0.81.5** - Framework multiplataforma
-- **Expo ~54.0.33** - Herramientas de desarrollo
-- **TypeScript ~5.9.2** - Tipado estático
-- **Expo Router ~6.0.23** - Navegación basada en archivos
-- **React Navigation 7.x** - Sistema de navegación
-- **Redux Toolkit 2.11.2** - Gestión de estado
-- **React Native Gifted Chat 3.3.2** - UI de chat
-- **XMPP Client 0.14.0** - Protocolo de mensajería
-
-### Base de Datos
-
-- **PostgreSQL** (vía Supabase) - Base de datos relacional
-- **Supabase Auth** - Autenticación de usuarios
-- **Supabase Realtime** - Sincronización en tiempo real
-
-## 📦 Instalación
-
-### Prerrequisitos
-
-- Python 3.12+
-- Node.js 20.19.4+
-- npm 9.2.0+
-- Cuenta en Supabase
-
-### Backend (Errbot)
+Se ofrece una instancia del sistema en <https://cano-bot.aleecr.es>. Basta con registrarse, crear una casa y copiar el *token de configuración del bot* que muestra la aplicación.
 
 ```bash
-# Clonar repositorio
-git clone <tu-repo>
-cd cano4
+git clone https://github.com/aleecar04/cano-bot.git
+cd cano-bot
 
-# Crear entorno virtual
-python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+cp errbot/.env.example errbot/.env
+# Editar errbot/.env y fijar BOT_TOKEN=<token>
 
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus credenciales de Supabase
-
-# Ejecutar el bot
-errbot
+docker compose up -d --build bot
 ```
 
-### Frontend (App Móvil)
+### (Opcional) Despliegue completo en local
+
+Requiere completar el `.env` raíz con credenciales propias (Supabase, servidor XMPP, etc.) a partir de la plantilla `.env.example`.
 
 ```bash
-# Ir a la carpeta de la app
+cp .env.example .env        # rellenar con credenciales propias
+
+supabase start
+docker compose up -d --build
+
 cd cano-app
-
-# Instalar dependencias
 npm install
-
-# Instalar Supabase
-npm install @supabase/supabase-js
-
-# Ejecutar en desarrollo
 npm start
-
-# Ejecutar en Android
-npm run android
-
-# Ejecutar en iOS
-npm run ios
 ```
 
-## ⚙️ Configuración
+## Autor
 
-### 1. Supabase
-
-1. Crear proyecto en [supabase.com](https://supabase.com)
-2. Crear tabla `mensajes`:
-
-```sql
-   CREATE TABLE mensajes (
-     id BIGSERIAL PRIMARY KEY,
-     usuario TEXT NOT NULL,
-     texto TEXT NOT NULL,
-     created_at TIMESTAMPTZ DEFAULT NOW()
-   );
-```
-
-3. Obtener credenciales en Project Settings → API
-
-### 2. Variables de Entorno
-
-Crear archivo `.env` en la raíz:
-
-```env
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_KEY=tu-anon-key-aqui
-```
-
-### 3. Configuración del Bot
-
-Editar `config.py`:
-
-- Cambiar `BOT_ADMINS` con tu usuario
-- Verificar rutas de directorios
-
-## 🚀 Uso
-
-### Comandos del Bot
-
-```
-!help              # Muestra ayuda
-!guardar <texto>   # Guarda mensaje en Supabase
-!listar            # Muestra últimos mensajes
-!plugin activate MiBot  # Activa el plugin principal
-```
-
-### App Móvil
-
-1. Iniciar la app con `npm start`
-2. Escanear QR con Expo Go (Android/iOS)
-3. Conectar con el bot vía XMPP
-4. Enviar/recibir mensajes en tiempo real
-
-## 📱 Características de la App
-
-- ✅ Chat en tiempo real con Gifted Chat
-- ✅ Navegación con React Navigation + Expo Router
-- ✅ Gestión de estado con Redux Toolkit
-- ✅ Notificaciones push
-- ✅ Integración con Supabase
-- ✅ Protocolo XMPP para mensajería
-- ✅ Soporte multiplataforma (iOS/Android/Web)
-
-## 🧪 Testing
-
-```bash
-# Backend
-cd cano4
-source venv/bin/activate
-pytest  # (si se añaden tests)
-
-# Frontend
-cd cano-app
-npm run lint
-```
-
-## 📚 Documentación Adicional
-
-- [Errbot Documentation](https://errbot.readthedocs.io/)
-- [Supabase Docs](https://supabase.com/docs)
-- [React Native Docs](https://reactnative.dev/)
-- [Expo Documentation](https://docs.expo.dev/)
-
-## 👤 Autor
-
-**Alejandro** - TFG 2025
-
-## 📄 Licencia
-
-Este proyecto es parte de un Trabajo de Fin de Grado.
-
-## 🙏 Agradecimientos
-
-- Errbot community
-- Supabase
-- React Native / Expo teams
-
-
-## 📊 Stats
-
-![GitHub stats](https://github-readme-stats.vercel.app/api?username=aleecar04&show_icons=true)
-
-![Top langs](https://github-readme-stats.vercel.app/api/top-langs/?username=aleecar04&repo=cano-bot&layout=compact)
+Alejandro Carmona Reina — Trabajo de Fin de Grado.
