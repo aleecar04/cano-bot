@@ -15,6 +15,17 @@ LG_APPS = {
     "prime":   "amazon",
 }
 
+
+def _extract_volume(vol_info) -> int | None:
+    if isinstance(vol_info, bool):
+        return None
+    if isinstance(vol_info, (int, float)):
+        return int(vol_info)
+    if isinstance(vol_info, dict) and vol_info.get("volume") is not None:
+        return int(vol_info["volume"])
+    return None
+
+
 class LGTVDriver(BaseDriver):
     async def _client(self, device: dict) -> WebOsClient:
         config = device.get("config") or {}
@@ -60,9 +71,7 @@ class LGTVDriver(BaseDriver):
                 power_state = await c.get_power_state()
                 volume = None
                 try:
-                    vol_info = await c.get_volume()
-                    if isinstance(vol_info, dict):
-                        volume = vol_info.get("volume")
+                    volume = _extract_volume(await c.get_volume())
                 except Exception:
                     pass
                 await c.disconnect()
@@ -115,10 +124,9 @@ class LGTVDriver(BaseDriver):
             async def _fn():
                 c = await self._client(device)
                 await c.set_volume(max(0, min(100, value)))
-                vol_info = await c.get_volume()
+                real = _extract_volume(await c.get_volume())
                 await c.disconnect()
-                real = vol_info.get("volume") if isinstance(vol_info, dict) else value
-                return {"ok": True, "state": {"power": "on", "volume": int(real)}}
+                return {"ok": True, "state": {"power": "on", "volume": real if real is not None else value}}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -155,11 +163,11 @@ class LGTVDriver(BaseDriver):
                     await c.volume_up()
                 else:
                     await c.volume_down()
-                vol_info = await c.get_volume()
+                real = _extract_volume(await c.get_volume())
                 await c.disconnect()
                 state = {"power": "on"}
-                if isinstance(vol_info, dict) and vol_info.get("volume") is not None:
-                    state["volume"] = int(vol_info["volume"])
+                if real is not None:
+                    state["volume"] = real
                 return {"ok": True, "state": state}
             return self._run(_fn())
         except Exception as e:

@@ -13,6 +13,7 @@ jest.mock('@/components/devices/device-edit-modal', () => ({
 jest.mock('@/utils/device-icons', () => ({
   deviceIcon:  () => 'bulb',
   deviceColor: () => '#3B82F6',
+  deviceTypeLabel: (t: string) => t,
 }));
 
 import { LinkedDeviceItem } from '@/components/devices/linked-device-item';
@@ -36,7 +37,7 @@ describe('<LinkedDeviceItem />', () => {
       <LinkedDeviceItem device={dispositivoVinculado()} onUnlink={jest.fn()} />,
     );
     expect(screen.getByText('Luz Salón')).toBeTruthy();
-    expect(screen.getByText('Luz · 192.0.2.42')).toBeTruthy();
+    expect(screen.getByText('Luz')).toBeTruthy();
     expect(screen.getByText('Disponible')).toBeTruthy();
     expect(screen.getByText('Apagado')).toBeTruthy();
   });
@@ -48,7 +49,7 @@ describe('<LinkedDeviceItem />', () => {
         onUnlink={jest.fn()}
       />,
     );
-    expect(screen.getByText(' Sin acceso')).toBeTruthy();
+    expect(screen.getByText('No disponible')).toBeTruthy();
     expect(screen.getByText('Encendido')).toBeTruthy();
   });
 

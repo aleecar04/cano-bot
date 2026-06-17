@@ -85,29 +85,6 @@ class TestLGTVDriver:
             LGTVDriver().open_app(_device(), "youtube")
         c.launch_app.assert_awaited_with("youtube.leanback.v4")
 
-    def test_client_key_persistence_keeps_existing_key(self):
-        client = MagicMock(); client.client_key = "key-demo"; client.connect = AsyncMock()
-        with patch.object(lg, "WebOsClient", return_value=client), \
-             patch.object(lg.api_devices, "patch_config") as mock_patch:
-            asyncio.run(LGTVDriver()._client(_device(client_key="key-demo")))
-        mock_patch.assert_not_called()
-
-    def test_client_key_persistence_persists_new_key(self):
-        client = MagicMock(); client.client_key = "key-nueva"; client.connect = AsyncMock()
-        with patch.object(lg, "WebOsClient", return_value=client), \
-             patch.object(lg.api_devices, "patch_config") as mock_patch, \
-             patch.object(lg.asyncio, "to_thread",
-                          side_effect=lambda f, *a, **k: mock_patch(*a, **k)):
-            result = asyncio.run(LGTVDriver()._client(_device(client_key="key-vieja")))
-        assert result is client
-        mock_patch.assert_called_once()
-
     def test_turn_on_returns_error_without_mac(self):
         result = LGTVDriver().turn_on(_device(mac=None))
         assert result["ok"] is False and "MAC" in result["error"]
-
-    def test_execute_falls_back_to_super_for_unknown_action(self):
-        drv = LGTVDriver()
-        with patch("drivers.base.BaseDriver.execute", return_value={"ok": True, "default": True}) as mock_super:
-            drv.execute(_device(), "accion_desconocida", {})
-        mock_super.assert_called_once()

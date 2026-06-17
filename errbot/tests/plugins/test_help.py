@@ -3,41 +3,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from drivers.actions_catalog import Action
-from plugins.help.help import (
-    Help, _format_actions_for_device, get_supported_actions, actions_list_data, help_data,
-)
+from plugins.help.help import Help, _format_actions_for_device, get_supported_actions
 
 
 def _make_help():
     h = Help.__new__(Help)
     h.log = MagicMock()
     return h
-
-
-class TestActionsAndHelpData:
-
-    def test_actions_list_data_all_returns_groups(self):
-        data = actions_list_data("")
-        assert data["tipo"] == "actions_list"
-        assert data["grupos"] and all(g["label"] and g["acciones"] for g in data["grupos"])
-
-    def test_actions_list_data_for_device(self):
-        device = {"name": "Mi Tele", "type": "SmartTV"}
-        with patch("plugins.help.help.find_device_by_name", return_value=device):
-            data = actions_list_data("tele")
-        assert data["tipo"] == "actions_list"
-        assert data["device"] == "Mi Tele"
-        assert any(a["action"] == "abrir_app" for a in data["acciones"])
-
-    def test_actions_list_data_unknown_device_returns_none(self):
-        with patch("plugins.help.help.find_device_by_name", return_value=None):
-            assert actions_list_data("fantasma") is None
-
-    def test_help_data_has_titled_sections(self):
-        data = help_data()
-        assert data["tipo"] == "help"
-        assert len(data["secciones"]) >= 3
-        assert all(s["titulo"] and s["items"] for s in data["secciones"])
 
 
 class TestHelpPlugin:

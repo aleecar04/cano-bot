@@ -1,6 +1,7 @@
 import json
 import random
 import uuid
+import requests
 from errbot import BotPlugin
 
 from plugins._core import BasePlugin
@@ -10,6 +11,7 @@ from plugins.dispatcher.handlers import handle_device_command
 from api import is_backend_reachable
 from api import commands as api_commands
 from api import messages as api_messages
+from api import devices as api_devices
 
 
 _NO_UNDERSTAND = [
@@ -91,6 +93,9 @@ class Dispatcher(BasePlugin, BotPlugin):
         if data.get("type") == "scan":
             self._handle_scan_command(msg, data.get("command_id"))
             return True
+        if data.get("type") == "ha_import":
+            self._handle_ha_import(msg, data.get("user_id"))
+            return True
         if data.get("type") == "relay":
             self._reply(msg, "", data.get("text", ""))
             return True
@@ -145,22 +150,6 @@ class Dispatcher(BasePlugin, BotPlugin):
             return False
         args = intent_data.get("device", "") if cmd_name == "acciones" else ""
         response = method(msg, args)
-        result_data = None
-        if cmd_name == "acciones":
-            try:
-                from plugins.help.help import actions_list_data
-                result_data = actions_list_data(args)
-                if result_data:
-                    response = "Aquí tienes las acciones disponibles:"
-            except Exception:
-                result_data = None  # si falla la consulta, al menos queda el texto
-        elif cmd_name == "ayuda":
-            try:
-                from plugins.help.help import help_data
-                result_data = help_data()
-                response = "Esto es lo que puedo hacer:"
-            except Exception:
-                result_data = None
         self._reply(msg, text, response)
         self._register_command_in_backend(
             user_id=sender_id,
@@ -169,7 +158,7 @@ class Dispatcher(BasePlugin, BotPlugin):
             payload={},
             error=None,
             message_id=msg.extras.get("correlation_id"),
-            result_data=result_data,
+            result_data=None,
         )
         return True
 
@@ -183,6 +172,46 @@ class Dispatcher(BasePlugin, BotPlugin):
         data = self._run_plugin(msg, "scan_devices")
         error = data.get("mensaje") if data.get("tipo") == "error" else None
         self._update_command_in_backend(command_id, error=error, result_data=None if error else data)
+
+    def _ha_get(self, url: str, headers: dict, *, required: bool):
+        """GET a Home Assistant. Si `required` falla, propaga; si no, devuelve []."""
+        try:
+            r = requests.get(url, headers=headers, timeout=8)
+            r.raise_for_status()
+            return r.json()
+        except Exception:
+            if required:
+                raise
+            return []
+
+    def _handle_ha_import(self, msg, user_id) -> None:
+        # El bot está en la red local: pide credenciales al backend, habla con HA
+        # y devuelve los estados para que el backend los persista.
+        if not is_backend_reachable():
+            return
+        try:
+            creds = api_devices.get_ha_credentials()
+        except Exception:
+            self.send(msg.frm, "No hay integración de Home Assistant configurada.")
+            return
+
+        base = (creds.get("ha_url") or "").rstrip("/")
+        headers = {"Authorization": f"Bearer {creds.get('token')}"}
+        try:
+            states = self._ha_get(f"{base}/api/states", headers, required=True)
+        except Exception:
+            self.send(msg.frm, "No se pudo conectar con Home Assistant. Revisa la URL y el token.")
+            return
+
+        entity_registry = self._ha_get(f"{base}/api/config/entity_registry/list", headers, required=False)
+        device_registry = self._ha_get(f"{base}/api/config/device_registry/list", headers, required=False)
+
+        try:
+            n = api_devices.import_ha(user_id, states, entity_registry, device_registry).get("importados", 0)
+            self.send(msg.frm, f"Home Assistant conectado: {n} dispositivo(s) importado(s).")
+        except Exception as e:
+            self.log.error(f"Error importando dispositivos de HA: {e}")
+            self.send(msg.frm, "Conecté con Home Assistant pero falló la importación. Inténtalo de nuevo.")
 
     def _handle_chat_query(self, msg, text: str, action: str, command_name: str) -> None:
         sender_id = resolve_sender(str(msg.frm))
@@ -221,11 +250,11 @@ class Dispatcher(BasePlugin, BotPlugin):
                 result_data=None if error else data,
             )
 
-    def _update_command_in_backend(self, command_id: str, error: str | None, result_data: dict | None = None) -> None:
+    def _update_command_in_backend(self, command_id: str, error: str | None, result_data: dict | None = None, response: str | None = None) -> None:
         if not is_backend_reachable():
             return
         try:
-            api_commands.patch_result(command_id, error, result_data)
+            api_commands.patch_result(command_id, error, result_data, response)
         except Exception as e:
             self.log.error(f"Error updating command {command_id}: {e}")
 

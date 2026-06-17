@@ -19,7 +19,7 @@ class TestDispatcherHandlers:
             bot,
         )
         bot.send.assert_called_once()
-        assert "executed" in bot.send.call_args[0][1].lower()
+        assert "ejecutada" in bot.send.call_args[0][1].lower()
 
     def test_handle_device_command_updates_backend_on_command_id(self):
         bot = _bot({"ok": True})

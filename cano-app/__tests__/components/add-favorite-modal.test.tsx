@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 jest.mock('@/utils/device-icons', () => ({
   deviceIcon:  () => 'bulb',
   deviceColor: () => '#3B82F6',
+  deviceTypeLabel: (t: string) => t,
 }));
 
 import { AddFavoriteModal } from '@/components/ui/add-favorite-modal';

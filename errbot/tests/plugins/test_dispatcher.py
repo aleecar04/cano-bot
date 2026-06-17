@@ -57,6 +57,43 @@ class TestDispatcherPlugin:
             json.dumps({"type": "scan", "command_id": "cmd_encender"}), _msg()) is True
         d._handle_scan_command.assert_called_once()
 
+    def test_ha_import_fetches_from_ha_and_posts_to_backend(self):
+        d = _make_dispatcher()
+        resp = MagicMock()
+        resp.raise_for_status = lambda: None
+        resp.json.return_value = [{"entity_id": "light.salon", "attributes": {}}]
+        creds = {"ha_url": "http://192.0.2.50:8123/", "token": "tok"}
+
+        # Camino feliz: pide credenciales, descarga de HA y postea al backend.
+        with patch("plugins.dispatcher.dispatcher.is_backend_reachable", return_value=True), \
+             patch("plugins.dispatcher.dispatcher.api_devices.get_ha_credentials", return_value=creds), \
+             patch("plugins.dispatcher.dispatcher.requests.get", return_value=resp), \
+             patch("plugins.dispatcher.dispatcher.api_devices.import_ha",
+                   return_value={"importados": 1}) as mock_import:
+            d._handle_ha_import(_msg(), "user_anabel")
+        mock_import.assert_called_once()
+        assert "Home Assistant" in d.send.call_args[0][1]
+
+        # Backend caído: no hace nada.
+        with patch("plugins.dispatcher.dispatcher.is_backend_reachable", return_value=False):
+            d._handle_ha_import(_msg(), "user_anabel")
+
+        # Sin integración configurada: avisa al usuario.
+        with patch("plugins.dispatcher.dispatcher.is_backend_reachable", return_value=True), \
+             patch("plugins.dispatcher.dispatcher.api_devices.get_ha_credentials",
+                   side_effect=RuntimeError("no creds")):
+            d._handle_ha_import(_msg(), "user_anabel")
+        assert "configurada" in d.send.call_args[0][1]
+
+        # HA inalcanzable (falla la descarga de estados): avisa al usuario.
+        bad = MagicMock()
+        bad.raise_for_status = MagicMock(side_effect=RuntimeError("net"))
+        with patch("plugins.dispatcher.dispatcher.is_backend_reachable", return_value=True), \
+             patch("plugins.dispatcher.dispatcher.api_devices.get_ha_credentials", return_value=creds), \
+             patch("plugins.dispatcher.dispatcher.requests.get", return_value=bad):
+            d._handle_ha_import(_msg(), "user_anabel")
+        assert "No se pudo conectar" in d.send.call_args[0][1]
+
     def test_device_command_dispatches_to_handler(self):
         d = _make_dispatcher()
         body = json.dumps({"device_id": "device_lampara", "action": "encender", "payload": {}})
@@ -111,26 +148,6 @@ class TestDispatcherPlugin:
         d._bot.all_commands = {"acciones": plugin}
         d._invoke_info_plugin("acciones", "acciones", {"device": "luz"}, _msg(), "x", "user_anabel")
         assert plugin.call_args[0][1] == "luz"
-
-    def test_acciones_attaches_actions_result_data(self):
-        d = _make_dispatcher()
-        d._reply = MagicMock()
-        d._register_command_in_backend = MagicMock()
-        d._bot.all_commands = {"acciones": MagicMock(return_value="text")}
-        with patch("plugins.help.help.actions_list_data",
-                   return_value={"tipo": "actions_list", "grupos": []}):
-            d._invoke_info_plugin("acciones", "acciones", {}, _msg(), "x", "user_anabel")
-        rd = d._register_command_in_backend.call_args.kwargs["result_data"]
-        assert rd is not None and rd["tipo"] == "actions_list"
-
-    def test_ayuda_attaches_help_result_data(self):
-        d = _make_dispatcher()
-        d._reply = MagicMock()
-        d._register_command_in_backend = MagicMock()
-        d._bot.all_commands = {"ayuda": MagicMock(return_value="HELP")}
-        d._invoke_info_plugin("ayuda", "ayuda", {}, _msg(), "x", "user_anabel")
-        rd = d._register_command_in_backend.call_args.kwargs["result_data"]
-        assert rd is not None and rd["tipo"] == "help"
 
     @pytest.mark.parametrize("plugin_result, expected_error", [
         ({"tipo": "ok"}, None),

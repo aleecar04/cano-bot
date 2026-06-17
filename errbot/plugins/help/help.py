@@ -98,61 +98,6 @@ def _format_actions_by_category() -> str:
     return "\n".join(lines).strip()
 
 
-def actions_list_data(name: str) -> dict | None:
-    name = (name or "").strip().lower()
-    if not name:
-        grupos = [
-            {
-                "label": CATEGORY_LABEL[category],
-                "acciones": [{"action": str(a), "desc": ACTION_DESCRIPTIONS.get(a, str(a))}
-                             for a in sorted(actions)],
-            }
-            for category, actions in ACTIONS_BY_CATEGORY.items()
-        ]
-        return {"tipo": "actions_list", "grupos": grupos}
-
-    device = find_device_by_name(name)
-    if not device:
-        return None
-    internal_type = device.get("type", "")
-    category = TYPE_TO_CATEGORY.get(internal_type, internal_type)
-    return {
-        "tipo": "actions_list",
-        "device": device["name"],
-        "device_type": internal_type,
-        "label": CATEGORY_LABEL.get(category, category),
-        "acciones": [{"action": str(a), "desc": ACTION_DESCRIPTIONS.get(a, str(a))}
-                     for a in sorted(get_supported_actions(internal_type))],
-    }
-
-
-def help_data() -> dict:
-    """Versión estructurada de la ayuda para renderizar en cajitas en la app."""
-    return {
-        "tipo": "help",
-        "secciones": [
-            {"titulo": "Dispositivos", "items": [
-                "\"enciende la luz\" / \"apaga la tele\"",
-                "\"lista mis dispositivos\"",
-                "\"escanea la red\"",
-            ]},
-            {"titulo": "Luz / Bombilla", "items": [
-                "\"brillo al 75\"",
-                "\"luz cálida\" / \"luz neutra\" / \"luz fría\"",
-                "\"pon la luz en rojo\" / \"luz azul\" / \"luz verde\"",
-            ]},
-            {"titulo": "Smart TV", "items": [
-                "\"sube el volumen\" / \"volumen a 50\" / \"silencia la tele\"",
-                "\"abre Netflix en la tele\"",
-            ]},
-            {"titulo": "Acciones", "items": [
-                "\"acciones\" → todas por tipo",
-                "\"acciones de [nombre]\" → de un dispositivo",
-            ]},
-        ],
-    }
-
-
 class Help(BasePlugin, BotPlugin):
 
     @botcmd
