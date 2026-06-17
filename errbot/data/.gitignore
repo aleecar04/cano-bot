@@ -1,0 +1,4 @@
+# Mantener el directorio data/ en el repositorio, pero ignorar todo su
+# contenido (errbot genera aquí sus archivos en tiempo de ejecución).
+*
+!.gitignore
