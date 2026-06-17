@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type DeviceDto } from '@/api/devices';
-import { deviceIcon } from '@/utils/device-icons';
+import { deviceIcon, deviceTypeLabel } from '@/utils/device-icons';
 import {
   getActionsForType, actionNeedsPayload,
   LUZ_COLORES, TV_APPS, TV_VOLUMES,
@@ -141,7 +141,7 @@ export function AddFavoriteModal({
                     <Ionicons name={deviceIcon(d.type) as any} size={20} color="#94a3b8" />
                     <View className="flex-1">
                       <Text className="text-text font-semibold text-sm">{d.name}</Text>
-                      <Text className="text-text-secondary text-xs">{d.type}</Text>
+                      <Text className="text-text-secondary text-xs">{deviceTypeLabel(d.type)}</Text>
                     </View>
                     <View className={`px-2 py-0.5 rounded-full ${d.is_online ? 'bg-green-500/15' : 'bg-bg'}`}>
                       <Text className={`text-xs font-semibold ${d.is_online ? 'text-green-400' : 'text-text-secondary'}`}>

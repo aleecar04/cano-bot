@@ -31,5 +31,7 @@ def create_command_from_bot_endpoint(body: dict, house: BotHouse):
 
 @router.patch("/{command_id}", responses={401: {"description": "Invalid bot token"}})
 def update_command_endpoint(command_id: str, body: dict, house: BotHouse):
-    commands_service.update_command_result(command_id, house["id"], body.get("error"), body.get("result_data"))
+    commands_service.update_command_result(
+        command_id, house["id"], body.get("error"), body.get("result_data"), body.get("response"),
+    )
     return {"ok": True}

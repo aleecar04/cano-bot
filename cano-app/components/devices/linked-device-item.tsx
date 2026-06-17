@@ -8,7 +8,7 @@ import { sendCommand, waitForCommand, getDevice, refreshDevice, type DeviceDto }
 import { friendlyError } from '@/utils/friendly-error';
 import { Toast } from '@/components/ui/toast';
 import { DeviceEditModal } from '@/components/devices/device-edit-modal';
-import { deviceIcon, deviceColor } from '@/utils/device-icons';
+import { deviceIcon, deviceColor, deviceTypeLabel } from '@/utils/device-icons';
 import { TV_APPS } from '@/utils/device-actions';
 
 const WOL_TYPES = new Set(['SmartTV']);
@@ -24,7 +24,8 @@ function isActionDisabled(
   if (!knownState) return false;
 
   if (action === 'encender') {
-    if (WOL_TYPES.has(type)) return false;
+    // Tele apagada/inalcanzable: permitir Encender (Wake-on-LAN), no reporta estado fiable.
+    if (WOL_TYPES.has(type) && !is_online) return false;
     return is_online && power === 'on';
   }
   if (action === 'apagar') return !is_online || power !== 'on';
@@ -235,7 +236,7 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 </View>
               )}
             </View>
-            <Text className="text-text-secondary text-xs mt-0.5">{device.type} · {device.ip}</Text>
+            <Text className="text-text-secondary text-xs mt-0.5">{deviceTypeLabel(device.type)}</Text>
           </View>
         </View>
 
@@ -481,14 +482,13 @@ export const LinkedDeviceItem: React.FC<LinkedDeviceItemProps> = ({
                 </TouchableOpacity>
               ))}
 
-              {picker === 'app' && TV_APPS.map(({ app, label, icon }) => (
+              {picker === 'app' && TV_APPS.map(({ app, label }) => (
                 <TouchableOpacity
                   key={app}
                   onPress={() => { setPicker(null); handleAccion('abrir_app', { app }); }}
-                  className="flex-row items-center gap-3 bg-bg border border-border rounded-xl px-4 py-3"
+                  className="bg-bg border border-border rounded-xl px-4 py-3 items-center"
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={icon as any} size={20} color="#3B82F6" />
                   <Text className="text-text font-semibold text-sm">{label}</Text>
                 </TouchableOpacity>
               ))}

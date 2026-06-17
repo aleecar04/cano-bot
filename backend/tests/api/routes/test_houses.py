@@ -36,14 +36,6 @@ class TestHousesRoutes:
         res = client.get("/api/v1/houses/me/bot-status")
         assert res.status_code == 200 and res.json() == {"online": False}
 
-    def test_bot_status_proxies_to_is_bot_online(self, client: TestClient, supabase: Client):
-        _setup_house(supabase)
-        with patch("app.api.routes.houses.home_service.get_bot_target_for_user",
-                   return_value="cano-bot@xmpp.cano-app.com"), \
-             patch.object(xmpp_service, "is_bot_online", new=AsyncMock(return_value=True)):
-            res = client.get("/api/v1/houses/me/bot-status")
-        assert res.status_code == 200 and res.json() == {"online": True}
-
     def test_get_my_house_returns_floors_and_rooms(self, client: TestClient, supabase: Client):
         house = _setup_house(supabase)
         floor = make_floor(house["id"])

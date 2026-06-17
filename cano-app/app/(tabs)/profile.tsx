@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, Clipboard,
-  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
+  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,7 @@ type InviteModalContentProps = Readonly<{
   inviteData: InviteCodeDto | null;
   handleOpenInvite: () => void;
   handleCopyCode: () => void;
+  handleShareCode: () => void;
 }>;
 
 function renderInviteModalContent({
@@ -50,6 +51,7 @@ function renderInviteModalContent({
   inviteData,
   handleOpenInvite,
   handleCopyCode,
+  handleShareCode,
 }: InviteModalContentProps) {
   if (generatingCode) {
     return (
@@ -98,6 +100,14 @@ function renderInviteModalContent({
         >
           <Ionicons name="copy-outline" size={16} color="white" />
           <Text className="text-text font-semibold text-sm">Copiar código</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-row items-center gap-2 bg-[#25D366] rounded-xl px-6 py-3 w-full justify-center"
+          onPress={handleShareCode}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="logo-whatsapp" size={16} color="white" />
+          <Text className="text-white font-semibold text-sm">Compartir por WhatsApp</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={handleOpenInvite} activeOpacity={0.7}>
           <Text className="text-text-secondary text-xs underline">Generar nuevo código</Text>
@@ -279,6 +289,14 @@ export default function ProfileScreen() {
     setToast({ message: 'Código copiado al portapapeles', variant: 'success' });
   };
 
+  const handleShareCode = () => {
+    if (!inviteData) return;
+    const message =
+      '¡Únete a mi hogar en Cano! Introduce este código de invitación: ' +
+      `${inviteData.code} (caduca en ${inviteData.expires_in_hours} horas).`;
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+  };
+
   const handleHaConnect = async () => {
     if (!haUrl.trim() || !haToken.trim()) {
       setHaError('Introduce la URL y el token');
@@ -287,11 +305,11 @@ export default function ProfileScreen() {
     setHaConnecting(true);
     setHaError(null);
     try {
-      const result = await connectHa(haUrl.trim(), haToken.trim());
+      await connectHa(haUrl.trim(), haToken.trim());
       setHaConnection({ connected: true, ha_url: haUrl.trim() });
       setHaUrl('');
       setHaToken('');
-      setToast({ message: `${result.importados} dispositivos importados de Home Assistant`, variant: 'success' });
+      setToast({ message: 'Conectando con Home Assistant… el bot importará tus dispositivos en unos segundos', variant: 'success' });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'No se pudo conectar con Home Assistant';
       setHaError(msg);
@@ -455,8 +473,8 @@ export default function ProfileScreen() {
                         onPress={async () => {
                           setHaConnecting(true);
                           try {
-                            const result = await reimportHa();
-                            setToast({ message: `${result.importados} dispositivos reimportados`, variant: 'success' });
+                            await reimportHa();
+                            setToast({ message: 'Reimportando desde Home Assistant… se actualizarán en unos segundos', variant: 'success' });
                           } catch (e) {
                             setToast({ message: e instanceof Error ? e.message : 'Error reimportando', variant: 'error' });
                           } finally {
@@ -573,6 +591,7 @@ export default function ProfileScreen() {
               inviteData,
               handleOpenInvite,
               handleCopyCode,
+              handleShareCode,
             })}
           </View>
         </View>

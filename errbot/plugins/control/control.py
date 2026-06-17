@@ -70,7 +70,7 @@ class Control(BasePlugin, BotPlugin):
         reconciliación)."""
         device_id = device["id"]
         if result.get("ok"):
-            predicted = calculate_expected_state(device, action, payload)
+            predicted = result.get("state") or calculate_expected_state(device, action, payload)
             device_cache.update(device_id, state=predicted, is_online=True)
             _patch_device_status(device_id, is_online=True, state=predicted)
             # Reconciliación asíncrona: confirma o corrige la predicción

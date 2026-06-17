@@ -1,6 +1,35 @@
+from unittest.mock import patch
+
 import pytest
 
-from plugins._helpers import calculate_expected_state
+from plugins._helpers import calculate_expected_state, find_device_by_name, _normalize_text
+
+
+_DEVICES = [{"id": "1", "name": "Tele Salón"}, {"id": "2", "name": "Luz Cocina"}]
+
+
+class TestFindDeviceByName:
+
+    @pytest.mark.parametrize("query, expected_id", [
+        ("Tele Salón", "1"),      
+        ("tele", "1"),              
+        ("TELE SALON", "1"),        
+        ("tele del salón", "1"), 
+        ("cocina", "2"),           
+        ("nevera", None),           
+        ("", None),                
+    ])
+    def test_find_device_by_name_is_fuzzy(self, query, expected_id):
+        with patch("plugins._helpers.api_devices.get_all", return_value=_DEVICES):
+            result = find_device_by_name(query)
+        assert (result["id"] if result else None) == expected_id
+
+    def test_find_device_by_name_no_devices(self):
+        with patch("plugins._helpers.api_devices.get_all", return_value=[]):
+            assert find_device_by_name("tele") is None
+
+    def test_normalize_text_strips_accents_case_and_spaces(self):
+        assert _normalize_text("  Tele   SALÓN ") == "tele salon"
 
 
 class TestHelpers:

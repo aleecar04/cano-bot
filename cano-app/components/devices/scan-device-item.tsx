@@ -45,12 +45,6 @@ export const ScanDeviceItem: React.FC<ScanDeviceItemProps> = ({ device, onLink, 
               {device.tipo}
             </Text>
           )}
-          {suggestHA && !isLinked && (
-            <View className="bg-amber-500/20 rounded px-1.5 py-0.5 flex-row items-center gap-1">
-              <Ionicons name="home-outline" size={10} color="#f59e0b" />
-              <Text className="text-amber-400 text-xs font-semibold">Requiere HA</Text>
-            </View>
-          )}
         </View>
       </View>
 

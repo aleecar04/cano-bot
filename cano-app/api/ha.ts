@@ -10,7 +10,9 @@ export interface HaConnectionDto {
 
 export interface HaConnectResult {
   ok: boolean;
-  importados: number;
+  // El bot (en la red local) hace la importación de forma asíncrona.
+  pending?: boolean;
+  importados?: number;
 }
 
 export async function getHaConnection(): Promise<HaConnectionDto> {

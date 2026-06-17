@@ -133,7 +133,7 @@ class CommandsService:
 
         return {"ok": True, "command_id": command_id}
 
-    def update_command_result(self, command_id: str, house_id: str, error: str | None, result_data: dict | None = None) -> None:
+    def update_command_result(self, command_id: str, house_id: str, error: str | None, result_data: dict | None = None, response: str | None = None) -> None:
         row = command_repository.find_meta_by_id(command_id)
         if not row:
             raise not_found("Comando no encontrado")
@@ -148,6 +148,12 @@ class CommandsService:
         if result_data is not None:
             data["result_data"] = result_data
         supabase.table("commands").update(data).eq("id", command_id).execute()
+
+        # El texto de confirmación que decide el bot va a la respuesta del MENSAJE del
+        # chat (no al comando), reutilizando el mecanismo de respuestas de mensajes.
+        if response:
+            from app.services.messages import save_command_response
+            save_command_response(command_id, response)
 
         if row.get("source_type") == "schedule":
             _send_schedule_push(row, error)

@@ -1,11 +1,13 @@
 from api import _client
 
 
-def patch_result(command_id: str, error: str | None, result_data: dict | None = None) -> None:
-    """Marca comando como ejecutado o fallido"""
+def patch_result(command_id: str, error: str | None, result_data: dict | None = None,
+                 response: str | None = None) -> None:
+    """Marca comando como ejecutado o fallido. `response` es el texto que se mostrará
+    en el mensaje del chat (si el comando vino de ahí)."""
     _client.patch(
         f"/api/v1/commands/{command_id}",
-        json={"error": error, "result_data": result_data},
+        json={"error": error, "result_data": result_data, "response": response},
         timeout=3,
     )
 

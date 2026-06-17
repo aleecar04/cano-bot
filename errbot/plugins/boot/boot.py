@@ -8,13 +8,14 @@ from errbot import BotPlugin, botcmd
 from plugins.device_cache import device_cache
 from api import is_backend_reachable
 from api import devices as api_devices
+from api import bot as api_bot
 from drivers import DRIVERS
 
 logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL_S         = 45
-_DRIVER_TIMEOUT_S        = 2.0
-_POLL_FUTURE_TIMEOUT_S   = 5     # cuánto esperamos a cada worker del ThreadPool
+_DRIVER_TIMEOUT_S        = 4.0
+_POLL_FUTURE_TIMEOUT_S   = 7     # cuánto esperamos a cada worker del ThreadPool
 _PATCH_TIMEOUT_S         = 5     # timeout del PATCH HTTP al backend
 _REACHABLE_PROBE_TIMEOUT = 1.5
 
@@ -34,6 +35,7 @@ class Boot(BotPlugin):
         logger.info("Boot plugin activating...")
         try:
             self._reload_and_preload()
+            self._send_heartbeat()
             self.start_poller(_POLL_INTERVAL_S, self.poll_all_devices)
             logger.info(f"Polling started (every {_POLL_INTERVAL_S} s)")
         except Exception:
@@ -72,6 +74,7 @@ class Boot(BotPlugin):
 
     def poll_all_devices(self):
         """Bucle único: comprueba red, refresca lista, sondea cada device en paralelo, sincroniza si cambió."""
+        self._send_heartbeat()
         if not self._probe_home_network():
             logger.info("Sin acceso a la red local — saltando poll")
             return
@@ -135,6 +138,15 @@ class Boot(BotPlugin):
         except Exception as e:
             logger.warning(f"PATCH /devices/{device_id}/status failed: {e}")
 
+
+    def _send_heartbeat(self):
+        """Avisa al backend de que el bot sigue vivo (estado online/offline).
+        Se intenta siempre (tiene su propio timeout); no se condiciona a la
+        comprobación cacheada de alcanzabilidad para no perder latidos."""
+        try:
+            api_bot.heartbeat()
+        except Exception as e:
+            logger.debug(f"Heartbeat failed: {e}")
 
     def _probe_home_network(self) -> bool:
         """TCP connect al gateway por defecto. Devuelve True si el bot está en una red operativa."""

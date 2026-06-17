@@ -346,7 +346,7 @@ export default function HomeScreen() {
                       </View>
                       <Text className="text-text text-sm font-bold" numberOfLines={1}>{label}</Text>
                       <Text className="text-text-secondary text-xs mt-0.5" numberOfLines={1}>
-                        {fav.devices?.name ?? ''}
+                        {fav.devices?.name ?? device?.name ?? ''}
                       </Text>
                       {payloadType && <FavPayloadBadge fav={fav} payloadType={payloadType} />}
                     </TouchableOpacity>

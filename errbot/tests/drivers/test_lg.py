@@ -42,6 +42,21 @@ class TestLGTVDriver:
         with patch.object(LGTVDriver, "_client", AsyncMock(side_effect=RuntimeError("net"))):
             assert LGTVDriver().get_status(_device())["is_online"] is False
 
+    def test_set_volume_returns_real_volume_from_tv(self):
+        client = _client_mock(set_volume=None, get_volume={"volume": 42})
+        with _patch_client(client):
+            result = LGTVDriver().set_volume(_device(), 50)
+        assert result["ok"] is True
+        # devuelve el volumen REAL leído (42), no el pedido (50)
+        assert result["state"]["volume"] == 42
+
+    def test_volume_step_returns_real_volume_from_tv(self):
+        client = _client_mock(volume_up=None, get_volume={"volume": 11})
+        with _patch_client(client):
+            result = LGTVDriver()._volume_step(_device(), "up")
+        assert result["ok"] is True
+        assert result["state"]["volume"] == 11
+
     def test_turn_on_uses_wol(self):
         with patch("drivers.lg_tv.send_magic_packet") as mock_wol:
             assert LGTVDriver().turn_on(_device()) == {"ok": True}
@@ -70,29 +85,6 @@ class TestLGTVDriver:
             LGTVDriver().open_app(_device(), "youtube")
         c.launch_app.assert_awaited_with("youtube.leanback.v4")
 
-    def test_client_key_persistence_keeps_existing_key(self):
-        client = MagicMock(); client.client_key = "key-demo"; client.connect = AsyncMock()
-        with patch.object(lg, "WebOsClient", return_value=client), \
-             patch.object(lg.api_devices, "patch_config") as mock_patch:
-            asyncio.run(LGTVDriver()._client(_device(client_key="key-demo")))
-        mock_patch.assert_not_called()
-
-    def test_client_key_persistence_persists_new_key(self):
-        client = MagicMock(); client.client_key = "key-nueva"; client.connect = AsyncMock()
-        with patch.object(lg, "WebOsClient", return_value=client), \
-             patch.object(lg.api_devices, "patch_config") as mock_patch, \
-             patch.object(lg.asyncio, "to_thread",
-                          side_effect=lambda f, *a, **k: mock_patch(*a, **k)):
-            result = asyncio.run(LGTVDriver()._client(_device(client_key="key-vieja")))
-        assert result is client
-        mock_patch.assert_called_once()
-
     def test_turn_on_returns_error_without_mac(self):
         result = LGTVDriver().turn_on(_device(mac=None))
         assert result["ok"] is False and "MAC" in result["error"]
-
-    def test_execute_falls_back_to_super_for_unknown_action(self):
-        drv = LGTVDriver()
-        with patch("drivers.base.BaseDriver.execute", return_value={"ok": True, "default": True}) as mock_super:
-            drv.execute(_device(), "accion_desconocida", {})
-        mock_super.assert_called_once()

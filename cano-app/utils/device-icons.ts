@@ -11,7 +11,7 @@ export const DEVICE_ICON_MAP: Record<string, string> = {
   Camara:       'videocam-outline',
   // Home Assistant domain types
   light:        'bulb-outline',
-  switch:       'toggle-outline',
+  switch:       'flash-outline',
   climate:      'thermometer-outline',
   media_player: 'musical-notes-outline',
   sensor:       'pulse-outline',
@@ -30,11 +30,28 @@ const DEVICE_COLOR_MAP: Record<string, string> = {
   Altavoz:      '#10b981',
   Camara:       '#64748b',
   light:        '#f59e0b',
-  switch:       '#3b82f6',
+  switch:       '#f97316',
   climate:      '#ef4444',
   media_player: '#8b5cf6',
   sensor:       '#06b6d4',
   camera:       '#64748b',
+};
+
+// Etiqueta legible del tipo. Los dominios de Home Assistant (light, switch…)
+// se muestran con el mismo nombre que los tipos nativos (Luz, Enchufe…).
+const DEVICE_TYPE_LABEL: Record<string, string> = {
+  SmartTV:      'Smart TV',
+  Luz:          'Luz',
+  Enchufe:      'Enchufe',
+  Sensor:       'Sensor',
+  Termostato:   'Termostato',
+  Altavoz:      'Altavoz',
+  light:        'Luz',
+  switch:       'Enchufe',
+  climate:      'Termostato',
+  media_player: 'Reproductor',
+  sensor:       'Sensor',
+  camera:       'Cámara',
 };
 
 export function deviceIcon(type: string): string {
@@ -43,4 +60,9 @@ export function deviceIcon(type: string): string {
 
 export function deviceColor(type: string): string {
   return DEVICE_COLOR_MAP[type] ?? '#94a3b8';
+}
+
+export function deviceTypeLabel(type: string | undefined): string {
+  if (!type) return '';
+  return DEVICE_TYPE_LABEL[type] ?? type;
 }

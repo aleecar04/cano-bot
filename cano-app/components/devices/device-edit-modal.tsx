@@ -7,10 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { updateDevice, type DeviceDto } from '@/api/devices';
 import { getMyRooms, type RoomDto } from '@/api/houses';
 import { friendlyError } from '@/utils/friendly-error';
+import { deviceTypeLabel } from '@/utils/device-icons';
 
 interface DeviceEditModalProps {
   visible: boolean;
-  device: { id: string; name: string; type?: string; room_id?: string | null };
+  device: { id: string; name: string; type?: string; room_id?: string | null; ip?: string; mac?: string };
   onClose: () => void;
   onSave: (updated: DeviceDto) => void;
   onError: (message: string) => void;
@@ -85,10 +86,18 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
             <View className="flex-row items-center gap-2 bg-bg border border-border rounded-xl px-4 py-3">
               <Ionicons name="lock-closed-outline" size={15} color="#64748b" />
               <View className="flex-1">
-                <Text className="text-text text-sm font-semibold">{device.type}</Text>
+                <Text className="text-text text-sm font-semibold">{deviceTypeLabel(device.type)}</Text>
                 <Text className="text-text-secondary text-xs mt-0.5">Una vez vinculado, el tipo no se puede cambiar</Text>
               </View>
             </View>
+
+            {(!!device.ip || !!device.mac) && (
+              <View className="bg-bg border border-border rounded-xl px-4 py-3 gap-1">
+                <Text className="text-text-secondary text-xs font-semibold">Información de red</Text>
+                {!!device.ip && <Text className="text-text-secondary text-xs">IP: {device.ip}</Text>}
+                {!!device.mac && <Text className="text-text-secondary text-xs">MAC: {device.mac}</Text>}
+              </View>
+            )}
 
             <View>
               <Text className="text-text-secondary text-xs font-semibold mb-2">Habitación</Text>
@@ -149,7 +158,7 @@ export function DeviceEditModal({ visible, device, onClose, onSave, onError }: R
                 ? <ActivityIndicator color="white" size="small" />
                 : <Ionicons name="checkmark" size={16} color="white" />
               }
-              <Text className="text-text font-semibold text-sm">Guardar</Text>
+              <Text className="text-white font-semibold text-sm">Guardar</Text>
             </TouchableOpacity>
           </View>
 

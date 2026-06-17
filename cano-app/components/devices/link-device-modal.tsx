@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal, View, Text, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator, Platform,
+  ScrollView, ActivityIndicator, Platform, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { type RoomDto } from '@/api/houses';
@@ -23,7 +23,8 @@ interface LinkDeviceModalProps {
   onConfirm: (params: VincularDeviceParams) => void;
 }
 
-const TUYA_TYPES = new Set(['Luz', 'IoT', 'Termostato', 'light', 'switch', 'climate']);
+const TUYA_TYPES = new Set(['Luz', 'Enchufe', 'Sensor', 'IoT', 'Termostato', 'light', 'switch', 'climate']);
+const DEVICE_TYPES = ['Luz', 'Enchufe', 'SmartTV', 'Sensor', 'Termostato'];
 
 export function LinkDeviceModal({
   visible,
@@ -34,12 +35,13 @@ export function LinkDeviceModal({
   onConfirm,
 }: Readonly<LinkDeviceModalProps>) {
   const [name, setName] = useState(device.hostname ?? device.ip);
+  const [tipo, setTipo] = useState(device.tipo ?? '');
   const [selectedRoom, setSelectedRoom] = useState<string | undefined>(undefined);
   const [tuyaDevId, setTuyaDevId]         = useState('');
   const [tuyaLocalKey, setTuyaLocalKey]   = useState('');
   const [tuyaVersion, setTuyaVersion]     = useState<number>(3.4);
 
-  const isTuya = TUYA_TYPES.has(device.tipo ?? '');
+  const isTuya = TUYA_TYPES.has(tipo);
 
   const handleConfirm = () => {
     const config: Record<string, unknown> = isTuya
@@ -49,7 +51,7 @@ export function LinkDeviceModal({
       ip:       device.ip,
       mac:      device.mac,
       hostname: device.hostname ?? device.ip,
-      tipo:     device.tipo ?? '',
+      tipo:     tipo || (device.tipo ?? ''),
       name:     name.trim() || device.hostname || device.ip,
       room_id:  selectedRoom,
       config,
@@ -73,7 +75,11 @@ export function LinkDeviceModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="px-5 pt-4" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            className="px-5 pt-4"
+            style={{ maxHeight: Dimensions.get('window').height * 0.6 }}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Device info */}
             <View className="bg-bg border border-border rounded-xl px-4 py-3 mb-5">
               <Text className="text-text-secondary text-xs mb-1">IP detectada</Text>
@@ -82,7 +88,7 @@ export function LinkDeviceModal({
                 <Text className="text-text-secondary text-xs mt-1">{device.mac}</Text>
               )}
               {!!device.tipo && (
-                <Text className="text-indigo-400 text-xs mt-1">{device.tipo}</Text>
+                <Text className="text-indigo-400 text-xs mt-1">Detectado: {device.tipo}</Text>
               )}
             </View>
 
@@ -98,6 +104,26 @@ export function LinkDeviceModal({
               editable={!linking}
               maxLength={50}
             />
+
+            {/* Type selector */}
+            <Text className="text-text text-sm font-semibold mb-2">Tipo de dispositivo</Text>
+            <View className="flex-row flex-wrap gap-2 mb-5">
+              {DEVICE_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setTipo(t)}
+                  disabled={linking}
+                  className={`px-3 py-2 rounded-lg border ${
+                    tipo === t ? 'bg-indigo-500 border-indigo-500' : 'bg-bg border-border'
+                  }`}
+                  activeOpacity={0.7}
+                >
+                  <Text className={`text-xs font-semibold ${tipo === t ? 'text-white' : 'text-text-secondary'}`}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* Tuya credentials */}
             {isTuya && (
@@ -230,7 +256,7 @@ export function LinkDeviceModal({
               ) : (
                 <Ionicons name="link" size={16} color="white" />
               )}
-              <Text className="text-text font-semibold text-sm">
+              <Text className="text-white font-semibold text-sm">
                 {linking ? 'Vinculando...' : 'Vincular'}
               </Text>
             </TouchableOpacity>

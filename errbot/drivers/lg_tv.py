@@ -15,6 +15,17 @@ LG_APPS = {
     "prime":   "amazon",
 }
 
+
+def _extract_volume(vol_info) -> int | None:
+    if isinstance(vol_info, bool):
+        return None
+    if isinstance(vol_info, (int, float)):
+        return int(vol_info)
+    if isinstance(vol_info, dict) and vol_info.get("volume") is not None:
+        return int(vol_info["volume"])
+    return None
+
+
 class LGTVDriver(BaseDriver):
     async def _client(self, device: dict) -> WebOsClient:
         config = device.get("config") or {}
@@ -34,7 +45,8 @@ class LGTVDriver(BaseDriver):
 
         return client
 
-    def _run(self, coro):
+    def _run(self, coro, timeout: float = 6.0):
+        coro = asyncio.wait_for(coro, timeout)
         try:
             try:
                 loop = asyncio.get_event_loop()
@@ -48,7 +60,7 @@ class LGTVDriver(BaseDriver):
             except RuntimeError:
                 return asyncio.run(coro)
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": str(e) or "tiempo de espera agotado"}
 
     def get_status(self, device: dict, timeout: float = 2.0) -> dict:
         try:
@@ -59,9 +71,7 @@ class LGTVDriver(BaseDriver):
                 power_state = await c.get_power_state()
                 volume = None
                 try:
-                    vol_info = await c.get_volume()
-                    if isinstance(vol_info, dict):
-                        volume = vol_info.get("volume")
+                    volume = _extract_volume(await c.get_volume())
                 except Exception:
                     pass
                 await c.disconnect()
@@ -114,8 +124,9 @@ class LGTVDriver(BaseDriver):
             async def _fn():
                 c = await self._client(device)
                 await c.set_volume(max(0, min(100, value)))
+                real = _extract_volume(await c.get_volume())
                 await c.disconnect()
-                return {"ok": True, "volume": value}
+                return {"ok": True, "state": {"power": "on", "volume": real if real is not None else value}}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -152,8 +163,12 @@ class LGTVDriver(BaseDriver):
                     await c.volume_up()
                 else:
                     await c.volume_down()
+                real = _extract_volume(await c.get_volume())
                 await c.disconnect()
-                return {"ok": True}
+                state = {"power": "on"}
+                if real is not None:
+                    state["volume"] = real
+                return {"ok": True, "state": state}
             return self._run(_fn())
         except Exception as e:
             return {"ok": False, "error": str(e)}

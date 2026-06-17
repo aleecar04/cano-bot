@@ -1,5 +1,6 @@
 import logging
 import time
+import unicodedata
 from api import users as api_users, devices as api_devices
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,31 @@ def get_device(device_id: str) -> dict | None:
     return next((d for d in api_devices.get_all() if d["id"] == device_id), None)
 
 
+_DEVICE_STOPWORDS = {"el", "la", "los", "las", "del", "de", "en", "mi", "mis", "un", "una"}
+
+
+def _normalize_text(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s.lower()).encode("ascii", "ignore").decode()
+    return " ".join(s.split())
+
+
 def find_device_by_name(name: str) -> dict | None:
-    name_lower = name.lower()
-    return next((d for d in api_devices.get_all() if name_lower in d["name"].lower()), None)
+    devices = api_devices.get_all()
+    q = _normalize_text(name)
+    if not q:
+        return None
+    for d in devices:
+        n = _normalize_text(d["name"])
+        if q in n or n in q:
+            return d
+    q_tokens = {t for t in q.split() if t not in _DEVICE_STOPWORDS}
+    best, best_score = None, 0
+    for d in devices:
+        n_tokens = {t for t in _normalize_text(d["name"]).split() if t not in _DEVICE_STOPWORDS}
+        score = len(q_tokens & n_tokens)
+        if score > best_score:
+            best, best_score = d, score
+    return best if best_score > 0 else None
 
 
 _COLOR_HEX_MAP: dict[str, str] = {
